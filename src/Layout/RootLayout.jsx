@@ -1,12 +1,12 @@
 import React from 'react';
-import { Link, Outlet, useNavigate } from 'react-router';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import useAuth from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 
 const RootLayout = () => {
   const { user, logOut } = useAuth()
   console.log(user)
-   const navigate = useNavigate();
+  const navigate = useNavigate();
 
   const handleLogOut = () => {
     logOut()
@@ -62,36 +62,100 @@ const RootLayout = () => {
               />
             </div>
 
-            {/* Right */}
-            <div className="flex items-center gap-3 md:gap-6 ml-auto">
-              {/* Register */}
+
+            <div className="flex items-center gap-2 md:gap-4 ml-auto">
+
+              {/* ================= Desktop Auth Links ================= */}
               {!user && (
-                <Link className="hidden sm:block font-medium hover:underline" to="/register">
-                  Register
-                </Link>
+                <div className="hidden sm:flex items-center gap-2">
+                  <NavLink
+                    to="/register"
+                    className={({ isActive }) =>
+                      `px-3 md:px-4 py-1.5 rounded-lg font-semibold transition ${isActive
+                        ? "bg-white text-orange-500"
+                        : "text-white hover:bg-white/20"
+                      }`
+                    }
+                  >
+                    Register
+                  </NavLink>
+
+                  <NavLink
+                    to="/login"
+                    className={({ isActive }) =>
+                      `px-3 md:px-4 py-1.5 rounded-lg font-semibold transition ${isActive
+                        ? "bg-white text-orange-500"
+                        : "text-white hover:bg-white/20"
+                      }`
+                    }
+                  >
+                    Login
+                  </NavLink>
+                </div>
               )}
 
-              {/* Login */}
-              {!user && (
-                <Link className="hidden sm:block font-medium hover:underline" to="/login">
-                  Login
-                </Link>
-              )}
-
-              {/* Username */}
+              {/* ================= Username (Desktop only) ================= */}
               {user && (
                 <h2
-                  className="hidden md:flex text-2xl font-bold 
-                  bg-gradient-to-r from-blue-800 to-purple-700
-                  bg-clip-text text-transparent"
+                  className="hidden sm:block md:text-xl lg:text-2xl font-bold 
+      bg-gradient-to-r from-blue-800 to-purple-700
+      bg-clip-text text-transparent"
                 >
                   {user?.displayName || "User"}
                 </h2>
               )}
 
-              {/* Profile dropdown */}
+              {/* ================= Avatar Dropdown ================= */}
+              {(user || !user) && (
+                <div className="dropdown dropdown-end sm:hidden">
+                  <div tabIndex={0} role="button">
+                    <img
+                      src={
+                        user?.photoURL ||
+                        "https://i.ibb.co/4pDNDk1/avatar.png"
+                      }
+                      className="w-9 h-9 rounded-full object-cover border-2 border-white cursor-pointer"
+                    />
+                  </div>
+
+                  <ul
+                    tabIndex={0}
+                    className="dropdown-content menu bg-base-100 rounded-box w-44 p-2 shadow text-black"
+                  >
+                    {!user && (
+                      <>
+                        <li>
+                          <NavLink to="/register">Register</NavLink>
+                        </li>
+                        <li>
+                          <NavLink to="/login">Login</NavLink>
+                        </li>
+                      </>
+                    )}
+
+                    {user && (
+                      <>
+                        <li>
+                          <NavLink to="/profile">Profile</NavLink>
+                        </li>
+
+                        <li>
+                          <button
+                            onClick={handleLogOut}
+                            className="text-red-500"
+                          >
+                            Logout
+                          </button>
+                        </li>
+                      </>
+                    )}
+                  </ul>
+                </div>
+              )}
+
+              {/* ================= Desktop Avatar (User only) ================= */}
               {user && (
-                <div className="dropdown dropdown-end">
+                <div className="hidden sm:block dropdown dropdown-end">
                   <div tabIndex={0} role="button">
                     <img
                       src={user?.photoURL || "https://i.ibb.co/4pDNDk1/avatar.png"}
@@ -101,23 +165,27 @@ const RootLayout = () => {
 
                   <ul
                     tabIndex={0}
-                    className="dropdown-content menu bg-base-100 rounded-box w-40 p-2 shadow text-black"
+                    className="dropdown-content menu bg-base-100 rounded-box w-44 p-2 shadow text-black"
                   >
-          
                     <li>
-                     <button
-  onClick={handleLogOut}
-  className="w-full px-3 py-2 rounded-lg border border-red-500 text-red-500
-  hover:bg-red-500 hover:text-white transition"
->
-  Logout
-</button>
+                      <NavLink to="/profile">Profile</NavLink>
+                    </li>
 
+                    <li>
+                      <button
+                        onClick={handleLogOut}
+                        className="text-red-500"
+                      >
+                        Logout
+                      </button>
                     </li>
                   </ul>
                 </div>
               )}
             </div>
+
+
+
           </div>
         </nav>
 
