@@ -1,13 +1,16 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
-import useAuth from "../hooks/useAuth";
 import { Link, useNavigate } from "react-router";
 import toast from "react-hot-toast";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../Authentication/Firebase.config";
+import useAuth from "../hooks/useAuth";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { signInUser } = useAuth();
+  const [loading, setLoading] = useState(false);
+
   const {
     register,
     handleSubmit,
@@ -15,96 +18,124 @@ const Login = () => {
     formState: { errors },
   } = useForm();
 
-  const { signInUser } = useAuth();
-
+  // Login handler
   const handleSignin = async (data) => {
-    signInUser(data.email, data.password)
-    .then(result =>{
-      console.log(result)
+    setLoading(true);
+    try {
+      await signInUser(data.email, data.password);
       toast.success("Login Successful 🎉");
-       navigate("/");
-    })
-  .catch((error) => {
-  if (error.code === "auth/user-not-found") {
-    toast.error("User not found");
-  } else if (error.code === "auth/wrong-password") {
-    toast.error("Wrong password");
-  } else {
-    toast.error("Login failed");
-  }
-});
+      navigate("/");
+    } catch (error) {
+      toast.error("Invalid email or password!");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-   
-const handleForgaetPassword = () => {
-  const email = watch("email");
+  // Password reset handler
+  const handleForgotPassword = async () => {
+    const email = watch("email");
+    if (!email) {
+      toast.error("Please enter your email first");
+      return;
+    }
 
-  if (!email) {
-    toast.error("Please enter your email first");
-    return;
-  }
-
-  sendPasswordResetEmail(auth, email)
-    .then(() => {
+    try {
+      await sendPasswordResetEmail(auth, email);
       toast.success("Password reset email sent ✅");
-    })
-    .catch((error) => {
-      console.log(error);
+    } catch (error) {
+      console.error(error);
       toast.error("Failed to send reset email");
-    });
-};
-
-
+    }
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="card w-full max-w-md bg-base-100 shadow-2xl rounded-2xl">
-        <div className="card-body">
-          <h2 className="text-3xl font-bold text-center mb-6 ">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 relative">
+      {/* Overlay loader */}
+      {loading && (
+        <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-20 rounded-2xl">
+          <div className="w-12 h-12 border-4 border-t-primary border-gray-200 rounded-full animate-spin"></div>
+        </div>
+      )}
+
+      <div className="card w-full max-w-md bg-white shadow-xl rounded-2xl relative z-10">
+        <div className="card-body p-8">
+          <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">
             Welcome Back
           </h2>
 
-         <form onSubmit={handleSubmit(handleSignin)}>
-            <fieldset className="fieldset bg-base-200 border-base-300 rounded-box w-full border p-6">
+          <form onSubmit={handleSubmit(handleSignin)} className="space-y-4">
+            {/* Email */}
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                {...register("email", { required: true })}
+                className="input w-full border-gray-300 focus:border-primary focus:ring focus:ring-primary/30 rounded-lg"
+              />
+              {errors.email && (
+                <p className="text-xs text-red-500 mt-1">Email is required.</p>
+              )}
+            </div>
 
-                {/* Email */}
-              <label className="label">Email</label>
-              <input type="email" {...register('email', {
-                required:
-                  true
-              })} className="input" placeholder="Email" />
-              {errors.email?.type === "required" && <p
-                className='text-red-500'>Email is Required</p>}
+            {/* Password */}
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                placeholder="Enter your password"
+                {...register("password", { required: true, minLength: 6 })}
+                className="input w-full border-gray-300 focus:border-primary focus:ring focus:ring-primary/30 rounded-lg"
+              />
+              {errors.password?.type === "required" && (
+                <p className="text-xs text-red-500 mt-1">Password is required.</p>
+              )}
+              {errors.password?.type === "minLength" && (
+                <p className="text-xs text-red-500 mt-1">
+                  Password must be at least 6 characters.
+                </p>
+              )}
+            </div>
 
-                {/* password */}
-              <label className="label">Password</label>
-              <input type="password" {...register('password', {
-                required: true, minLength:6,
-              })} className="input" placeholder="Password" />
-              {
-                errors.password?.type === 'required' && <p
-                  className='text-red-500'>Password is Required.</p>
-              }
-
-
-              {
-                errors.password?.type === 'minLength' && <p
-                  className='text-red-500'> "Password must be at least 6 characters"</p>
-              }
-
-
-              <button className="btn btn-neutral mt-4">Login</button>
-            </fieldset>
+            {/* Submit button */}
+            <button
+              type="submit"
+              className={`btn btn-primary w-full mt-2 flex items-center justify-center gap-2`}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-t-white border-gray-200 rounded-full animate-spin"></div>
+                  Logging in...
+                </>
+              ) : (
+                "Login"
+              )}
+            </button>
           </form>
 
-          {/* Extra Links */}
-          <div className="text-center mt-4 space-y-2">
-            <p onClick={handleForgaetPassword} className="text-sm text-gray-500 hover:text-primary cursor-pointer">
+          {/* Extra links */}
+          <div className="mt-4 text-center space-y-2">
+            <p
+              onClick={handleForgotPassword}
+              className="text-sm text-gray-500 hover:text-primary cursor-pointer transition"
+            >
               Forgot Password?
             </p>
-            <p className="text-sm">
+            <p className="text-sm text-gray-600">
               Don’t have an account?{" "}
-              <Link to="/register" className="text-primary cursor-pointer hover:underline">
+              <Link
+                to="/register"
+                className="text-primary hover:underline font-medium"
+              >
                 Register
               </Link>
             </p>

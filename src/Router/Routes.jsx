@@ -5,6 +5,10 @@ import Home from "../Pages/Home";
 import Register from "../Pages/Register";
 import Login from "../Pages/Login";
 import Profile from "../Pages/Profile";
+import UserManagement from "../Pages/UserManagement";
+import PrivateRoute from "./PrivateRoute";
+import AdminRoute from "./AdminRoute";
+
  
 export const router = createBrowserRouter([
   {
@@ -28,6 +32,10 @@ export const router = createBrowserRouter([
         {
           path: "/profile",
           Component: Profile
+        },
+        {
+          path: "/user-management",
+          element: <PrivateRoute><AdminRoute><UserManagement></UserManagement></AdminRoute></PrivateRoute>
         }
     ]
    

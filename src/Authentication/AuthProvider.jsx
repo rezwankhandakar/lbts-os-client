@@ -11,6 +11,10 @@ const AuthProvider = ({children}) => {
 const registerUser = ( email, password)=>{
     setLoading(true)
     return createUserWithEmailAndPassword(auth, email, password)
+     .then(res => {
+      setUser(res.user);
+      return res;
+    });
 }
 
 
@@ -27,6 +31,10 @@ const logOut =()=>{
 
 const updateUserProfile = (profile)=>{
   return updateProfile(auth.currentUser, profile)
+  .then(() => {
+      // 🔥 profile update হলে user state refresh
+      setUser({ ...auth.currentUser });
+    });
 }
 
 
