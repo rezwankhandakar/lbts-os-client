@@ -3,9 +3,12 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import useAuth from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 import { FiUsers } from 'react-icons/fi';
+import useRole from '../hooks/useRole';
+import { HiOutlineDocumentAdd } from 'react-icons/hi';
 
 const RootLayout = () => {
   const { user, logOut } = useAuth()
+  const { role, status, } = useRole()
   console.log(user)
   const navigate = useNavigate();
 
@@ -210,13 +213,33 @@ const RootLayout = () => {
               </Link>
             </li>
             {/* List item */}
+            {role === 'admin' && status === 'approved' && (
+              <li>
+                <Link
+                  to="/user-management"
+                  className="is-drawer-close:tooltip is-drawer-close:tooltip-right flex items-center gap-2"
+                  data-tip="User Management"
+                >
+                  {/* Icon */}
+                  <FiUsers className="w-5 h-5" />
+                  <span className="is-drawer-close:hidden">User Management</span>
+                </Link>
+              </li>
+            )}
+
             <li>
-              <Link to='/user-management' className="is-drawer-close:tooltip is-drawer-close:tooltip-right" data-tip="User Management">
-                {/* Settings icon */}
-                <FiUsers className="w-5 h-5 text-gray-600" />
-                <span className="is-drawer-close:hidden">User Management</span>
-              </Link>
-            </li>
+                <Link
+                  to="/add-gate-pass"
+                  className="is-drawer-close:tooltip is-drawer-close:tooltip-right flex items-center gap-2"
+                  data-tip="Add Gate Pass"
+                >
+                  {/* Icon */}
+                  <HiOutlineDocumentAdd className="w-5 h-5" />
+                  <span className="is-drawer-close:hidden">Add Gate Pass</span>
+                </Link>
+              </li>
+
+
           </ul>
         </div>
       </div>
