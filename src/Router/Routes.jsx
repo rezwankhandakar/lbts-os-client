@@ -9,6 +9,7 @@ import UserManagement from "../Pages/UserManagement";
 import PrivateRoute from "./PrivateRoute";
 import AdminRoute from "./AdminRoute";
 import AddGatePass from "../Pages/AddGatePass";
+import AllGatePass from "../Pages/AllGatePass";
 
  
 export const router = createBrowserRouter([
@@ -41,6 +42,10 @@ export const router = createBrowserRouter([
         {
           path: '/add-gate-pass',
           Component: AddGatePass
+        },
+        {
+          path: "/all-gate-pass",
+          Component: AllGatePass
         }
     ]
    

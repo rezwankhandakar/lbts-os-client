@@ -41,7 +41,15 @@ const AddGatePass = () => {
   // Submit
   const onSubmit = async (data) => {
     try {
-      const payload = { ...data, currentUser: user.displayName, createdAt: new Date() };
+      // const payload = { ...data, currentUser: user.displayName, createdAt: new Date() };
+      const tripDateObj = new Date(data.tripDate); // Date object বানানো
+const payload = {
+  ...data,
+  currentUser: user.displayName,
+  createdAt: new Date(),
+  tripMonth: tripDateObj.getMonth() + 1, // JS month 0-indexed, তাই +1
+  tripYear: tripDateObj.getFullYear(),
+};
       const res = await axiosSecure.post("/gate-pass", payload);
       if (res.data.insertedId) {
         toast.success("Gate Pass Added Successfully ✅");

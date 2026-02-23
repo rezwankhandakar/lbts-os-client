@@ -5,10 +5,12 @@ import toast from 'react-hot-toast';
 import { FiUsers } from 'react-icons/fi';
 import useRole from '../hooks/useRole';
 import { HiOutlineDocumentAdd } from 'react-icons/hi';
+import { useSearch } from '../hooks/SearchContext';
 
 const RootLayout = () => {
   const { user, logOut } = useAuth()
   const { role, status, } = useRole()
+    const { searchText, setSearchText } = useSearch();
   console.log(user)
   const navigate = useNavigate();
 
@@ -58,13 +60,15 @@ const RootLayout = () => {
 
             {/* 🔍 Search Bar */}
             {/* Mobile + Desktop both visible */}
-            <div className="flex-1 max-w-xs sm:max-w-sm">
-              <input
-                type="text"
-                placeholder="Search..."
-                className="input input-bordered w-full text-black"
-              />
-            </div>
+          <div className="flex-1 max-w-xs sm:max-w-sm">
+      <input
+        type="text"
+        placeholder="Search..."
+        value={searchText}
+        onChange={(e) => setSearchText(e.target.value)}
+        className="input input-bordered w-full text-black"
+      />
+    </div>
 
 
             <div className="flex items-center gap-2 md:gap-4 ml-auto">
@@ -236,6 +240,16 @@ const RootLayout = () => {
                   {/* Icon */}
                   <HiOutlineDocumentAdd className="w-5 h-5" />
                   <span className="is-drawer-close:hidden">Add Gate Pass</span>
+                </Link>
+
+                <Link
+                  to="/all-gate-pass"
+                  className="is-drawer-close:tooltip is-drawer-close:tooltip-right flex items-center gap-2"
+                  data-tip="All Gate Pass"
+                >
+                  {/* Icon */}
+                  <HiOutlineDocumentAdd className="w-5 h-5" />
+                  <span className="is-drawer-close:hidden">All Gate Pass</span>
                 </Link>
               </li>
 
