@@ -1,185 +1,210 @@
-import React from "react";
+
+import React, { useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import toast from "react-hot-toast";
 import useAxiosSecure from "../hooks/useAxiosSecure";
+import useAuth from "../hooks/useAuth";
+import AutoDropdown from "../Component/AutoDropdown";
 
 const AddGatePass = () => {
-      const axiosSecure = useAxiosSecure();
+  const axiosSecure = useAxiosSecure();
+  const { user } = useAuth();
 
-  const { register, control, handleSubmit, formState: { errors }, reset } = useForm({
-    defaultValues: {
-      products: [{ productName: "", model: "", }]
-    }
-  });
+  const [autoData, setAutoData] = useState({});
+  const [activeField, setActiveField] = useState(null);
 
-  const { fields, append, remove } = useFieldArray({
+  const {
+    register,
     control,
-    name: "products"
+    handleSubmit,
+    formState: { errors },
+    reset,
+    setValue,
+  } = useForm({
+    defaultValues: { products: [{ productName: "", model: "", quantity: "" }] },
   });
 
-// ✅ Submit with POST API
-const onSubmit = async (data) => {
-  try {
-    const payload = {
-      ...data,
-      createdAt: new Date()
-    };
+  const { fields, append, remove } = useFieldArray({ control, name: "products" });
 
-    const res = await axiosSecure.post("/gate-pass", payload);
-
-    if (res.data.insertedId) {
-      toast.success("Gate Pass Added Successfully ✅");
-      // Reset all fields
-      reset({
-        tripDo: "",
-        tripDate: "",
-        csd: "",
-        customerName: "",
-        vehicleNo: "",
-        zone: "",
-        products: [{ productName: "", model: "", }]
-      });
+  // Generic autocomplete handler
+  const handleAutoSearch = async (fieldKey, field, value) => {
+    if (!value) return;
+    try {
+      const res = await axiosSecure.get(`/autocomplete?field=${field}&search=${value}`);
+      setAutoData((prev) => ({ ...prev, [fieldKey]: res.data }));
+      setActiveField(fieldKey);
+    } catch (err) {
+      console.error(err);
     }
-  } catch (error) {
-    console.error(error);
-    toast.error("Failed to add Gate Pass ❌");
-  }
-};
+  };
 
+  // Submit
+  const onSubmit = async (data) => {
+    try {
+      const payload = { ...data, currentUser: user.displayName, createdAt: new Date() };
+      const res = await axiosSecure.post("/gate-pass", payload);
+      if (res.data.insertedId) {
+        toast.success("Gate Pass Added Successfully ✅");
+        reset();
+      }
+    } catch (err) {
+      toast.error("Failed ❌");
+      console.error(err);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-3xl bg-white shadow-lg rounded-xl p-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4 text-center">Add Gate Pass</h2>
+        <h2 className="text-2xl font-bold text-center mb-4">Add Gate Pass</h2>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {/* Row 1: Trip Do, Trip Date, CSD */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex flex-col">
-              <label className="text-sm font-medium text-gray-700 mb-1">Trip Do</label>
+          {/* Row 1 */}
+          <div className="grid md:grid-cols-3 gap-4">
+            <input placeholder="Trip Do" {...register("tripDo", { required: true })} className="input border" />
+            <input type="date" {...register("tripDate", { required: true })} className="input border" />
+
+            <div className="relative">
               <input
-                type="text"
-                placeholder="Enter Trip Do"
-                {...register("tripDo", { required: true })}
-                className="input w-full border-gray-300 focus:border-primary focus:ring focus:ring-primary/30 rounded"
-              />
-              {errors.tripDo && <span className="text-xs text-red-500 mt-1">Required</span>}
-            </div>
-            <div className="flex flex-col">
-              <label className="text-sm font-medium text-gray-700 mb-1">Trip Date</label>
-              <input
-                type="date"
-                {...register("tripDate", { required: true })}
-                className="input w-full border-gray-300 focus:border-primary focus:ring focus:ring-primary/30 rounded"
-              />
-              {errors.tripDate && <span className="text-xs text-red-500 mt-1">Required</span>}
-            </div>
-            <div className="flex flex-col">
-              <label className="text-sm font-medium text-gray-700 mb-1">CSD</label>
-              <input
-                type="text"
-                placeholder="Enter CSD"
+                placeholder="CSD"
                 {...register("csd", { required: true })}
-                className="input w-full border-gray-300 focus:border-primary focus:ring focus:ring-primary/30 rounded"
+                onChange={(e) => handleAutoSearch("csd", "csd", e.target.value)}
+                className="input border w-full"
               />
-              {errors.csd && <span className="text-xs text-red-500 mt-1">Required</span>}
+              <AutoDropdown
+                fieldKey="csd"
+                autoData={autoData}
+                activeField={activeField}
+                setActiveField={setActiveField}
+                setFormValue={(v) => setValue("csd", v)}
+              />
             </div>
           </div>
 
-          {/* Row 2: Customer Name, Vehicle No, Zone */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex flex-col">
-              <label className="text-sm font-medium text-gray-700 mb-1">Customer Name</label>
+          {/* Row 2 */}
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="relative">
               <input
-                type="text"
-                placeholder="Enter Customer Name"
+                placeholder="Customer Name"
                 {...register("customerName", { required: true })}
-                className="input w-full border-gray-300 focus:border-primary focus:ring focus:ring-primary/30 rounded"
+                onChange={(e) => handleAutoSearch("customerName", "customerName", e.target.value)}
+                className="input border w-full"
               />
-              {errors.customerName && <span className="text-xs text-red-500 mt-1">Required</span>}
+              <AutoDropdown
+                fieldKey="customerName"
+                autoData={autoData}
+                activeField={activeField}
+                setActiveField={setActiveField}
+                setFormValue={(v) => setValue("customerName", v)}
+              />
             </div>
-            <div className="flex flex-col">
-              <label className="text-sm font-medium text-gray-700 mb-1">Vehicle No</label>
+
+            <div className="relative">
               <input
-                type="text"
-                placeholder="Enter Vehicle No"
+                placeholder="Vehicle No"
                 {...register("vehicleNo", { required: true })}
-                className="input w-full border-gray-300 focus:border-primary focus:ring focus:ring-primary/30 rounded"
+                onChange={(e) => handleAutoSearch("vehicleNo", "vehicleNo", e.target.value)}
+                className="input border w-full"
               />
-              {errors.vehicleNo && <span className="text-xs text-red-500 mt-1">Required</span>}
+              <AutoDropdown
+                fieldKey="vehicleNo"
+                autoData={autoData}
+                activeField={activeField}
+                setActiveField={setActiveField}
+                setFormValue={(v) => setValue("vehicleNo", v)}
+              />
             </div>
-            <div className="flex flex-col">
-              <label className="text-sm font-medium text-gray-700 mb-1">Zone</label>
+
+            <div className="relative">
               <input
-                type="text"
-                placeholder="Enter Zone "
+                placeholder="Zone"
                 {...register("zone", { required: true })}
-                className="input w-full border-gray-300 focus:border-primary focus:ring focus:ring-primary/30 rounded"
+                onChange={(e) => handleAutoSearch("zone", "zone", e.target.value)}
+                className="input border w-full"
               />
-              {errors.zone && <span className="text-xs text-red-500 mt-1">Required</span>}
+              <AutoDropdown
+                fieldKey="zone"
+                autoData={autoData}
+                activeField={activeField}
+                setActiveField={setActiveField}
+                setFormValue={(v) => setValue("zone", v)}
+              />
             </div>
           </div>
 
-          {/* Products: can add multiple rows */}
+          {/* Products */}
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-2 block">Products</label>
-{fields.map((item, index) => (
-  <div key={item.id} className="grid grid-cols-12 gap-4 mt-2 items-end">
-    
-    {/* Product Name */}
-    <input
-      type="text"
-      placeholder="Product Name"
-      {...register(`products.${index}.productName`, { required: true })}
-      className="input col-span-12 md:col-span-5"
-    />
+            {fields.map((item, index) => (
+              <div key={item.id} className="grid grid-cols-12 gap-3 mt-2">
+                <div className="relative col-span-5">
+                  <input
+                    placeholder="Product"
+                    {...register(`products.${index}.productName`)}
+                    onChange={(e) =>
+                      handleAutoSearch(`productName-${index}`, "productName", e.target.value)
+                    }
+                    className="input w-full border"
+                  />
+                  <AutoDropdown
+                    fieldKey={`productName-${index}`}
+                    autoData={autoData}
+                    activeField={activeField}
+                    setActiveField={setActiveField}
+                    setFormValue={(v) => setValue(`products.${index}.productName`, v)}
+                  />
+                </div>
 
-    {/* Model */}
-    <input
-      type="text"
-      placeholder="Model"
-      {...register(`products.${index}.model`, { required: true })}
-      className="input col-span-8 md:col-span-5"
-    />
+                <div className="relative col-span-5">
+                  <input
+                    placeholder="Model"
+                    {...register(`products.${index}.model`)}
+                    onChange={(e) =>
+                      handleAutoSearch(`model-${index}`, "model", e.target.value)
+                    }
+                    className="input w-full border"
+                  />
+                  <AutoDropdown
+                    fieldKey={`model-${index}`}
+                    autoData={autoData}
+                    activeField={activeField}
+                    setActiveField={setActiveField}
+                    setFormValue={(v) => setValue(`products.${index}.model`, v)}
+                  />
+                </div>
 
-    {/* Qty */}
-    <input
-      type="number"
-      placeholder="Qty"
-      {...register(`products.${index}.quantity`, { required: true })}
-      className="input col-span-4 md:col-span-2"
-    />
-  </div>
-))}
+                <input
+                  type="number"
+                  placeholder="Qty"
+                  {...register(`products.${index}.quantity`, { required: true })}
+                  className="input col-span-2 border"
+                />
+              </div>
+            ))}
 
-{/* Action buttons */}
-<div className="flex gap-2 mt-3">
-  <button
-    type="button"
-    onClick={() => append({ productName: "", model: "",})}
-    className="btn btn-sm btn-outline"
-  >
-    + Add Product
-  </button>
+            <div className="flex gap-2 mt-3">
+              <button
+                type="button"
+                onClick={() => append({ productName: "", model: "", quantity: "" })}
+                className="btn btn-sm btn-outline"
+              >
+                + Add Product
+              </button>
 
-  {fields.length > 1 && (
-    <button
-      type="button"
-      onClick={() => remove(fields.length - 1)}
-      className="btn btn-sm btn-error"
-    >
-      Remove Last
-    </button>
-  )}
-</div>
+              {fields.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => remove(fields.length - 1)}
+                  className="btn btn-sm btn-error"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Submit */}
-          <div className="mt-4">
-            <button type="submit" className="btn btn-primary w-full">
-              Add Gate Pass
-            </button>
-          </div>
+          <button type="submit" className="btn btn-primary w-full">
+            Submit
+          </button>
         </form>
       </div>
     </div>
