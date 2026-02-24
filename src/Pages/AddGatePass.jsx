@@ -125,7 +125,7 @@ const payload = {
 
             <div className="relative">
               <input
-                placeholder="Zone"
+                placeholder="Zone / PO"
                 {...register("zone", { required: true })}
                 onChange={(e) => handleAutoSearch("zone", "zone", e.target.value)}
                 className="input border w-full"
