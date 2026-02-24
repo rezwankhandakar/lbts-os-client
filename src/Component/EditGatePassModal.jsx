@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import useAuth from "../hooks/useAuth";
 
 const EditGatePassModal = ({ open, onClose, gp, p, axiosSecure, setGatePasses }) => {
   const [formData, setFormData] = useState({
@@ -12,6 +13,7 @@ const EditGatePassModal = ({ open, onClose, gp, p, axiosSecure, setGatePasses })
     model: "",
     quantity: ""
   });
+  const {user}=useAuth()
 
   useEffect(() => {
     if (gp && p) {
@@ -55,7 +57,8 @@ const handleSubmit = async (e) => {
       customerName: formData.customerName,
       csd: formData.csd,
       vehicleNo: formData.vehicleNo,
-      zone: formData.zone
+      zone: formData.zone,
+      currentUser: user?.displayName || user?.email
     });
 
     setGatePasses(prev =>
