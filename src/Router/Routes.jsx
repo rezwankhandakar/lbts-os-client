@@ -41,11 +41,11 @@ export const router = createBrowserRouter([
         },
         {
           path: '/add-gate-pass',
-          Component: AddGatePass
+          element: <PrivateRoute><AddGatePass></AddGatePass></PrivateRoute>
         },
         {
           path: "/all-gate-pass",
-          Component: AllGatePass
+          element: <PrivateRoute><AllGatePass></AllGatePass></PrivateRoute>
         }
     ]
    

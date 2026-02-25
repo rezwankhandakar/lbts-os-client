@@ -88,7 +88,7 @@ const AddGatePass = () => {
     const confirm = await Swal.fire({
       icon: "warning",
       title: "Are you sure?",
-      text: "You won't be able to revert this!",
+      text: "Do you want to Delete this!",
       showCancelButton: true,
       confirmButtonText: "Yes, delete it!",
     });
@@ -96,7 +96,13 @@ const AddGatePass = () => {
     if (confirm.isConfirmed) {
       try {
         await axiosSecure.delete(`/gate-pass/${id}`);
-        Swal.fire("Deleted!", "Gate pass deleted.", "success");
+          Swal.fire({
+              title: "Deleted!",
+              text: "Gate pass has been deleted.",
+              icon: "success",
+              timer: 1500,
+              showConfirmButton: false,
+            });
         fetchRecentGatePass();
       } catch (err) {
         console.error(err);
@@ -111,6 +117,7 @@ const AddGatePass = () => {
     setEditModalOpen(true);
   };
 
+ 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-6 gap-6">
