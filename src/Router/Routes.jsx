@@ -7,9 +7,9 @@ import Login from "../Pages/Login";
 import Profile from "../Pages/Profile";
 import UserManagement from "../Pages/UserManagement";
 import PrivateRoute from "./PrivateRoute";
-import AdminRoute from "./AdminRoute";
 import AddGatePass from "../Pages/AddGatePass";
 import AllGatePass from "../Pages/AllGatePass";
+import RoleRoute from "./RoleRoute";
 
  
 export const router = createBrowserRouter([
@@ -37,15 +37,15 @@ export const router = createBrowserRouter([
         },
         {
           path: "/user-management",
-          element: <PrivateRoute><AdminRoute><UserManagement></UserManagement></AdminRoute></PrivateRoute>
+          element: <PrivateRoute><RoleRoute roles={['admin']}><UserManagement></UserManagement></RoleRoute></PrivateRoute>
         },
         {
           path: '/add-gate-pass',
-          element: <PrivateRoute><AddGatePass></AddGatePass></PrivateRoute>
+          element: <PrivateRoute><RoleRoute roles={['admin','manager','operator']}><AddGatePass></AddGatePass></RoleRoute></PrivateRoute>
         },
         {
           path: "/all-gate-pass",
-          element: <PrivateRoute><AllGatePass></AllGatePass></PrivateRoute>
+          element: <PrivateRoute><RoleRoute roles={['admin','manager','operator']}><AllGatePass></AllGatePass></RoleRoute></PrivateRoute>
         }
     ]
    
