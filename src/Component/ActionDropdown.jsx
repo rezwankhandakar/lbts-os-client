@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import EditGatePassModal from "./EditGatePassModal";
+import Swal from "sweetalert2";
 
 
 const ActionDropdown = ({ gp, p, axiosSecure, setGatePasses }) => {
@@ -7,16 +8,37 @@ const ActionDropdown = ({ gp, p, axiosSecure, setGatePasses }) => {
   const [editOpen, setEditOpen] = useState(false); // modal state
   const ref = useRef(null);
 
-  const handleDelete = () => {
-    if (window.confirm("Are you sure you want to delete this entry?")) {
+const handleDelete = () => {
+  Swal.fire({
+    title: "Are you sure?",
+    text: "Do you want to delete this!",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#16a34a",
+    cancelButtonColor: "#d33",
+    confirmButtonText: "Yes, delete it!",
+  }).then((result) => {
+    if (result.isConfirmed) {
       axiosSecure
         .delete(`/gate-pass/${gp._id}`)
         .then(() => {
-          setGatePasses(prev => prev.filter(g => g._id !== gp._id));
+          setGatePasses((prev) => prev.filter((g) => g._id !== gp._id));
+
+          Swal.fire({
+            title: "Deleted!",
+            text: "Gate pass has been deleted.",
+            icon: "success",
+            timer: 1500,
+            showConfirmButton: false,
+          });
         })
-        .catch(err => console.error(err));
+        .catch((err) => {
+          console.error(err);
+          Swal.fire("Error!", "Delete failed.", "error");
+        });
     }
-  };
+  });
+};
 
   useEffect(() => {
     const handleClickOutside = (event) => {

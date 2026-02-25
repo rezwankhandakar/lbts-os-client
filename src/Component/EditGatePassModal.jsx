@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import useAuth from "../hooks/useAuth";
+import Swal from "sweetalert2";
 
 const EditGatePassModal = ({ open, onClose, gp, p, axiosSecure, setGatePasses }) => {
   const [formData, setFormData] = useState({
@@ -41,16 +42,13 @@ const handleSubmit = async (e) => {
 
   try {
     // ⭐ product update
-    await axiosSecure.put(
-      `/gate-pass/${gp._id}/product/${p._id}`,
-      {
-        productName: formData.productName,
-        model: formData.model,
-        quantity: Number(formData.quantity)
-      }
-    );
+    await axiosSecure.put(`/gate-pass/${gp._id}/product/${p._id}`, {
+      productName: formData.productName,
+      model: formData.model,
+      quantity: Number(formData.quantity),
+    });
 
-    // ⭐ gate pass main field update
+    // ⭐ gate pass main update
     const res = await axiosSecure.patch(`/gate-pass/${gp._id}`, {
       tripDo: formData.tripDo,
       tripDate: formData.tripDate,
@@ -58,21 +56,34 @@ const handleSubmit = async (e) => {
       csd: formData.csd,
       vehicleNo: formData.vehicleNo,
       zone: formData.zone,
-      currentUser: user?.displayName || user?.email
+      currentUser: user?.displayName || user?.email,
     });
 
-    setGatePasses(prev =>
-      prev.map(g => (g._id === gp._id ? res.data.data : g))
+    setGatePasses((prev) =>
+      prev.map((g) => (g._id === gp._id ? res.data.data : g))
     );
 
     onClose();
 
+    // ✅ Success SweetAlert
+    Swal.fire({
+      icon: "success",
+      title: "Updated!",
+      text: "Gate pass updated successfully",
+      timer: 1500,
+      showConfirmButton: false,
+    });
   } catch (err) {
     console.error(err);
-    alert("Update failed!");
+
+    // ❌ Error SweetAlert
+    Swal.fire({
+      icon: "error",
+      title: "Update failed",
+      text: "Something went wrong!",
+    });
   }
 };
-
   if (!open) return null;
 
   return (
@@ -174,3 +185,6 @@ const handleSubmit = async (e) => {
 };
 
 export default EditGatePassModal;
+
+
+

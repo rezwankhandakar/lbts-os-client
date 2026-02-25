@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import useAxiosSecure from '../hooks/useAxiosSecure';
+import Swal from 'sweetalert2';
 
 const UserManagement = () => {
   const axiosSecure = useAxiosSecure();
@@ -14,24 +15,74 @@ const UserManagement = () => {
     },
   });
 
-  const handleRole = async (id, role) => {
+const handleRole = async (id, role) => {
+  try {
     await axiosSecure.patch(`/users/role/${id}`, { role });
+
+    Swal.fire({
+      icon: "success",
+      title: "Role Updated",
+      text: `User role changed to ${role}`,
+      timer: 1500,
+      showConfirmButton: false,
+    });
+
     setOpenDropdownId(null);
     refetch();
-  };
+  } catch (err) {
+    Swal.fire("Error!", "Role update failed", "error");
+  }
+};
 
-  const handleStatus = async (id, status) => {
+const handleStatus = async (id, status) => {
+  try {
     await axiosSecure.patch(`/users/status/${id}`, { status });
-    setOpenDropdownId(null);
-    refetch();
-  };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
-    await axiosSecure.delete(`/users/${id}`);
+    Swal.fire({
+      icon: "success",
+      title: "Status Updated",
+      text: `User status changed to ${status}`,
+      timer: 1500,
+      showConfirmButton: false,
+    });
+
     setOpenDropdownId(null);
     refetch();
-  };
+  } catch (err) {
+    Swal.fire("Error!", "Status update failed", "error");
+  }
+};
+
+const handleDelete = async (id) => {
+  Swal.fire({
+    title: "Are you sure?",
+    text: "This user will be deleted permanently!",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#16a34a",
+    cancelButtonColor: "#d33",
+    confirmButtonText: "Yes, delete",
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      try {
+        await axiosSecure.delete(`/users/${id}`);
+
+        Swal.fire({
+          icon: "success",
+          title: "Deleted!",
+          text: "User deleted successfully",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+
+        setOpenDropdownId(null);
+        refetch();
+      } catch (err) {
+        Swal.fire("Error!", "Delete failed", "error");
+      }
+    }
+  });
+};
 
   if (isLoading) return <p className="text-center mt-10 text-gray-500">Loading users...</p>;
   if (error) return <p className="text-center mt-10 text-red-500">Failed to load users</p>;
