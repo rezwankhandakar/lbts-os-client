@@ -294,7 +294,7 @@ const AddGatePass = () => {
                     </div>
                     <button
                       onClick={() => handleEdit(prod)}
-                      className="btn btn-sm btn-outline"
+                      className="btn btn-sm btn-outline bg-orange-400 text-white"
                     >
                       Edit
                     </button>

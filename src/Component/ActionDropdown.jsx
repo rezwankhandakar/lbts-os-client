@@ -61,23 +61,28 @@ const handleDelete = () => {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-1 w-28 bg-white border rounded shadow-lg z-50">
-          <button
-            onClick={() => {
-              setEditOpen(true);
-              setOpen(false);
-            }}
-            className="w-full text-left px-3 py-1 hover:bg-blue-500 hover:text-white flex items-center gap-1 text-sm"
-          >
-            ✏️ Edit
-          </button>
-          <button
-            onClick={handleDelete}
-            className="w-full text-left px-3 py-1 hover:bg-red-500 hover:text-white flex items-center gap-1 text-sm"
-          >
-            🗑️ Delete
-          </button>
-        </div>
+  <div className="absolute right-0 mt-1 w-28 bg-white border rounded shadow-lg z-50">
+  <button
+    onClick={() => {
+      setEditOpen(true);
+      setOpen(false);
+    }}
+    className="w-full text-left px-3 py-1 hover:bg-blue-500 hover:text-white flex items-center gap-1 text-sm"
+  >
+    ✏️ Edit
+  </button>
+  <button
+    onClick={handleDelete}
+    className="w-full text-left px-3 py-1 hover:bg-red-500 hover:text-white flex items-center gap-1 text-sm"
+  >
+    🗑️ Delete
+  </button>
+
+  {/* Current User দেখানোর জন্য */}
+  <div className="px-3 py-1 text-sm text-gray-700 border-t mt-1">
+    Worked by: <span className="font-semibold">{gp.currentUser}</span>
+  </div>
+</div>
       )}
 
       <EditGatePassModal
