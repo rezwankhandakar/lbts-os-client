@@ -55,7 +55,7 @@ const ActionDropdown = ({ gp, p, axiosSecure, setGatePasses }) => {
     <div ref={ref} className="relative inline-block text-left">
     <button
   onClick={() => setOpen(prev => !prev)}
-  className="flex items-center justify-center"
+  className="flex items-center justify-center  py-0.5"
   style={{ minWidth: "60px" }}
 >
   <CgPlayButtonR
@@ -84,11 +84,21 @@ const ActionDropdown = ({ gp, p, axiosSecure, setGatePasses }) => {
           </button>
 
           
-          <div className="px-3 py-1 text-sm text-gray-700 border-t mt-1">
-            Worked by: <span className="font-semibold">{gp.currentUser}</span>
-          </div>
+        <div className="bg-gray-50 px-4 py-2 border-t border-gray-100 italic">
+      <p className="text-[11px] text-gray-500 uppercase tracking-wider mb-0.5">Assigned by:</p>
+      <div className="flex items-center gap-2">
+        <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-700 uppercase">
+          {gp.currentUser?.charAt(0) || "U"}
+        </div>
+        <span className="text-xs font-semibold text-gray-700 truncate">
+          {gp.currentUser}
+        </span>
+      </div>
+    </div>
         </div>
       )}
+
+      
 
      
 

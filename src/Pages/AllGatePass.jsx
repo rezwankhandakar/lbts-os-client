@@ -16,9 +16,11 @@ const AllGatePass = () => {
     const { searchText } = useSearch();
     const { role } = useRole();
 
+    // Filters state
     const [tripDoFilter, setTripDoFilter] = useState("");
     const [customerFilter, setCustomerFilter] = useState("");
     const [csdFilter, setCsdFilter] = useState("");
+    const [unitFilter, setUnitFilter] = useState(""); // ⭐ Added Unit Filter
     const [vehicleFilter, setVehicleFilter] = useState("");
     const [zoneFilter, setZoneFilter] = useState("");
     const [productFilter, setProductFilter] = useState("");
@@ -56,20 +58,21 @@ const AllGatePass = () => {
         return [...new Set(values)];
     };
 
-    // --- ⭐ Filter Logic for Both Table & Sum ⭐ ---
+    // --- ⭐ Filter Logic Update ⭐ ---
     const getFilteredData = () => {
         const rows = [];
         gatePasses.forEach((gp) => {
             gp.products?.forEach((p) => {
                 const s = searchText.toLowerCase();
                 const matchesSearch = !searchText || 
-                    [gp.tripDo, gp.customerName, gp.csd, gp.vehicleNo, gp.zone, gp.currentUser, p.productName, p.model]
+                    [gp.tripDo, gp.customerName, gp.csd, gp.unit, gp.vehicleNo, gp.zone, gp.currentUser, p.productName, p.model]
                     .some(val => val?.toLowerCase().includes(s));
 
                 const matchesFilters = 
                     (!tripDoFilter || gp.tripDo === tripDoFilter) &&
                     (!customerFilter || gp.customerName === customerFilter) &&
                     (!csdFilter || gp.csd === csdFilter) &&
+                    (!unitFilter || gp.unit === unitFilter) && // ⭐ Unit Filter Logic
                     (!vehicleFilter || gp.vehicleNo === vehicleFilter) &&
                     (!zoneFilter || gp.zone === zoneFilter) &&
                     (!productFilter || p.productName === productFilter) &&
@@ -108,6 +111,7 @@ const AllGatePass = () => {
                     "Trip Date": gp.tripDate ? new Date(gp.tripDate).toLocaleDateString() : "",
                     Customer: gp.customerName,
                     CSD: gp.csd,
+                    Unit: gp.unit || "", // ⭐ Added to Excel
                     "Vehicle No": gp.vehicleNo,
                     Zone: gp.zone,
                     Product: p.productName,
@@ -142,14 +146,15 @@ const AllGatePass = () => {
                         <input type="number" className="border px-2 py-1 rounded w-24" value={year} onChange={(e) => setYear(e.target.value)} />
                         <button onClick={() => { 
                             setMonth(new Date().getMonth() + 1); setYear(new Date().getFullYear());
-                            setTripDoFilter(""); setCustomerFilter(""); setCsdFilter(""); setVehicleFilter("");
-                            setZoneFilter(""); setProductFilter(""); setModelFilter(""); setUserFilter(""); setTripDateFilter("");
+                            setTripDoFilter(""); setCustomerFilter(""); setCsdFilter(""); setUnitFilter(""); 
+                            setVehicleFilter(""); setZoneFilter(""); setProductFilter(""); setModelFilter(""); 
+                            setUserFilter(""); setTripDateFilter("");
                         }} className="bg-red-400 text-white px-3 py-1 rounded">Reset</button>
                         {role === "admin" && (
                             <button onClick={handleExportExcel} className="bg-green-500 text-white px-3 py-1 rounded">Export</button>
                         )}
                     </div>
-                    <h2 className="sm:absolute sm:left-1/2 sm:-translate-x-1/2 text-xl md:text-2xl font-bold text-center w-full sm:w-auto">Gate Pass</h2>
+                    <h2 className="sm:absolute sm:left-1/2 sm:-translate-x-1/2 text-xl md:text-2xl font-bold text-center w-full sm:w-auto text-green-700">Gate Pass Inventory</h2>
                 </div>
 
                 {loading ? (
@@ -160,31 +165,35 @@ const AllGatePass = () => {
                     <table className="w-full border-collapse text-sm">
                         <thead className="sticky top-0 z-10">
                             <tr className="bg-green-600 text-white text-center [&>th]:border [&>th]:border-gray-300">
-                                <th className="px-3 py-2">Trip Do</th>
-                                <th className="px-3 py-2">Trip Date</th>
-                                <th className="px-3 py-2">Customer</th>
-                                <th className="px-3 py-2">CSD</th>
-                                <th className="px-3 py-2">Vehicle No</th>
-                                <th className="px-3 py-2">Zone</th>
-                                <th className="px-3 py-2">Product</th>
-                                <th className="px-3 py-2">Model</th>
-                                <th className="px-3 py-2">Qty</th>
-                                <th className="px-3 py-2">Action</th>
+                                <th className="px-3 py-2 whitespace-nowrap">Trip Do</th>
+                                <th className="px-3 py-2 whitespace-nowrap">Trip Date</th>
+                                <th className="px-3 py-2 whitespace-nowrap">Customer</th>
+                                <th className="px-3 py-2 whitespace-nowrap">CSD</th>
+                                <th className="px-3 py-2 whitespace-nowrap">Unit</th> {/* ⭐ Unit Header */}
+                                <th className="px-3 py-2 whitespace-nowrap">Vehicle No</th>
+                                <th className="px-3 py-2 whitespace-nowrap">Zone</th>
+                                <th className="px-3 py-2 whitespace-nowrap">Product</th>
+                                <th className="px-3 py-2 whitespace-nowrap">Model</th>
+                                <th className="px-3 py-2 whitespace-nowrap">Qty</th>
+                                <th className="px-3 py-2 whitespace-nowrap">Action</th>
                             </tr>
 
                             {/* Filters Row */}
                             <tr className="bg-green-100 text-center">
                                 <th className="border p-1"><select className="w-full border rounded" value={tripDoFilter} onChange={(e) => setTripDoFilter(e.target.value)}><option value="">All</option>{getUniqueValues(gatePasses, "tripDo").map(v => <option key={v} value={v}>{v}</option>)}</select></th>
-                                <th className="border p-1"><input type="date" className="w-full border rounded" value={tripDateFilter} onChange={(e) => setTripDateFilter(e.target.value)} /></th>
+                                <th className="border p-1"><input type="date" className="w-full border rounded text-xs" value={tripDateFilter} onChange={(e) => setTripDateFilter(e.target.value)} /></th>
                                 <th className="border p-1"><select className="w-full border rounded" value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)}><option value="">All</option>{getUniqueValues(gatePasses, "customerName").map(v => <option key={v} value={v}>{v}</option>)}</select></th>
                                 <th className="border p-1"><select className="w-full border rounded" value={csdFilter} onChange={(e) => setCsdFilter(e.target.value)}><option value="">All</option>{getUniqueValues(gatePasses, "csd").map(v => <option key={v} value={v}>{v}</option>)}</select></th>
+                                
+                                {/* ⭐ Unit Filter Row ⭐ */}
+                                <th className="border p-1"><select className="w-full border rounded" value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)}><option value="">All</option>{getUniqueValues(gatePasses, "unit").map(v => <option key={v} value={v}>{v}</option>)}</select></th>
+                                
                                 <th className="border p-1"><select className="w-full border rounded" value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)}><option value="">All</option>{getUniqueValues(gatePasses, "vehicleNo").map(v => <option key={v} value={v}>{v}</option>)}</select></th>
                                 <th className="border p-1"><select className="w-full border rounded" value={zoneFilter} onChange={(e) => setZoneFilter(e.target.value)}><option value="">All</option>{getUniqueValues(gatePasses, "zone").map(v => <option key={v} value={v}>{v}</option>)}</select></th>
                                 <th className="border p-1"><select className="w-full border rounded" value={productFilter} onChange={(e) => setProductFilter(e.target.value)}><option value="">All</option>{getUniqueValues(gatePasses, "productName").map(v => <option key={v} value={v}>{v}</option>)}</select></th>
                                 <th className="border p-1"><select className="w-full border rounded" value={modelFilter} onChange={(e) => setModelFilter(e.target.value)}><option value="">All</option>{getUniqueValues(gatePasses, "model").map(v => <option key={v} value={v}>{v}</option>)}</select></th>
                                 
-                                {/* ⭐ Display Total Sum ⭐ */}
-                                <th className="border p-1 bg-white text-blue-700 font-bold text-base">
+                                <th className="border p-1 bg-white text-blue-700 font-bold text-base leading-none">
                                    {totalQty}
                                 </th>
 
@@ -199,6 +208,7 @@ const AllGatePass = () => {
                                     <td className="border px-2 py-1">{gp.tripDate ? new Date(gp.tripDate).toLocaleDateString() : "-"}</td>
                                     <td className="border px-2 py-1">{gp.customerName}</td>
                                     <td className="border px-2 py-1">{gp.csd}</td>
+                                    <td className="border px-2 py-1 font-medium text-gray-600">{gp.unit || "-"}</td> {/* ⭐ Unit Data */}
                                     <td className="border px-2 py-1">{gp.vehicleNo}</td>
                                     <td className="border px-2 py-1">{gp.zone}</td>
                                     <td className="border px-2 py-1">{p.productName}</td>
@@ -218,7 +228,4 @@ const AllGatePass = () => {
 };
 
 export default AllGatePass;
-
-
-
 

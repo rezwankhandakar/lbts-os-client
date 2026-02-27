@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import useAxiosSecure from "../hooks/useAxiosSecure";
@@ -38,7 +39,7 @@ const AddGatePass = () => {
   // Fetch recent gate pass
   const fetchRecentGatePass = async () => {
     try {
-      const res = await axiosSecure.get("/gate-pass?limit=1"); // recent 1
+      const res = await axiosSecure.get("/gate-pass?limit=1");
       setRecentGatePass(res.data.data?.[0] || null);
     } catch (err) {
       console.error(err);
@@ -75,15 +76,10 @@ const AddGatePass = () => {
       }
     } catch (err) {
       console.error(err);
-      Swal.fire({
-        icon: "error",
-        title: "Failed",
-        text: "Gate pass add failed ❌",
-      });
+      Swal.fire({ icon: "error", title: "Failed", text: "Gate pass add failed ❌" });
     }
   };
 
-  // Delete recent gate pass
   const handleDelete = async (id) => {
     const confirm = await Swal.fire({
       icon: "warning",
@@ -96,13 +92,7 @@ const AddGatePass = () => {
     if (confirm.isConfirmed) {
       try {
         await axiosSecure.delete(`/gate-pass/${id}`);
-          Swal.fire({
-              title: "Deleted!",
-              text: "Gate pass has been deleted.",
-              icon: "success",
-              timer: 1500,
-              showConfirmButton: false,
-            });
+        Swal.fire({ title: "Deleted!", text: "Gate pass has been deleted.", icon: "success", timer: 1500, showConfirmButton: false });
         fetchRecentGatePass();
       } catch (err) {
         console.error(err);
@@ -111,25 +101,26 @@ const AddGatePass = () => {
     }
   };
 
-  // Open Edit Modal
   const handleEdit = (product) => {
     setSelectedProduct(product);
     setEditModalOpen(true);
   };
 
- 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-6 gap-6">
 
         {/* Add Gate Pass Form */}
         <div className="lg:col-span-4 bg-white shadow-lg rounded-xl p-6">
-          <h2 className="text-2xl font-bold text-center mb-4">Add Gate Pass</h2>
+          <h2 className="text-2xl font-bold text-center mb-4 text-gray-800">Add Gate Pass</h2>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid md:grid-cols-3 gap-4">
+            {/* ⭐ Row 1: Trip Do, Trip Date, CSD, Unit ⭐ */}
+            <div className="grid md:grid-cols-4 gap-4">
               <input placeholder="Trip Do" {...register("tripDo", { required: true })} className="input border" />
               <input type="date" {...register("tripDate", { required: true })} className="input border" />
+              
+              {/* CSD Field */}
               <div className="relative">
                 <input
                   placeholder="CSD"
@@ -145,8 +136,26 @@ const AddGatePass = () => {
                   setFormValue={(v) => setValue("csd", v)}
                 />
               </div>
+
+              {/* ⭐ New Unit Field with Suggestion ⭐ */}
+              <div className="relative">
+                <input
+                  placeholder="Unit"
+                  {...register("unit", { required: true })}
+                  onChange={(e) => handleAutoSearch("unit", "unit", e.target.value)}
+                  className="input border w-full"
+                />
+                <AutoDropdown
+                  fieldKey="unit"
+                  autoData={autoData}
+                  activeField={activeField}
+                  setActiveField={setActiveField}
+                  setFormValue={(v) => setValue("unit", v)}
+                />
+              </div>
             </div>
 
+            {/* Row 2: Customer, Vehicle, Zone */}
             <div className="grid md:grid-cols-3 gap-4">
               <div className="relative">
                 <input
@@ -197,9 +206,10 @@ const AddGatePass = () => {
               </div>
             </div>
 
+            {/* Dynamic Product Fields */}
             <div>
               {fields.map((item, index) => (
-                <div key={item.id} className="grid grid-cols-12 gap-3 mt-2">
+                <div key={item.id} className="grid grid-cols-12 gap-3 mt-2 bg-gray-50 p-2 rounded">
                   <div className="relative col-span-5">
                     <input
                       placeholder="Product"
@@ -249,7 +259,7 @@ const AddGatePass = () => {
                 <button
                   type="button"
                   onClick={() => append({ productName: "", model: "", quantity: "" })}
-                  className="btn btn-sm btn-outline"
+                  className="btn btn-sm btn-outline text-indigo-600 border-indigo-600 hover:bg-sky-100"
                 >
                   + Add Product
                 </button>
@@ -266,13 +276,13 @@ const AddGatePass = () => {
               </div>
             </div>
 
-            <button type="submit" className="btn btn-primary w-full">
-              Submit
+            <button type="submit" className="btn btn-primary w-full shadow-lg">
+              Submit Gate Pass
             </button>
           </form>
         </div>
 
-        {/* Recent Gate Pass */}
+        {/* Recent Gate Pass Card */}
         <div className="lg:col-span-2 bg-white shadow-lg rounded-xl p-4 h-fit">
           {recentGatePass ? (
             <div>
@@ -282,6 +292,7 @@ const AddGatePass = () => {
                 <p><strong>Trip Date:</strong> {recentGatePass.tripDate?.slice(0,10)}</p>
                 <p><strong>Customer:</strong> {recentGatePass.customerName}</p>
                 <p><strong>CSD:</strong> {recentGatePass.csd}</p>
+                <p><strong>Unit:</strong> {recentGatePass.unit || "N/A"}</p>
                 <p><strong>Vehicle No:</strong> {recentGatePass.vehicleNo}</p>
                 <p><strong>Zone:</strong> {recentGatePass.zone}</p>
 
@@ -327,7 +338,7 @@ const AddGatePass = () => {
           gp={recentGatePass}
           p={selectedProduct}
           axiosSecure={axiosSecure}
-          refreshGatePass={fetchRecentGatePass} // 🔹 refresh after edit
+          refreshGatePass={fetchRecentGatePass}
         />
       )}
     </div>

@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect } from "react";
 import useAuth from "../hooks/useAuth";
 import Swal from "sweetalert2";
@@ -8,6 +10,7 @@ const EditRecentGatePassModal = ({ open, onClose, gp, p, axiosSecure, refreshGat
     tripDate: "",
     customerName: "",
     csd: "",
+    unit: "",
     vehicleNo: "",
     zone: "",
     productName: "",
@@ -23,6 +26,7 @@ const EditRecentGatePassModal = ({ open, onClose, gp, p, axiosSecure, refreshGat
         tripDate: gp.tripDate?.slice(0, 10) || "",
         customerName: gp.customerName || "",
         csd: gp.csd || "",
+        unit: gp.unit || "",
         vehicleNo: gp.vehicleNo || "",
         zone: gp.zone || "",
         productName: p.productName || "",
@@ -53,13 +57,14 @@ const EditRecentGatePassModal = ({ open, onClose, gp, p, axiosSecure, refreshGat
         tripDate: formData.tripDate,
         customerName: formData.customerName,
         csd: formData.csd,
+        unit: formData.unit,
         vehicleNo: formData.vehicleNo,
         zone: formData.zone,
         currentUser: user?.displayName || user?.email,
       });
 
       onClose();
-      refreshGatePass(); // 🔹 refresh recent gate pass
+      refreshGatePass();
 
       Swal.fire({
         icon: "success",
@@ -83,21 +88,27 @@ const EditRecentGatePassModal = ({ open, onClose, gp, p, axiosSecure, refreshGat
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-lg w-96 p-4 relative">
-        <h3 className="text-lg font-bold mb-4">Edit Gate Pass</h3>
+        <h3 className="text-lg font-bold mb-4 border-b pb-2">Edit Recent Gate Pass</h3>
         <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-          <input type="text" name="tripDo" placeholder="Trip Do" value={formData.tripDo} onChange={handleChange} className="border px-2 py-1 rounded w-full" />
-          <input type="date" name="tripDate" value={formData.tripDate} onChange={handleChange} className="border px-2 py-1 rounded w-full" />
-          <input type="text" name="customerName" placeholder="Customer" value={formData.customerName} onChange={handleChange} className="border px-2 py-1 rounded w-full" />
-          <input type="text" name="csd" placeholder="CSD" value={formData.csd} onChange={handleChange} className="border px-2 py-1 rounded w-full" />
-          <input type="text" name="vehicleNo" placeholder="Vehicle No" value={formData.vehicleNo} onChange={handleChange} className="border px-2 py-1 rounded w-full" />
-          <input type="text" name="zone" placeholder="Zone" value={formData.zone} onChange={handleChange} className="border px-2 py-1 rounded w-full" />
-          <input type="text" name="productName" placeholder="Product" value={formData.productName} onChange={handleChange} className="border px-2 py-1 rounded w-full" />
-          <input type="text" name="model" placeholder="Model" value={formData.model} onChange={handleChange} className="border px-2 py-1 rounded w-full" />
-          <input type="number" name="quantity" placeholder="Quantity" value={formData.quantity} onChange={handleChange} className="border px-2 py-1 rounded w-full" />
+          {/* ⭐ Required attribute added to all fields */}
+          <input required type="text" name="tripDo" placeholder="Trip Do" value={formData.tripDo} onChange={handleChange} className="border px-2 py-1 rounded w-full" />
+          <input required type="date" name="tripDate" value={formData.tripDate} onChange={handleChange} className="border px-2 py-1 rounded w-full" />
+          <input required type="text" name="customerName" placeholder="Customer" value={formData.customerName} onChange={handleChange} className="border px-2 py-1 rounded w-full" />
+          
+          <div className="flex gap-2">
+             <input required type="text" name="csd" placeholder="CSD" value={formData.csd} onChange={handleChange} className="border px-2 py-1 rounded w-full" />
+             <input required type="text" name="unit" placeholder="Unit" value={formData.unit} onChange={handleChange} className="border px-2 py-1 rounded w-full bg-blue-50" />
+          </div>
 
-          <div className="flex justify-end gap-2 mt-2">
-            <button type="button" onClick={onClose} className="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">Cancel</button>
-            <button type="submit" className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">Save</button>
+          <input required type="text" name="vehicleNo" placeholder="Vehicle No" value={formData.vehicleNo} onChange={handleChange} className="border px-2 py-1 rounded w-full" />
+          <input required type="text" name="zone" placeholder="Zone" value={formData.zone} onChange={handleChange} className="border px-2 py-1 rounded w-full" />
+          <input required type="text" name="productName" placeholder="Product" value={formData.productName} onChange={handleChange} className="border px-2 py-1 rounded w-full" />
+          <input required type="text" name="model" placeholder="Model" value={formData.model} onChange={handleChange} className="border px-2 py-1 rounded w-full" />
+          <input required min="1" type="number" name="quantity" placeholder="Quantity" value={formData.quantity} onChange={handleChange} className="border px-2 py-1 rounded w-full" />
+
+          <div className="flex justify-end gap-2 mt-2 border-t pt-3">
+            <button type="button" onClick={onClose} className="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400 transition-colors">Cancel</button>
+            <button type="submit" className="px-4 py-1 bg-green-600 text-white rounded hover:bg-green-700 font-semibold transition-colors">Update</button>
           </div>
         </form>
       </div>
