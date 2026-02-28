@@ -289,6 +289,39 @@ lg:is-drawer-open:w-64 lg:is-drawer-close:w-14">
                 <FaFileInvoice className="w-5 h-5" />
                 <span className="is-drawer-close:hidden">Gate Pass</span>
               </NavLink>
+
+              <NavLink
+                to="/add-challan" onClick={closeDrawer}
+               className={({ isActive }) =>
+      `is-drawer-close:tooltip is-drawer-close:tooltip-right flex items-center gap-2 px-2 py-2 rounded transition ${
+        isActive
+          ? "bg-orange-400 text-white font-semibold"
+          : "hover:bg-green-300"
+      }`
+    }
+                data-tip="Add Challan"
+              >
+                {/* Icon */}
+                <FaFileInvoice className="w-5 h-5" />
+                <span className="is-drawer-close:hidden">Add Challan</span>
+              </NavLink>
+
+
+              <NavLink
+                to="/all-challan" onClick={closeDrawer}
+               className={({ isActive }) =>
+      `is-drawer-close:tooltip is-drawer-close:tooltip-right flex items-center gap-2 px-2 py-2 rounded transition ${
+        isActive
+          ? "bg-orange-400 text-white font-semibold"
+          : "hover:bg-green-300"
+      }`
+    }
+                data-tip="All Challan"
+              >
+                {/* Icon */}
+                <FaFileInvoice className="w-5 h-5" />
+                <span className="is-drawer-close:hidden">All Challan</span>
+              </NavLink>
             </li>
 
 

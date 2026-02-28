@@ -10,6 +10,8 @@ import PrivateRoute from "./PrivateRoute";
 import AddGatePass from "../Pages/AddGatePass";
 import AllGatePass from "../Pages/AllGatePass";
 import RoleRoute from "./RoleRoute";
+import AddChallan from "../Pages/AddChallan";
+import AllChallan from "../Pages/AllChallan";
 
  
 export const router = createBrowserRouter([
@@ -46,6 +48,14 @@ export const router = createBrowserRouter([
         {
           path: "/all-gate-pass",
           element: <PrivateRoute><RoleRoute roles={['admin','manager','operator']}><AllGatePass></AllGatePass></RoleRoute></PrivateRoute>
+        },
+        {
+          path: "/add-challan",
+          Component: AddChallan
+        },
+        {
+          path: "/all-challan",
+          Component: AllChallan
         }
     ]
    

@@ -98,10 +98,6 @@ const ActionDropdown = ({ gp, p, axiosSecure, setGatePasses }) => {
         </div>
       )}
 
-      
-
-     
-
       <EditGatePassModal
         open={editOpen}
         onClose={() => setEditOpen(false)}
