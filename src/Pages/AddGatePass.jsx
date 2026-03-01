@@ -345,4 +345,5 @@ const AddGatePass = () => {
   );
 };
 
-export default AddGatePass;
+export default AddGatePass;  
+
