@@ -94,8 +94,8 @@ const AddChallan = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-8 font-sans">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-10 font-sans">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* ================= FORM SECTION (Left) ================= */}
         <div className="lg:col-span-7 bg-white shadow-sm border border-slate-200 rounded-2xl overflow-hidden">
@@ -108,7 +108,7 @@ const AddChallan = () => {
             <div className="bg-white space-y-5">
               
               {/* Row 1: Customer Name, Phone & Zone */}
-              <div className="grid grid-cols-12 gap-4">
+              <div className="grid grid-cols-12 gap-2">
                 <div className="col-span-12 md:col-span-5">
                   <label className="text-xs font-semibold text-slate-500 mb-1 block">Customer Name</label>
                   <div className="relative">

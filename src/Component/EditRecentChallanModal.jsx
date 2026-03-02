@@ -1,3 +1,5 @@
+
+
 import React, { useEffect, useState } from "react";
 import useAuth from "../hooks/useAuth";
 import Swal from "sweetalert2";
@@ -15,6 +17,8 @@ const EditRecentChallanModal = ({
   const [formData, setFormData] = useState({
     customerName: "",
     address: "",
+    district: "",
+    thana: "", // নতুন যোগ করা হয়েছে
     receiverNumber: "",
     zone: "",
     productName: "",
@@ -27,6 +31,8 @@ const EditRecentChallanModal = ({
       setFormData({
         customerName: challan.customerName || "",
         address: challan.address || "",
+        district: challan.district || "", // challan থেকে ডাটা নেয়া হচ্ছে
+        thana: challan.thana || "",       // challan থেকে ডাটা নেয়া হচ্ছে
         receiverNumber: challan.receiverNumber || "",
         zone: challan.zone || "",
         productName: product.productName || "",
@@ -55,10 +61,12 @@ const EditRecentChallanModal = ({
         }
       );
 
-      // ✅ Update main challan
+      // ✅ Update main challan (district এবং thana সহ)
       await axiosSecure.patch(`/challan/${challan._id}`, {
         customerName: formData.customerName,
         address: formData.address,
+        district: formData.district,
+        thana: formData.thana,
         receiverNumber: formData.receiverNumber,
         zone: formData.zone,
         currentUser: user?.displayName || user?.email,
@@ -83,11 +91,10 @@ const EditRecentChallanModal = ({
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-      <div className="bg-white p-4 rounded shadow w-96">
+      <div className="bg-white p-4 rounded shadow w-96 max-h-[90vh] overflow-y-auto">
         <h3 className="font-bold text-lg mb-3">Edit Recent Challan</h3>
 
         <form onSubmit={handleSubmit} className="space-y-2">
-
           <input required name="customerName"
             value={formData.customerName}
             onChange={handleChange}
@@ -100,6 +107,22 @@ const EditRecentChallanModal = ({
             onChange={handleChange}
             className="input border w-full"
             placeholder="Address"
+          />
+
+          {/* District Input */}
+          <input required name="district"
+            value={formData.district}
+            onChange={handleChange}
+            className="input border w-full"
+            placeholder="District"
+          />
+
+          {/* Thana Input */}
+          <input required name="thana"
+            value={formData.thana}
+            onChange={handleChange}
+            className="input border w-full"
+            placeholder="Thana"
           />
 
           <input required name="receiverNumber"
@@ -116,7 +139,7 @@ const EditRecentChallanModal = ({
             placeholder="Zone"
           />
 
-          <hr />
+          <hr className="my-2" />
 
           <input required name="model"
             value={formData.model}
@@ -139,11 +162,10 @@ const EditRecentChallanModal = ({
               Cancel
             </button>
             <button type="submit"
-              className="btn btn-sm btn-success">
+              className="btn btn-sm btn-success text-white">
               Update
             </button>
           </div>
-
         </form>
       </div>
     </div>
