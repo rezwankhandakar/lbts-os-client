@@ -119,7 +119,7 @@ const AddGatePass = () => {
             <div className="grid md:grid-cols-4 gap-4">
               <input placeholder="Trip Do" {...register("tripDo", { required: true })} className="input border" />
               <input type="date" {...register("tripDate", { required: true })} className="input border" />
-              
+
               {/* CSD Field */}
               <div className="relative">
                 <input
@@ -283,54 +283,124 @@ const AddGatePass = () => {
         </div>
 
         {/* Recent Gate Pass Card */}
-        <div className="lg:col-span-2 bg-white shadow-lg rounded-xl p-4 h-fit">
-          {recentGatePass ? (
-            <div>
-              <h3 className="text-xl font-semibold mb-2">Recent Gate Pass</h3>
-              <div className="border p-3 rounded bg-green-50">
-                <p><strong>Trip Do:</strong> {recentGatePass.tripDo}</p>
-                <p><strong>Trip Date:</strong> {recentGatePass.tripDate?.slice(0,10)}</p>
-                <p><strong>Customer:</strong> {recentGatePass.customerName}</p>
-                <p><strong>CSD:</strong> {recentGatePass.csd}</p>
-                <p><strong>Unit:</strong> {recentGatePass.unit || "N/A"}</p>
-                <p><strong>Vehicle No:</strong> {recentGatePass.vehicleNo}</p>
-                <p><strong>Zone:</strong> {recentGatePass.zone}</p>
+<div className="lg:col-span-2 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.1)] rounded-2xl border border-slate-200 overflow-hidden h-fit sticky top-6 transition-all duration-300">
+  
+  {/* --- Header: Deep Dark for better contrast --- */}
+  <div className="relative bg-slate-900 p-5 overflow-hidden">
+    <div className="absolute -right-4 -top-4 w-20 h-20 bg-indigo-500/30 rounded-full blur-2xl"></div>
+    
+    <div className="relative flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-indigo-600 rounded-xl border border-indigo-400">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div>
+          <h3 className="text-white font-extrabold text-sm tracking-wide">Recently Added</h3>
+        </div>
+      </div>
+      {recentGatePass && (
+        <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse border border-slate-900"></span>
+      )}
+    </div>
+  </div>
 
-                {recentGatePass.products.map((prod, idx) => (
-                  <div key={idx} className="mt-1 p-1 bg-white rounded border flex justify-between items-center">
-                    <div>
-                      <p><strong>Product:</strong> {prod.productName}</p>
-                      <p><strong>Model:</strong> {prod.model}</p>
-                      <p><strong>Qty:</strong> {prod.quantity}</p>
-                    </div>
-                    <button
-                      onClick={() => handleEdit(prod)}
-                      className="btn btn-sm btn-outline bg-orange-400 text-white"
-                    >
-                      Edit
-                    </button>
-                  </div>
-                ))}
+  <div className="p-6">
+    {recentGatePass ? (
+      <div className="space-y-6">
+        
+        {/* --- Trip DO Section: Better Visibility --- */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between group">
+            <span className="text-[12px] font-black text-slate-900 uppercase tracking-tighter">Trip DO</span>
+            <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-md text-xs font-mono font-black border border-indigo-100">
+              {recentGatePass.tripDo}
+            </span>
+          </div>
+          
+          {/* Main Info: Text Color Darkened (slate-700/900) */}
+         <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 shadow-inner">
+  {[
+     { label: "Customer", value: recentGatePass.customerName, color: "text-blue-800 font-extrabold" }, // Deeper blue for better visibility
+    { label: "Date", value: recentGatePass.tripDate?.slice(0, 10), color: "text-slate-900 font-bold" },
+    { label: "Vehicle", value: recentGatePass.vehicleNo, color: "text-slate-900 font-bold" },
+    { label: "Zone/PO", value: recentGatePass.zone, color: "text-slate-900 font-bold" },
+  ].map((detail, idx) => (
+    <div key={idx} className="flex justify-between items-start text-[13px] border-b border-slate-200/60 pb-2 last:border-0 last:pb-0">
+      {/* Label: Fixed width jate shob gulo align thake */}
+      <span className="text-slate-600 font-bold min-w-[70px]">{detail.label}</span>
+      
+      {/* Value: truncate shoriye deya hoyeche jate full name dekha jay */}
+      <span className={`text-right break-words flex-1 ml-4 ${detail.color}`}>
+        {detail.value || "N/A"}
+      </span>
+    </div>
+  ))}
+</div>
+        </div>
 
-                <p className="mt-2"><strong>Added by:</strong> {recentGatePass.currentUser}</p>
+        {/* --- Inventory Details: Text Visible --- */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="h-[2px] flex-1 bg-slate-200"></span>
+            <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Products Details</span>
+            <span className="h-[2px] flex-1 bg-slate-200"></span>
+          </div>
 
-                <div className="flex gap-2 mt-3">
+          <div className="grid grid-cols-1 gap-2">
+            {recentGatePass.products.map((prod, idx) => (
+              <div key={idx} className="flex items-center justify-between p-3 bg-white border-2 border-slate-100 rounded-xl hover:border-indigo-300 transition-all shadow-sm">
+                <div className="flex flex-col">
+                  {/* High Contrast Title */}
+                  <span className="text-sm font-black text-slate-900 leading-tight">{prod.productName}</span>
+                  <span className="text-[11px] font-bold text-slate-600">{prod.model}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {/* Dark Badge for Quantity */}
+                  <span className="text-xs font-black text-white bg-slate-800 px-2 py-1 rounded-lg">{prod.quantity}</span>
                   <button
-                    onClick={() => handleDelete(recentGatePass._id)}
-                    className="btn btn-sm btn-error w-full"
+                    onClick={() => handleEdit(prod)}
+                    className="p-1.5 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-all border border-transparent hover:border-orange-200"
                   >
-                    Delete
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   </button>
                 </div>
               </div>
-            </div>
-          ) : (
-            <p className="text-center text-gray-500">No recent gate pass</p>
-          )}
+            ))}
+          </div>
+        </div>
+
+        {/* --- Action & Footer: Bold Text --- */}
+        <div className="pt-4 flex flex-col gap-4">
+          <div className="flex items-center justify-center gap-2 py-2 border-t border-slate-100">
+            <span className="text-[11px] text-slate-500 font-bold uppercase tracking-tight">
+              Assigned By: <span className="text-slate-900 font-black">{recentGatePass.currentUser}</span>
+            </span>
+          </div>
+
+          <button
+            onClick={() => handleDelete(recentGatePass._id)}
+            className="group flex items-center justify-center gap-2 w-full py-3.5 bg-white border-2 border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white rounded-2xl text-[12px] font-black uppercase tracking-widest transition-all duration-300 shadow-sm"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            Delete Record
+          </button>
         </div>
       </div>
+    ) : (
+      <div className="py-20 text-center">
+        <div className="inline-flex p-5 bg-slate-100 rounded-full mb-4 text-slate-400">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <p className="text-sm font-black text-slate-900 uppercase">No Data Found</p>
+        <p className="text-[11px] text-slate-600 font-bold mt-1 tracking-tight">Add a new entry to see it here</p>
+      </div>
+    )}
+  </div>
+</div>
 
-      {/* Edit Modal */}
+      </div>
+
+     
       {editModalOpen && selectedProduct && (
         <EditRecentGatePassModal
           open={editModalOpen}
@@ -345,5 +415,4 @@ const AddGatePass = () => {
   );
 };
 
-export default AddGatePass;  
-
+export default AddGatePass;

@@ -1,5 +1,4 @@
 
-
 import React, { useEffect, useState } from "react";
 import useAuth from "../hooks/useAuth";
 import Swal from "sweetalert2";
@@ -18,29 +17,27 @@ const EditRecentChallanModal = ({
     customerName: "",
     address: "",
     district: "",
-    thana: "", // নতুন যোগ করা হয়েছে
+    thana: "",
     receiverNumber: "",
     zone: "",
-    productName: "",
     model: "",
     quantity: "",
   });
 
   useEffect(() => {
-    if (challan && product) {
+    if (open && challan && product) {
       setFormData({
         customerName: challan.customerName || "",
         address: challan.address || "",
-        district: challan.district || "", // challan থেকে ডাটা নেয়া হচ্ছে
-        thana: challan.thana || "",       // challan থেকে ডাটা নেয়া হচ্ছে
+        district: challan.district || "",
+        thana: challan.thana || "",
         receiverNumber: challan.receiverNumber || "",
         zone: challan.zone || "",
-        productName: product.productName || "",
         model: product.model || "",
         quantity: product.quantity || "",
       });
     }
-  }, [challan, product]);
+  }, [open, challan, product]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -49,19 +46,15 @@ const EditRecentChallanModal = ({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     try {
-      // ✅ Update single product
       await axiosSecure.put(
         `/challan/${challan._id}/product/${product._id}`,
         {
-          productName: formData.productName,
           model: formData.model,
           quantity: Number(formData.quantity),
         }
       );
 
-      // ✅ Update main challan (district এবং thana সহ)
       await axiosSecure.patch(`/challan/${challan._id}`, {
         customerName: formData.customerName,
         address: formData.address,
@@ -74,7 +67,7 @@ const EditRecentChallanModal = ({
 
       Swal.fire({
         icon: "success",
-        title: "Updated!",
+        title: "Updated Successfully",
         timer: 1500,
         showConfirmButton: false,
       });
@@ -83,87 +76,144 @@ const EditRecentChallanModal = ({
       refreshChallan();
     } catch (err) {
       console.error(err);
-      Swal.fire("Error", "Update failed", "error");
+      Swal.fire("Error!", "Update failed!", "error");
     }
   };
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-      <div className="bg-white p-4 rounded shadow w-96 max-h-[90vh] overflow-y-auto">
-        <h3 className="font-bold text-lg mb-3">Edit Recent Challan</h3>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        
+        {/* --- Header --- */}
+        <div className="bg-gradient-to-r from-green-600 to-green-700 p-5 flex justify-between items-center text-white">
+          <div>
+            <h3 className="font-bold text-xl tracking-tight">Edit Recent Challan</h3>
+            <p className="text-green-100 text-xs mt-0.5 opacity-90">ID: {challan?._id?.slice(-8).toUpperCase()}</p>
+          </div>
+          <button 
+            onClick={onClose} 
+            className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors text-2xl"
+          >
+            &times;
+          </button>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-2">
-          <input required name="customerName"
-            value={formData.customerName}
-            onChange={handleChange}
-            className="input border w-full"
-            placeholder="Customer Name"
-          />
+        <form onSubmit={handleSubmit} className="p-8">
+          <div className="flex flex-col md:flex-row gap-8">
+            
+            {/* --- Left Column: Customer Details --- */}
+            <div className="flex-1 space-y-5">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="h-1 w-6 bg-green-600 rounded-full"></span>
+                <h4 className="font-bold text-gray-700 uppercase text-xs tracking-widest">Customer Information</h4>
+              </div>
+              
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-gray-500 uppercase ml-1">Customer Name</label>
+                  <input 
+                    required name="customerName"
+                    className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all" 
+                    value={formData.customerName} onChange={handleChange}
+                  />
+                </div>
 
-          <input required name="address"
-            value={formData.address}
-            onChange={handleChange}
-            className="input border w-full"
-            placeholder="Address"
-          />
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-gray-500 uppercase ml-1">Street Address</label>
+                  <input 
+                    required name="address"
+                    className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all" 
+                    value={formData.address} onChange={handleChange}
+                  />
+                </div>
 
-          {/* District Input */}
-          <input required name="district"
-            value={formData.district}
-            onChange={handleChange}
-            className="input border w-full"
-            placeholder="District"
-          />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-gray-500 uppercase ml-1">Thana</label>
+                    <input 
+                      required name="thana"
+                      className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all" 
+                      value={formData.thana} onChange={handleChange}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-gray-500 uppercase ml-1">District</label>
+                    <input 
+                      required name="district"
+                      className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all" 
+                      value={formData.district} onChange={handleChange}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
 
-          {/* Thana Input */}
-          <input required name="thana"
-            value={formData.thana}
-            onChange={handleChange}
-            className="input border w-full"
-            placeholder="Thana"
-          />
+            {/* --- Right Column: Product & Additional Info --- */}
+            <div className="flex-1 space-y-5 border-l border-gray-100 pl-0 md:pl-8">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="h-1 w-6 bg-blue-600 rounded-full"></span>
+                <h4 className="font-bold text-gray-700 uppercase text-xs tracking-widest">Order & Contact</h4>
+              </div>
 
-          <input required name="receiverNumber"
-            value={formData.receiverNumber}
-            onChange={handleChange}
-            className="input border w-full"
-            placeholder="Receiver Number"
-          />
+              <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-gray-500 uppercase ml-1">Phone No</label>
+                    <input 
+                      required name="receiverNumber"
+                      className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all" 
+                      value={formData.receiverNumber} onChange={handleChange}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-gray-500 uppercase ml-1">Zone</label>
+                    <input 
+                      required name="zone"
+                      className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all" 
+                      value={formData.zone} onChange={handleChange}
+                    />
+                  </div>
+                </div>
 
-          <input required name="zone"
-            value={formData.zone}
-            onChange={handleChange}
-            className="input border w-full"
-            placeholder="Zone"
-          />
+                <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-blue-600 uppercase ml-1 tracking-tighter">Product Model</label>
+                    <input 
+                      required name="model"
+                      className="w-full border border-blue-200 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white" 
+                      value={formData.model} onChange={handleChange}
+                    />
+                  </div>
 
-          <hr className="my-2" />
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-blue-600 uppercase ml-1 tracking-tighter">Quantity</label>
+                    <input 
+                      required name="quantity" type="number" min="1"
+                      className="w-full border border-blue-200 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white" 
+                      value={formData.quantity} onChange={handleChange}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-          <input required name="model"
-            value={formData.model}
-            onChange={handleChange}
-            className="input border w-full"
-            placeholder="Model"
-          />
-
-          <input required type="number" min="1"
-            name="quantity"
-            value={formData.quantity}
-            onChange={handleChange}
-            className="input border w-full"
-            placeholder="Quantity"
-          />
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose}
-              className="btn btn-sm">
-              Cancel
+          {/* --- Footer / Buttons --- */}
+          <div className="mt-10 flex justify-end items-center gap-4">
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className="px-6 py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-800 transition-colors"
+            >
+              Discard Changes
             </button>
-            <button type="submit"
-              className="btn btn-sm btn-success text-white">
-              Update
+            <button 
+              type="submit" 
+              className="px-10 py-2.5 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-200 hover:shadow-green-300 transition-all active:scale-95"
+            >
+              Save & Update
             </button>
           </div>
         </form>
