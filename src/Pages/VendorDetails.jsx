@@ -30,10 +30,11 @@ const VendorDetails = () => {
     setVendor(res.data);
   };
 
-  const fetchVehicles = async () => {
-    const res = await axiosSecure.get(`/vehicles?vendorId=${id}`);
-    setVehicles(res.data);
-  };
+const fetchVehicles = async () => {
+  const res = await axiosSecure.get(`/vendors/${id}`);
+  // Sorasori vendor document-er bhetor theke array-ti set kora
+  setVehicles(res.data.vehicles || []); 
+};
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -305,7 +306,7 @@ const VendorDetails = () => {
 
                       if (formValues) {
                         try {
-                          await axiosSecure.put(`/vehicles/${v._id}`, formValues);
+                          await axiosSecure.put(`/vehicles/${id}/${v._id}`, formValues);
                           Swal.fire({ icon: 'success', title: 'Asset Updated', timer: 1500, showConfirmButton: false });
                           fetchVehicles();
                         } catch (err) { Swal.fire('Error', 'Update failed', 'error'); }
@@ -335,7 +336,7 @@ const VendorDetails = () => {
                       });
                       if (result.isConfirmed) {
                         try {
-                          await axiosSecure.delete(`/vehicles/${v._id}`);
+                         await axiosSecure.delete(`/vehicles/${id}/${v._id}`);
                           fetchVehicles();
                           Swal.fire({ icon: 'success', title: 'Asset Removed', timer: 1500, showConfirmButton: false });
                         } catch (err) { Swal.fire('Error', 'Deletion failed', 'error'); }
