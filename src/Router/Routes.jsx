@@ -12,52 +12,67 @@ import AllGatePass from "../Pages/AllGatePass";
 import RoleRoute from "./RoleRoute";
 import AddChallan from "../Pages/AddChallan";
 import AllChallan from "../Pages/AllChallan";
+import AddVendor from "../Pages/AddVendor";
+import AllVendor from "../Pages/AllVendor";
+import VendorDetails from "../Pages/VendorDetails";
 
- 
+
 export const router = createBrowserRouter([
   {
     path: "/",
     Component: RootLayout,
     errorElement: <ErrorPage></ErrorPage>,
     children: [
-        {
-            index: true,
-            path: "/",
-            Component: Home ,
-        },
-        {
-          path: "/register",
-          Component: Register
-        },
-        {
-          path: "/login",
-          Component: Login
-        },
-        {
-          path: "/profile",
-          Component: Profile
-        },
-        {
-          path: "/user-management",
-          element: <PrivateRoute><RoleRoute roles={['admin']}><UserManagement></UserManagement></RoleRoute></PrivateRoute>
-        },
-        {
-          path: '/add-gate-pass',
-          element: <PrivateRoute><RoleRoute roles={['admin','manager','operator']}><AddGatePass></AddGatePass></RoleRoute></PrivateRoute>
-        },
-        {
-          path: "/all-gate-pass",
-          element: <PrivateRoute><RoleRoute roles={['admin','manager','operator']}><AllGatePass></AllGatePass></RoleRoute></PrivateRoute>
-        },
-        {
-          path: "/add-challan",
-          Component: AddChallan
-        },
-        {
-          path: "/all-challan",
-          Component: AllChallan
-        }
+      {
+        index: true,
+        path: "/",
+        Component: Home,
+      },
+      {
+        path: "/register",
+        Component: Register
+      },
+      {
+        path: "/login",
+        Component: Login
+      },
+      {
+        path: "/profile",
+        Component: Profile
+      },
+      {
+        path: "/user-management",
+        element: <PrivateRoute><RoleRoute roles={['admin']}><UserManagement></UserManagement></RoleRoute></PrivateRoute>
+      },
+      {
+        path: '/add-gate-pass',
+        element: <PrivateRoute><RoleRoute roles={['admin', 'manager', 'operator']}><AddGatePass></AddGatePass></RoleRoute></PrivateRoute>
+      },
+      {
+        path: "/all-gate-pass",
+        element: <PrivateRoute><RoleRoute roles={['admin', 'manager', 'operator']}><AllGatePass></AllGatePass></RoleRoute></PrivateRoute>
+      },
+      {
+        path: "/add-challan",
+        Component: AddChallan
+      },
+      {
+        path: "/all-challan",
+        Component: AllChallan
+      },
+      {
+        path: "/add-vendor",
+        Component: AddVendor
+      },
+      {
+        path: "/all-vendor",
+        Component: AllVendor
+      },
+      {
+        path: "/vendor-details/:id",
+        element: <VendorDetails></VendorDetails>
+      }
     ]
-   
+
   },
 ]);
