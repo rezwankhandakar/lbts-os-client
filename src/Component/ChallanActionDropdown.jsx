@@ -37,7 +37,7 @@ const ChallanActionDropdown = ({ challan, product, axiosSecure, setChallans }) =
 
   return (
     <div ref={ref} className="relative inline-block text-left">
-      <button onClick={() => setOpen(!open)} className="p-1">
+      <button onClick={() => setOpen(!open)} className="">
         <CgPlayButtonR className={`text-blue-500 transition-transform duration-300 ${open ? "rotate-90" : "rotate-0"}`} size={20} />
       </button>
 

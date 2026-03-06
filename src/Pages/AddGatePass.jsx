@@ -321,6 +321,7 @@ const AddGatePass = () => {
          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 shadow-inner">
   {[
      { label: "Customer", value: recentGatePass.customerName, color: "text-blue-800 font-extrabold" }, // Deeper blue for better visibility
+     { label: "Unit", value: recentGatePass.unit, color: "text-slate-900 font-bold" },
     { label: "Date", value: recentGatePass.tripDate?.slice(0, 10), color: "text-slate-900 font-bold" },
     { label: "Vehicle", value: recentGatePass.vehicleNo, color: "text-slate-900 font-bold" },
     { label: "Zone/PO", value: recentGatePass.zone, color: "text-slate-900 font-bold" },
@@ -382,7 +383,7 @@ const AddGatePass = () => {
             className="group flex items-center justify-center gap-2 w-full py-3.5 bg-white border-2 border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white rounded-2xl text-[12px] font-black uppercase tracking-widest transition-all duration-300 shadow-sm"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-            Delete Record
+            Delete
           </button>
         </div>
       </div>

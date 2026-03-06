@@ -12,16 +12,16 @@ const AllGatePass = () => {
     const axiosSecure = useAxiosSecure();
     const [gatePasses, setGatePasses] = useState([]);
     const [loading, setLoading] = useState(false);
-    
+
     // ⭐ setSearchText pull kora holo global search reset korar jonno
-    const { searchText, setSearchText } = useSearch(); 
+    const { searchText, setSearchText } = useSearch();
     const { role } = useRole();
 
     // Filters state
     const [tripDoFilter, setTripDoFilter] = useState("");
     const [customerFilter, setCustomerFilter] = useState("");
     const [csdFilter, setCsdFilter] = useState("");
-    const [unitFilter, setUnitFilter] = useState(""); 
+    const [unitFilter, setUnitFilter] = useState("");
     const [vehicleFilter, setVehicleFilter] = useState("");
     const [zoneFilter, setZoneFilter] = useState("");
     const [productFilter, setProductFilter] = useState("");
@@ -82,13 +82,27 @@ const AllGatePass = () => {
     };
 
     const getUniqueValues = (arr, field) => {
-        const values = arr.flatMap((gp) => {
+        const map = new Map();
+
+        arr.forEach((gp) => {
             if (field === "productName" || field === "model") {
-                return gp.products?.map((p) => p[field]) || [];
+                gp.products?.forEach((p) => {
+                    const value = p[field]?.toString().trim();
+                    if (value) {
+                        const key = value.toLowerCase();
+                        if (!map.has(key)) map.set(key, value);
+                    }
+                });
+            } else {
+                const value = gp[field]?.toString().trim();
+                if (value) {
+                    const key = value.toLowerCase();
+                    if (!map.has(key)) map.set(key, value);
+                }
             }
-            return gp[field] ? [gp[field]] : [];
         });
-        return [...new Set(values)];
+
+        return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
     };
 
     const getFilteredData = () => {
@@ -96,20 +110,20 @@ const AllGatePass = () => {
         gatePasses.forEach((gp) => {
             gp.products?.forEach((p) => {
                 const s = searchText ? searchText.toLowerCase() : "";
-                const matchesSearch = !searchText || 
+                const matchesSearch = !searchText ||
                     [gp.tripDo, gp.customerName, gp.csd, gp.unit, gp.vehicleNo, gp.zone, gp.currentUser, p.productName, p.model]
-                    .some(val => val?.toLowerCase().includes(s));
+                        .some(val => val?.toLowerCase().includes(s));
 
-                const matchesFilters = 
-                    (!tripDoFilter || gp.tripDo === tripDoFilter) &&
-                    (!customerFilter || gp.customerName === customerFilter) &&
-                    (!csdFilter || gp.csd === csdFilter) &&
-                    (!unitFilter || gp.unit === unitFilter) && 
-                    (!vehicleFilter || gp.vehicleNo === vehicleFilter) &&
-                    (!zoneFilter || gp.zone === zoneFilter) &&
-                    (!productFilter || p.productName === productFilter) &&
-                    (!modelFilter || p.model === modelFilter) &&
-                    (!userFilter || gp.currentUser === userFilter) &&
+                const matchesFilters =
+                    (!tripDoFilter || gp.tripDo?.toLowerCase() === tripDoFilter.toLowerCase()) &&
+                    (!customerFilter || gp.customerName?.toLowerCase() === customerFilter.toLowerCase()) &&
+                    (!csdFilter || gp.csd?.toLowerCase() === csdFilter.toLowerCase()) &&
+                    (!unitFilter || gp.unit?.toLowerCase() === unitFilter.toLowerCase()) &&
+                    (!vehicleFilter || gp.vehicleNo?.toLowerCase() === vehicleFilter.toLowerCase()) &&
+                    (!zoneFilter || gp.zone?.toLowerCase() === zoneFilter.toLowerCase()) &&
+                    (!productFilter || p.productName?.toLowerCase() === productFilter.toLowerCase()) &&
+                    (!modelFilter || p.model?.toLowerCase() === modelFilter.toLowerCase()) &&
+                    (!userFilter || gp.currentUser?.toLowerCase() === userFilter.toLowerCase()) &&
                     (!tripDateFilter || gp.tripDate?.slice(0, 10) === tripDateFilter);
 
                 if (matchesSearch && matchesFilters) {
@@ -123,95 +137,118 @@ const AllGatePass = () => {
     const filteredRows = getFilteredData();
     const totalQty = filteredRows.reduce((sum, item) => sum + (Number(item.p.quantity) || 0), 0);
 
-  const handleExportExcel = () => {
-    if (filteredRows.length === 0) {
-        Swal.fire({
-            icon: "warning",
-            title: "No Data",
-            text: "No data available to export!",
-            confirmButtonColor: "#16a34a",
-        });
-        return;
-    }
-
-    // ⭐ Export Confirmation Alert
-    Swal.fire({
-        title: "Export to Excel?",
-        text: `You are about to export ${filteredRows.length} rows of data.`,
-        icon: "question",
-        showCancelButton: true,
-        confirmButtonColor: "#16a34a",
-        cancelButtonColor: "#d33",
-        confirmButtonText: "Yes, Export it!",
-    }).then((result) => {
-        if (result.isConfirmed) {
-            try {
-                const exportData = filteredRows.map(({ gp, p }) => ({
-                    "Trip Do": gp.tripDo,
-                    "Trip Date": gp.tripDate ? new Date(gp.tripDate).toLocaleDateString() : "",
-                    Customer: gp.customerName,
-                    CSD: gp.csd,
-                    Unit: gp.unit || "",
-                    "Vehicle No": gp.vehicleNo,
-                    Zone: gp.zone,
-                    Product: p.productName,
-                    Model: p.model,
-                    Qty: p.quantity,
-                    User: gp.currentUser,
-                }));
-
-                const ws = XLSX.utils.json_to_sheet(exportData);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "GatePass");
-                const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-                const blob = new Blob([buffer], { type: "application/octet-stream" });
-                saveAs(blob, `GatePass_${month}_${year}.xlsx`);
-
-                // ⭐ Success Alert after download
-                Swal.fire({
-                    icon: "success",
-                    title: "Exported!",
-                    text: "Your Excel file has been downloaded successfully.",
-                    timer: 2000,
-                    showConfirmButton: false,
-                });
-            } catch (error) {
-                Swal.fire("Error", "Something went wrong during export", "error");
-            }
+    const handleExportExcel = () => {
+        if (filteredRows.length === 0) {
+            Swal.fire({
+                icon: "warning",
+                title: "No Data",
+                text: "No data available to export!",
+                confirmButtonColor: "#16a34a",
+            });
+            return;
         }
-    });
-};
+
+        // ⭐ Export Confirmation Alert
+        Swal.fire({
+            title: "Export to Excel?",
+            text: `You are about to export ${filteredRows.length} rows of data.`,
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonColor: "#16a34a",
+            cancelButtonColor: "#d33",
+            confirmButtonText: "Yes, Export it!",
+        }).then((result) => {
+            if (result.isConfirmed) {
+                try {
+                    const exportData = filteredRows.map(({ gp, p }) => ({
+                        "Trip Do": gp.tripDo,
+                        "Trip Date": gp.tripDate ? new Date(gp.tripDate).toLocaleDateString() : "",
+                        Customer: gp.customerName,
+                        CSD: gp.csd,
+                        Unit: gp.unit || "",
+                        "Vehicle No": gp.vehicleNo,
+                        Zone: gp.zone,
+                        Product: p.productName,
+                        Model: p.model,
+                        Qty: p.quantity,
+                        User: gp.currentUser,
+                    }));
+
+                    const ws = XLSX.utils.json_to_sheet(exportData);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "GatePass");
+                    const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+                    const blob = new Blob([buffer], { type: "application/octet-stream" });
+                    saveAs(blob, `GatePass_${month}_${year}.xlsx`);
+
+                    // ⭐ Success Alert after download
+                    Swal.fire({
+                        icon: "success",
+                        title: "Exported!",
+                        text: "Your Excel file has been downloaded successfully.",
+                        timer: 2000,
+                        showConfirmButton: false,
+                    });
+                } catch (error) {
+                    Swal.fire("Error", "Something went wrong during export", "error");
+                }
+            }
+        });
+    };
     return (
         <div className="min-h-screen bg-gray-50 p-4">
             <div className="max-w-full mx-auto bg-white shadow-sm rounded p-4 overflow-x-auto">
-                
+
                 {/* Header Section */}
-                <div className="relative flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 mb-6">
-                    <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                        <select className="border px-2 py-1 rounded bg-white shadow-sm" value={month} onChange={(e) => setMonth(parseInt(e.target.value))}>
+                <div className="flex flex-col lg:flex-row justify-between items-center gap-4 mb-6 w-full">
+
+                    {/* Filters Section (Left side on Desktop, Stacked on Mobile) */}
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 w-full lg:w-auto">
+                        <select
+                            className="border px-2 py-1.5 rounded bg-white text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-green-500 w-full sm:w-auto"
+                            value={month}
+                            onChange={(e) => setMonth(parseInt(e.target.value))}
+                        >
                             {[...Array(12)].map((_, i) => (
-                                <option key={i} value={i + 1}>{new Date(0, i).toLocaleString("default", { month: "long" })}</option>
+                                <option key={i} value={i + 1}>
+                                    {new Date(0, i).toLocaleString("default", { month: "long" })}
+                                </option>
                             ))}
                         </select>
-                        <input type="number" className="border px-2 py-1 rounded w-24 bg-white shadow-sm" value={year} onChange={(e) => setYear(parseInt(e.target.value))} />
-                        
-                        {/* ⭐ Updated Reset Button */}
-                        <button 
-                            onClick={handleResetAll} 
-                            className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded shadow-sm transition-all"
+
+                        <input
+                            type="number"
+                            className="border px-2 py-1.5 rounded w-full sm:w-24 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-green-500"
+                            value={year}
+                            onChange={(e) => setYear(parseInt(e.target.value))}
+                        />
+
+                        <button
+                            onClick={handleResetAll}
+                            className="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded shadow-sm text-sm transition-all w-full sm:w-auto active:scale-95"
                         >
                             Reset All
                         </button>
+                    </div>
 
+                    {/* Title Section (Center on Desktop, Top on Mobile) */}
+                    <div className="text-center order-first lg:order-none">
+                        <h2 className="text-xl md:text-2xl font-bold text-green-700">
+                            Gate Pass Inventory
+                        </h2>
+                    </div>
+
+                    {/* Export Section (Right side on Desktop, Bottom on Mobile) */}
+                    <div className="w-full lg:w-auto">
                         {role === "admin" && (
-                            <button onClick={handleExportExcel} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded shadow-sm transition-all">
-                                Export
+                            <button
+                                onClick={handleExportExcel}
+                                className="bg-green-600 text-white px-4 py-1.5 rounded shadow-sm hover:bg-green-700 transition-all w-full sm:w-auto text-sm font-medium active:scale-95"
+                            >
+                                Export Excel
                             </button>
                         )}
                     </div>
-                    <h2 className="sm:absolute sm:left-1/2 sm:-translate-x-1/2 text-xl md:text-2xl font-bold text-center w-full sm:w-auto text-green-700">
-                        Gate Pass Inventory
-                    </h2>
                 </div>
 
                 {loading ? (
@@ -256,16 +293,16 @@ const AllGatePass = () => {
                                 <tr key={`${gp._id}-${idx}`} className="text-center even:bg-gray-50 hover:bg-amber-50 transition-colors">
                                     <td className="border px-2 py-1">{gp.tripDo}</td>
                                     <td className="border px-2 py-1 whitespace-nowrap">{gp.tripDate ? new Date(gp.tripDate).toLocaleDateString() : "-"}</td>
-                                    <td className="border px-2 py-1 font-medium">{gp.customerName}</td>
-                                    <td className="border px-2 py-1">{gp.csd}</td>
-                                    <td className="border px-2 py-1 text-gray-600">{gp.unit || "-"}</td>
-                                    <td className="border px-2 py-1">{gp.vehicleNo}</td>
+                                    <td className="border px-2 py-1">{gp.customerName}</td>
+                                    <td className="border px-2 py-1">{gp.csd?.toUpperCase()}</td>
+                                    <td className="border px-2 py-1 text-gray-600">{gp.unit?.toUpperCase() || "-"}</td>
+                                    <td className="border px-2 py-1">{gp.vehicleNo?.toUpperCase()}</td>
                                     <td className="border px-2 py-1">{gp.zone}</td>
                                     <td className="border px-2 py-1">{p.productName}</td>
-                                    <td className="border px-2 py-1">{p.model}</td>
-                                    <td className="border px-2 py-1 font-bold text-green-700">{p.quantity}</td>
-                                    <td className="border px-2 py-1">
-                                        <ActionDropdown gp={gp} p={p} axiosSecure={axiosSecure} setGatePasses={setGatePasses} currentUser={gp.currentUser}/>
+                                    <td className="border px-2 py-1">{p.model?.toUpperCase()}</td>
+                                    <td className="border px-2 py-1 font-bold text-black">{p.quantity}</td>
+                                    <td className="border px-2 ">
+                                        <ActionDropdown gp={gp} p={p} axiosSecure={axiosSecure} setGatePasses={setGatePasses} currentUser={gp.currentUser} />
                                     </td>
                                 </tr>
                             ))}
