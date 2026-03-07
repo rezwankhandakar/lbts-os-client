@@ -402,9 +402,9 @@ const RootLayout = () => {
   };
 
   const linkClass = ({ isActive }) =>
-    `flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group ${
+    `flex items-center gap-3 px-4 py-1.5 rounded-xl transition-all duration-300 group ${
       isActive
-        ? "bg-orange-500 text-white shadow-lg shadow-orange-200 font-semibold scale-[1.02]"
+        ? "bg-orange-500 text-white shadow-lg shadow-orange-200 font-semibold "
         : "text-gray-600 hover:bg-orange-50 hover:text-orange-600"
     }`;
 
@@ -490,11 +490,11 @@ const RootLayout = () => {
       </div>
 
       {/* ================= Sidebar Design ================= */}
-      <div className={`drawer-side z-50 transition-all duration-300 ${!isSidebarOpen ? 'lg:w-0' : 'lg:w-72'}`}>
+      <div className={`drawer-side z-50 transition-all duration-300 ${!isSidebarOpen ? 'lg:w-0' : 'lg:w-60'}`}>
         <label htmlFor="my-drawer-4" aria-label="close sidebar" className="drawer-overlay"></label>
         
         {/* Dynamic Width Sidebar Container */}
-        <div className={`p-5 min-h-full bg-white border-r border-gray-100 flex flex-col transition-all duration-300 overflow-hidden ${isSidebarOpen ? 'w-72' : 'w-0 p-0 border-none'}`}>
+        <div className={`p-5 min-h-full bg-white border-r border-gray-100 flex flex-col transition-all duration-300 overflow-hidden ${isSidebarOpen ? 'w-60' : 'w-0 p-0 border-none'}`}>
           
           {/* Logo Section */}
           <div className="flex items-center gap-3 px-4 mb-10 mt-2 whitespace-nowrap">
@@ -502,17 +502,15 @@ const RootLayout = () => {
               <FiPackage className="text-white text-xl" />
             </div>
             <div className="flex flex-col">
-              <span className="text-xl font-black text-gray-900 leading-none tracking-tight">IMS<span className="text-orange-500">SYSTEM</span></span>
-              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1 italic">Enterprise Hub</span>
+              <span className="text-xl font-black text-gray-900 leading-none tracking-tight">LBTS <span className="text-orange-500">SYSTEM</span></span>
             </div>
           </div>
 
-          <div className="space-y-6 overflow-y-auto no-scrollbar pb-10 flex-1">
+          <div className="space-y-2 overflow-y-auto no-scrollbar pb-1 flex-1">
             {/* General */}
             <div className="whitespace-nowrap">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-[2px] px-4 mb-3">General</p>
-              <ul className="space-y-1 text-sm">
-                <li><NavLink to="/" onClick={closeDrawer} className={linkClass}><FiHome size={18} /> Home Dashboard</NavLink></li>
+              <ul className=" text-sm">
+                <li><NavLink to="/" onClick={closeDrawer} className={linkClass}><FiHome size={18} /> Home</NavLink></li>
                 {role === 'admin' && status === 'approved' && (
                   <li><NavLink to="/user-management" onClick={closeDrawer} className={linkClass}><FiUsers size={18} /> User Control</NavLink></li>
                 )}
@@ -521,31 +519,35 @@ const RootLayout = () => {
 
             {/* Inventory */}
             <div className="whitespace-nowrap">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-[2px] px-4 mb-3">Inventory Management</p>
               <ul className="space-y-1 text-sm">
-                <li><NavLink to="/add-gate-pass" onClick={closeDrawer} className={linkClass}><FaPlusCircle className="text-blue-500 group-[.active]:text-white" /> Create Gate Pass</NavLink></li>
-                <li><NavLink to="/all-gate-pass" onClick={closeDrawer} className={linkClass}><FaFileInvoice className="text-blue-500 group-[.active]:text-white" /> Gate Pass Log</NavLink></li>
+                <li><NavLink to="/add-gate-pass" onClick={closeDrawer} className={linkClass}><FaPlusCircle className="text-blue-500 group-[.active]:text-white" /> Add Gate Pass</NavLink></li>
+                <li><NavLink to="/all-gate-pass" onClick={closeDrawer} className={linkClass}><FaFileInvoice className="text-blue-500 group-[.active]:text-white" /> Gate Pass Inventory</NavLink></li>
               </ul>
             </div>
 
             {/* Billing */}
             <div className="whitespace-nowrap">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-[2px] px-4 mb-3">Billing & Challan</p>
               <ul className="space-y-1 text-sm">
-                <li><NavLink to="/add-challan" onClick={closeDrawer} className={linkClass}><FiPlusCircle className="text-green-500 group-[.active]:text-white" /> New Challan</NavLink></li>
-                <li><NavLink to="/all-challan" onClick={closeDrawer} className={linkClass}><FiFileText className="text-green-500 group-[.active]:text-white" /> Challan Records</NavLink></li>
+                <li><NavLink to="/add-challan" onClick={closeDrawer} className={linkClass}><FiPlusCircle className="text-green-500 group-[.active]:text-white" /> Add Challan</NavLink></li>
+                <li><NavLink to="/all-challan" onClick={closeDrawer} className={linkClass}><FiFileText className="text-green-500 group-[.active]:text-white" /> Challan Inventory</NavLink></li>
               </ul>
             </div>
 
             {/* Vendor */}
             <div className="whitespace-nowrap">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-[2px] px-4 mb-3">Supplier Portal</p>
               <ul className="space-y-1 text-sm">
                 <li><NavLink to="/add-vendor" onClick={closeDrawer} className={linkClass}><FiTruck className="text-purple-500 group-[.active]:text-white" /> Add Vendor</NavLink></li>
                 <li><NavLink to="/all-vendor" onClick={closeDrawer} className={linkClass}><FiUsers className="text-purple-500 group-[.active]:text-white" /> Vendor Database</NavLink></li>
               </ul>
             </div>
           </div>
+
+            {/* Delivery */}
+            <div className="whitespace-nowrap">
+              <ul className="space-y-1 text-sm">
+                <li><NavLink to="/create-delivery" onClick={closeDrawer} className={linkClass}><FiTruck className="text-purple-500 group-[.active]:text-white" />Create Delivery</NavLink></li>               
+              </ul>
+            </div>
 
           {/* Sidebar Footer */}
           {user && (
@@ -567,3 +569,5 @@ const RootLayout = () => {
 };
 
 export default RootLayout;
+
+
