@@ -540,14 +540,17 @@ const RootLayout = () => {
                 <li><NavLink to="/all-vendor" onClick={closeDrawer} className={linkClass}><FiUsers className="text-purple-500 group-[.active]:text-white" /> Vendor Database</NavLink></li>
               </ul>
             </div>
-          </div>
 
-            {/* Delivery */}
+               {/* Delivery */}
             <div className="whitespace-nowrap">
               <ul className="space-y-1 text-sm">
                 <li><NavLink to="/create-delivery" onClick={closeDrawer} className={linkClass}><FiTruck className="text-purple-500 group-[.active]:text-white" />Create Delivery</NavLink></li>               
+                <li><NavLink to="/deliverd" onClick={closeDrawer} className={linkClass}><FiTruck className="text-purple-500 group-[.active]:text-white" />Deliverd</NavLink></li>               
               </ul>
             </div>
+          </div>
+
+         
 
           {/* Sidebar Footer */}
           {user && (

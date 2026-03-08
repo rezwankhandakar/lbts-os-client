@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import { useSearch } from "../hooks/SearchContext";
@@ -6,7 +5,7 @@ import useRole from "../hooks/useRole";
 import Swal from "sweetalert2";
 import {
     FaEdit, FaTrashAlt, FaUserEdit, FaTimes,
-    FaSave, FaBoxOpen, FaPlusCircle, FaTruck, FaMapMarkerAlt, FaPhoneAlt
+    FaSave, FaBoxOpen, FaPlusCircle, FaTruck, FaPhoneAlt
 } from "react-icons/fa";
 
 const CreateDelivery = () => {
@@ -16,22 +15,33 @@ const CreateDelivery = () => {
     const { searchText } = useSearch();
     const { role } = useRole();
 
-    // Delivery Queue State
-    const [deliveryQueue, setDeliveryQueue] = useState([]);
+    // --- Delivery Details State ---
+    const [deliveryInfo, setDeliveryInfo] = useState({
+        vehicleNumber: "",
+        vendorName: "",
+        vendorNumber: "",
+        driverName: "",
+        driverNumber: ""
+    });
 
-    // Modal State
+    const [deliveryQueue, setDeliveryQueue] = useState([]);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingChallan, setEditingChallan] = useState(null);
+    const [vehicleSuggestions, setVehicleSuggestions] = useState([]);
 
-    const [month, setMonth] = useState(new Date().getMonth() + 1);
-    const [year, setYear] = useState(new Date().getFullYear());
+    const handleDeliveryInfoChange = (e) => {
+        const { name, value } = e.target;
+        setDeliveryInfo(prev => ({ ...prev, [name]: value }));
+    };
 
-    const fetchChallans = async (m, y, search) => {
+    const fetchChallans = async (search) => {
+        if (!search) {
+            setChallans([]);
+            return;
+        }
         setLoading(true);
         try {
-            let url = `/challans?month=${m}&year=${y}`;
-            if (search) url += `&search=${search}`;
-            const res = await axiosSecure.get(url);
+            const res = await axiosSecure.get(`/challans?search=${search}`);
             setChallans(res.data.data || res.data || []);
         } catch (err) {
             console.error("Error fetching challans:", err);
@@ -40,8 +50,11 @@ const CreateDelivery = () => {
     };
 
     useEffect(() => {
-        fetchChallans(month, year, searchText);
-    }, [month, year, searchText]);
+        const delayDebounceFn = setTimeout(() => {
+            fetchChallans(searchText);
+        }, 500);
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchText]);
 
     const addToDelivery = (challan) => {
         const isExist = deliveryQueue.find(item => item._id === challan._id);
@@ -61,70 +74,206 @@ const CreateDelivery = () => {
         setIsEditModalOpen(true);
     };
 
-    const handleProductChange = (index, field, value) => {
-        const updatedProducts = [...editingChallan.products];
-        updatedProducts[index][field] = value;
-        setEditingChallan({ ...editingChallan, products: updatedProducts });
-    };
+const handleConfirmDispatch = async () => {
 
-    const handleSaveChallanUpdate = async (e) => {
-        e.preventDefault();
-        try {
-            const res = await axiosSecure.patch(`/challans/${editingChallan._id}`, editingChallan);
-            if (res.data.success) {
-                Swal.fire("Updated!", "Challan data updated.", "success");
-                setIsEditModalOpen(false);
-                fetchChallans(month, year, searchText);
-                // যদি ওই আইটেম কিউতে থাকে তবে সেখানেও আপডেট করুন
-                setDeliveryQueue(prev => prev.map(item => item._id === editingChallan._id ? editingChallan : item));
-            }
-        } catch (err) {
-            Swal.fire("Error", "Update failed", "error");
+    if (!deliveryInfo.vehicleNumber || !deliveryInfo.driverNumber) {
+        return Swal.fire("Required", "Please fill Vehicle and Driver details", "warning");
+    }
+
+    if (deliveryQueue.length === 0) {
+        return Swal.fire("Empty", "No challan selected", "warning");
+    }
+
+ const deliveryData = deliveryQueue.map(c => ({
+    challanId: c._id.toString(), // 🔑 ObjectId to string
+    vehicleNumber: deliveryInfo.vehicleNumber,
+    vendorName: deliveryInfo.vendorName,
+    vendorNumber: deliveryInfo.vendorNumber,
+    driverName: deliveryInfo.driverName,
+    driverNumber: deliveryInfo.driverNumber,
+
+    customerName: c.customerName,
+    zone: c.zone,
+    address: c.address,
+    thana: c.thana,
+    district: c.district,
+    receiverNumber: c.receiverNumber,
+
+    products: c.products, 
+
+    createdBy: role?.email || "unknown",
+    createdAt: new Date()
+}));
+
+    try {
+
+        const res = await axiosSecure.post("/deliveries", deliveryData);
+
+        if (res.data.insertedCount > 0) {
+
+            Swal.fire("Success", "Delivery Created Successfully 🚚", "success");
+
+            setDeliveryQueue([]);
+
+            setDeliveryInfo({
+                vehicleNumber: "",
+                vendorName: "",
+                vendorNumber: "",
+                driverName: "",
+                driverNumber: ""
+            });
+
         }
-    };
 
-    const filteredChallans = challans.filter((c) => {
-        return !searchText ||
-            [c.customerName, c.address, c.district, c.zone].some(v => v?.toLowerCase().includes(searchText.toLowerCase()));
+    } catch (error) {
+
+        console.error(error);
+        Swal.fire("Error", "Delivery failed", "error");
+
+    }
+};
+
+
+    const handleVehicleSearch = async (e) => {
+
+    const value = e.target.value;
+
+    setDeliveryInfo(prev => ({
+        ...prev,
+        vehicleNumber: value
+    }));
+
+    if (value.length < 2) {
+        setVehicleSuggestions([]);
+        return;
+    }
+
+    try {
+
+        const res = await axiosSecure.get(`/vehicles/search?search=${value}`);
+
+        setVehicleSuggestions(res.data || []);
+
+    } catch (error) {
+        console.error(error);
+    }
+};
+
+
+const handleSelectVehicle = (vehicle) => {
+
+    setDeliveryInfo({
+        vehicleNumber: vehicle.vehicleNumber,
+        vendorName: vehicle.vendorName,
+        vendorNumber: vehicle.vendorPhone,
+        driverName: vehicle.driverName,
+        driverNumber: vehicle.driverPhone
     });
 
-    const handleRemoveProduct = (index) => {
-        const updatedProducts = editingChallan.products.filter((_, i) => i !== index);
-        setEditingChallan({ ...editingChallan, products: updatedProducts });
-    };
-
+    setVehicleSuggestions([]);
+};
     return (
         <div className="min-h-screen bg-gray-100 p-2 md:p-6 font-sans">
-            <div className="max-w-[1700px] mx-auto">
+            <div className="max-w-[1700px] mx-auto text-left">
 
-                {/* --- Header Section --- */}
-                <div className="bg-white p-4 rounded-2xl shadow-sm mb-6 flex flex-col md:flex-row justify-between items-center gap-4 border-l-8 border-green-600">
-                    <div className="flex gap-2">
-                        <select className="border-2 border-gray-100 px-4 py-2 rounded-xl font-bold text-gray-700 outline-none focus:border-green-500" value={month} onChange={(e) => setMonth(parseInt(e.target.value))}>
-                            {[...Array(12)].map((_, i) => (
-                                <option key={i} value={i + 1}>{new Date(0, i).toLocaleString("default", { month: "long" })}</option>
+                {/* --- Updated Header Section --- */}
+                <div className="bg-white p-6 rounded-3xl shadow-sm mb-6 border-l-8 border-green-600 transition-all">
+                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                        <div className="shrink-0">
+                            <h2 className="text-3xl font-black text-gray-800 tracking-tighter uppercase leading-none">
+                                Delivery <span className="text-green-600">Planner</span>
+                            </h2>
+                            <p className="text-[10px] font-black text-gray-400 mt-2 uppercase tracking-widest flex items-center gap-2">
+                                Search Results: 
+                                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-md">{challans.length} Items</span>
+                            </p>
+                        </div>
+
+                        {/* Input Fields Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 w-full">
+                            {[
+                                { label: "Vehicle Number", name: "vehicleNumber", placeholder: "e.g. DHAKA-METRO-123" },
+                                { label: "Vendor Name", name: "vendorName", placeholder: "Company Name" },
+                                { label: "Vendor Phone", name: "vendorNumber", placeholder: "01XXX-XXXXXX" },
+                                { label: "Driver Name", name: "driverName", placeholder: "Full Name" },
+                                { label: "Driver Phone", name: "driverNumber", placeholder: "01XXX-XXXXXX" },
+                            ].map((field) => (
+                                <div key={field.name} className="space-y-1">
+                                    <label className="text-[9px] font-black text-gray-400 uppercase ml-1">{field.label}</label>
+                                   {field.name === "vehicleNumber" ? (
+
+<div className="relative">
+
+<input
+    type="text"
+    name="vehicleNumber"
+    value={deliveryInfo.vehicleNumber}
+    onChange={handleVehicleSearch}
+    placeholder={field.placeholder}
+    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 outline-none focus:border-green-500 focus:bg-white transition-all"
+/>
+
+{vehicleSuggestions.length > 0 && (
+
+<div className="absolute top-full left-0 w-full bg-white border rounded-xl shadow-lg z-50 max-h-60 overflow-auto">
+
+{vehicleSuggestions.map((v,i)=>(
+
+<div
+key={i}
+onClick={()=>handleSelectVehicle(v)}
+className="p-2 hover:bg-green-100 cursor-pointer text-xs"
+>
+
+<p className="font-bold">{v.vehicleNumber}</p>
+<p className="text-gray-500">{v.vendorName} | {v.driverName}</p>
+
+</div>
+
+))}
+
+</div>
+
+)}
+
+</div>
+
+) : (
+
+<input
+    type="text"
+    name={field.name}
+    value={deliveryInfo[field.name]}
+    onChange={handleDeliveryInfoChange}
+    placeholder={field.placeholder}
+    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 outline-none focus:border-green-500 focus:bg-white transition-all"
+/>
+
+)}
+                                </div>
                             ))}
-                        </select>
-                        <input type="number" className="border-2 border-gray-100 px-4 py-2 rounded-xl w-28 font-bold text-gray-700 outline-none focus:border-green-500" value={year} onChange={(e) => setYear(parseInt(e.target.value))} />
+                        </div>
                     </div>
-                    <h2 className="text-2xl font-black text-gray-800 tracking-tighter uppercase">Delivery <span className="text-green-600">Planner</span></h2>
-                    <div className="bg-green-50 text-green-700 px-6 py-2 rounded-full font-black border border-green-200">Total: {filteredChallans.length}</div>
                 </div>
 
                 {/* --- Main Dashboard --- */}
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
 
-                    {/* LEFT SIDE: Available Challans (5 Columns) */}
+                    {/* LEFT SIDE: Available Challans */}
                     <div className="xl:col-span-4 space-y-4 max-h-[82vh] overflow-y-auto pr-2 custom-scrollbar">
-                        <p className="text-xs font-black text-gray-400 uppercase ml-1">Challan List</p>
+                        <p className="text-xs font-black text-gray-400 uppercase ml-1 text-left">
+                            {searchText ? `Found for: "${searchText}"` : "Enter text in search bar to find challans"}
+                        </p>
 
                         {loading ? (
-                            <div className="p-10 text-center font-bold text-green-600 animate-bounce">Loading...</div>
+                            <div className="p-10 text-center font-bold text-green-600 animate-pulse">Searching...</div>
+                        ) : challans.length === 0 ? (
+                            <div className="bg-white p-8 rounded-2xl text-center border-2 border-dashed border-gray-200">
+                                <p className="text-gray-400 font-bold uppercase text-xs">No Data to Display</p>
+                            </div>
                         ) : (
-                            filteredChallans.map((c) => (
-                                <div key={c._id} className="bg-white rounded-2xl shadow-sm border-b-4 border-gray-200 hover:border-green-500 transition-all overflow-hidden group">
-
-                                    {/* Card Header */}
+                            challans.map((c) => (
+                                <div key={c._id} className="bg-white rounded-2xl shadow-sm border-b-4 border-gray-200 hover:border-green-500 transition-all overflow-hidden text-left">
                                     <div className="bg-gray-800 p-3 text-white flex justify-between items-center">
                                         <span className="text-[10px] font-mono tracking-widest opacity-70 uppercase">#{c._id.slice(-6)}</span>
                                         <div className="flex gap-2">
@@ -136,26 +285,14 @@ const CreateDelivery = () => {
                                             </button>
                                         </div>
                                     </div>
-
-                                    {/* Card Body */}
                                     <div className="p-4">
                                         <h3 className="text-lg font-black text-blue-900 uppercase truncate mb-1">{c.customerName}</h3>
                                         <p className="text-[11px] text-green-700 font-bold uppercase mb-2 tracking-tighter">Zone: {c.zone}</p>
-
-                                        {/* Customer Details - Wrapped for long addresses */}
-                                        <div className="space-y-1 mb-4 border-l-2 border-gray-100 pl-2">
-                                            <p className="text-[11px] text-gray-500 whitespace-normal break-words leading-relaxed">
-                                                <strong className="text-gray-700">Address:</strong> {c.address}
-                                            </p>
-                                            <p className="text-[11px] text-gray-500 whitespace-normal break-words">
-                                                <strong className="text-gray-700">Thana:</strong> {c.thana}, <strong className="text-gray-700">District:</strong> {c.district}
-                                            </p>
-                                            <p className="text-[11px] text-gray-600 font-bold italic">
-                                                <strong className="text-gray-700 not-italic">Receiver:</strong> {c.receiverNumber}
-                                            </p>
+                                        <div className="space-y-1 mb-4 border-l-2 border-gray-100 pl-2 text-[11px] text-gray-500">
+                                            <p className="whitespace-normal break-words leading-relaxed"><strong className="text-gray-700">Address:</strong> {c.address}</p>
+                                            <p><strong className="text-gray-700">Thana:</strong> {c.thana}, <strong className="text-gray-700">District:</strong> {c.district}</p>
+                                            <p className="font-bold italic"><strong className="text-gray-700 not-italic">Receiver:</strong> {c.receiverNumber}</p>
                                         </div>
-
-                                        {/* Product List Table */}
                                         <div className="bg-gray-50 rounded-xl p-2 border border-gray-100">
                                             <table className="w-full text-[11px]">
                                                 <thead>
@@ -174,25 +311,14 @@ const CreateDelivery = () => {
                                                 </tbody>
                                             </table>
                                         </div>
-
-                                        {/* Footer with Total */}
-                                        <div className="mt-3 pt-2 flex justify-between items-center border-t border-dashed border-gray-300">
-                                            <span className="text-[10px] font-black text-gray-400 uppercase">
-                                                {c.products?.length || 0} Models
-                                            </span>
-                                            <span className="text-base font-black text-gray-800">
-                                                {c.products?.reduce((sum, p) => sum + Number(p.quantity), 0)}
-                                                <small className="text-[10px] ml-1 uppercase text-gray-500">Total Pcs</small>
-                                            </span>
-                                        </div>
                                     </div>
                                 </div>
                             ))
                         )}
                     </div>
 
-                    {/* RIGHT SIDE: Delivery Queue (8 Columns) */}
-                    <div className="xl:col-span-8 bg-white rounded-3xl shadow-xl border border-gray-200 min-h-[70vh] flex flex-col overflow-hidden">
+                    {/* RIGHT SIDE: Delivery Queue */}
+                    <div className="xl:col-span-8 bg-white rounded-3xl shadow-xl border border-gray-200 min-h-[70vh] flex flex-col overflow-hidden text-left">
                         <div className="bg-green-600 p-5 text-white flex justify-between items-center">
                             <div>
                                 <h3 className="text-xl font-black flex items-center gap-2 uppercase tracking-tight"><FaTruck /> Delivery Queue</h3>
@@ -217,19 +343,15 @@ const CreateDelivery = () => {
                                     {deliveryQueue.map((item) => (
                                         <div key={item._id} className="bg-white border-2 border-gray-100 rounded-2xl p-5 relative shadow-sm hover:shadow-md transition-shadow">
                                             <button onClick={() => removeFromQueue(item._id)} className="absolute top-4 right-4 text-gray-300 hover:text-red-500 transition"><FaTimes size={20} /></button>
-
                                             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                                                {/* Info */}
                                                 <div className="md:col-span-5 border-r border-gray-100 pr-4">
                                                     <h4 className="text-lg font-black text-blue-900 uppercase leading-none mb-2">{item.customerName}</h4>
-                                                    <div className="space-y-1 text-sm">
-                                                        <p className="flex items-start gap-2 text-gray-600"><FaMapMarkerAlt className="mt-1 text-red-500 shrink-0" /> <span>{item.address}, {item.thana}, {item.district}</span></p>
-                                                        <p className="flex items-center gap-2 text-gray-600 font-bold"><FaPhoneAlt className="text-green-600 shrink-0" /> {item.receiverNumber}</p>
+                                                    <div className="space-y-1 text-sm text-gray-600">
+                                                        <p>Address: {item.address}, {item.thana}, {item.district}</p>
+                                                        <p className="font-bold flex items-center gap-2"><FaPhoneAlt className="text-green-600" /> {item.receiverNumber}</p>
                                                         <p className="mt-2 inline-block bg-blue-50 text-blue-700 text-[10px] font-black px-3 py-1 rounded-full uppercase">Zone: {item.zone}</p>
                                                     </div>
                                                 </div>
-
-                                                {/* Products Table */}
                                                 <div className="md:col-span-7">
                                                     <p className="text-[10px] font-black text-gray-400 uppercase mb-3 tracking-widest">Product Details</p>
                                                     <div className="bg-gray-50 rounded-xl overflow-hidden">
@@ -258,10 +380,12 @@ const CreateDelivery = () => {
                             )}
                         </div>
 
-                        {/* Final Action */}
                         {deliveryQueue.length > 0 && (
                             <div className="p-6 bg-white border-t-2 border-gray-100">
-                                <button className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xl shadow-2xl flex items-center justify-center gap-4 transition-transform active:scale-95 uppercase tracking-tighter">
+                                <button 
+                                    onClick={handleConfirmDispatch}
+                                    className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xl shadow-2xl flex items-center justify-center gap-4 transition-transform active:scale-95 uppercase tracking-tighter"
+                                >
                                     Confirm Dispatch & Print Challan <FaTruck size={24} />
                                 </button>
                             </div>
@@ -270,122 +394,21 @@ const CreateDelivery = () => {
                 </div>
             </div>
 
-            {/* --- EDIT MODAL (Previous Style Maintained) --- */}
+            {/* --- Edit Modal --- */}
             {isEditModalOpen && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-hidden">
-                    <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-xl flex flex-col max-h-[90vh] border border-gray-100">
-
-                        {/* --- Compact Header --- */}
-                        <div className="bg-gray-900 p-4 text-white flex justify-between items-center shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-green-500/20 rounded-lg"><FaEdit className="text-green-400" size={14} /></div>
-                                <div>
-                                    <h3 className="text-sm font-black uppercase tracking-widest leading-none">Update Challan</h3>
-                                    <p className="text-[9px] text-gray-400 font-bold mt-1 uppercase opacity-70">ID: {editingChallan._id.slice(-6)}</p>
-                                </div>
-                            </div>
-                            <button onClick={() => setIsEditModalOpen(false)} className="hover:bg-red-500/20 p-2 rounded-full transition-colors group">
-                                <FaTimes size={16} className="text-gray-400 group-hover:text-red-500" />
-                            </button>
-                        </div>
-
-                        {/* --- Scrollable Body (Single Column) --- */}
-                        <form onSubmit={handleSaveChallanUpdate} className="p-5 overflow-y-auto custom-scrollbar space-y-5 bg-gray-50/30">
-
-                            {/* Customer Information Grid */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="col-span-2">
-                                    <label className="text-[9px] font-black text-gray-400 uppercase ml-1 block mb-1">Customer Name</label>
-                                    <input type="text" className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm font-black text-blue-900 focus:border-blue-500 outline-none shadow-sm transition-all" value={editingChallan.customerName} onChange={(e) => setEditingChallan({ ...editingChallan, customerName: e.target.value })} required />
-                                </div>
-
-                                <div>
-                                    <label className="text-[9px] font-black text-gray-400 uppercase ml-1 block mb-1">Receiver Phone</label>
-                                    <input type="text" className="w-full bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-700 outline-none focus:border-green-500" value={editingChallan.receiverNumber} onChange={(e) => setEditingChallan({ ...editingChallan, receiverNumber: e.target.value })} />
-                                </div>
-
-                                <div>
-                                    <label className="text-[9px] font-black text-gray-400 uppercase ml-1 block mb-1">Zone</label>
-                                    <input type="text" className="w-full bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-700 outline-none focus:border-green-500" value={editingChallan.zone} onChange={(e) => setEditingChallan({ ...editingChallan, zone: e.target.value })} />
-                                </div>
-
-                                <div>
-                                    <label className="text-[9px] font-black text-gray-400 uppercase ml-1 block mb-1">Thana</label>
-                                    <input type="text" className="w-full bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-700 outline-none focus:border-green-500" value={editingChallan.thana} onChange={(e) => setEditingChallan({ ...editingChallan, thana: e.target.value })} />
-                                </div>
-
-                                <div>
-                                    <label className="text-[9px] font-black text-gray-400 uppercase ml-1 block mb-1">District</label>
-                                    <input type="text" className="w-full bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-700 outline-none focus:border-green-500" value={editingChallan.district} onChange={(e) => setEditingChallan({ ...editingChallan, district: e.target.value })} />
-                                </div>
-
-                                <div className="col-span-2">
-                                    <label className="text-[9px] font-black text-gray-400 uppercase ml-1 block mb-1">Address</label>
-                                    <textarea rows="2" className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-medium text-gray-600 outline-none focus:border-green-500 resize-none shadow-sm" value={editingChallan.address} onChange={(e) => setEditingChallan({ ...editingChallan, address: e.target.value })} />
-                                </div>
-                            </div>
-
-                            {/* --- Compact Product List --- */}
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between border-b border-gray-100 pb-1.5">
-                                    <h4 className="text-[10px] font-black text-gray-800 uppercase flex items-center gap-2">
-                                        <FaBoxOpen className="text-blue-500" /> Product Items ({editingChallan.products?.length})
-                                    </h4>
-                                </div>
-
-                                <div className="space-y-2">
-                                    {editingChallan.products?.map((product, index) => (
-                                        <div key={index} className="flex gap-2 items-center group">
-                                            <div className="flex-grow grid grid-cols-12 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm group-hover:border-blue-200 transition-all">
-                                                <div className="col-span-8 p-1">
-                                                    <input
-                                                        type="text"
-                                                        className="w-full px-2 py-1 text-xs font-bold text-gray-700 bg-transparent outline-none uppercase"
-                                                        placeholder="Model"
-                                                        value={product.model}
-                                                        onChange={(e) => handleProductChange(index, "model", e.target.value)}
-                                                    />
-                                                </div>
-                                                <div className="col-span-4 border-l border-gray-100 bg-blue-50/30 p-1">
-                                                    <input
-                                                        type="number"
-                                                        className="w-full px-2 py-1 text-xs font-black text-center text-blue-700 bg-transparent outline-none"
-                                                        placeholder="Qty"
-                                                        value={product.quantity}
-                                                        onChange={(e) => handleProductChange(index, "quantity", e.target.value)}
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <button
-                                                type="button"
-                                                onClick={() => handleRemoveProduct(index)}
-                                                className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-300 hover:bg-red-50 hover:text-red-500 transition-all"
-                                            >
-                                                <FaTrashAlt size={12} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </form>
-
-                        {/* --- Action Footer --- */}
-                        <div className="p-5 bg-white border-t border-gray-50 flex gap-3 shrink-0">
-                            <button
-                                type="button"
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl">
+                         <div className="bg-gray-800 p-4 text-white flex justify-between items-center">
+                            <h3 className="font-black uppercase tracking-widest">Edit Challan Details</h3>
+                            <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-white"><FaTimes size={20}/></button>
+                         </div>
+                         <div className="p-6">
+                            <p className="text-center text-gray-400 py-10 font-bold">Edit Fields logic goes here...</p>
+                            <button 
                                 onClick={() => setIsEditModalOpen(false)}
-                                className="flex-1 py-3 bg-gray-50 text-gray-400 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-gray-100 transition-all"
-                            >
-                                Discard
-                            </button>
-                            <button
-                                onClick={handleSaveChallanUpdate}
-                                className="flex-[2] py-3 bg-green-600 rounded-xl font-black text-white shadow-lg hover:bg-green-700 transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-[10px]"
-                            >
-                                <FaSave /> Update All
-                            </button>
-                        </div>
+                                className="w-full py-3 bg-gray-100 text-gray-600 rounded-xl font-bold"
+                            > Close </button>
+                         </div>
                     </div>
                 </div>
             )}

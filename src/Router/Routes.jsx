@@ -16,6 +16,7 @@ import AddVendor from "../Pages/AddVendor";
 import AllVendor from "../Pages/AllVendor";
 import VendorDetails from "../Pages/VendorDetails";
 import CreateDelivery from "../Pages/CreateDelivery";
+import DeliveryDetailsPage from "../Pages/DeliveryDetailsPage";
 
 
 export const router = createBrowserRouter([
@@ -76,6 +77,10 @@ export const router = createBrowserRouter([
       {
         path: "/create-delivery",
         Component: CreateDelivery
+      },
+      {
+        path: "/deliverd",
+        Component: DeliveryDetailsPage
       }
     ]
 
