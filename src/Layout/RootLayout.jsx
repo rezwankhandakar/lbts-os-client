@@ -546,6 +546,8 @@ const RootLayout = () => {
               <ul className="space-y-1 text-sm">
                 <li><NavLink to="/create-delivery" onClick={closeDrawer} className={linkClass}><FiTruck className="text-purple-500 group-[.active]:text-white" />Create Delivery</NavLink></li>               
                 <li><NavLink to="/deliverd" onClick={closeDrawer} className={linkClass}><FiTruck className="text-purple-500 group-[.active]:text-white" />Deliverd</NavLink></li>               
+                <li><NavLink to="/trip-inventory" onClick={closeDrawer} className={linkClass}><FiTruck className="text-purple-500 group-[.active]:text-white" />Trip Inventory</NavLink></li>               
+                              
               </ul>
             </div>
           </div>

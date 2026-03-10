@@ -16,7 +16,10 @@ import AddVendor from "../Pages/AddVendor";
 import AllVendor from "../Pages/AllVendor";
 import VendorDetails from "../Pages/VendorDetails";
 import CreateDelivery from "../Pages/CreateDelivery";
-import DeliveryDetailsPage from "../Pages/DeliveryDetailsPage";
+import DeliveredPage from "../Pages/Deliverd";
+import TripInventoryPage from "../Pages/TripInventoryPage";
+
+
 
 
 export const router = createBrowserRouter([
@@ -80,8 +83,13 @@ export const router = createBrowserRouter([
       },
       {
         path: "/deliverd",
-        Component: DeliveryDetailsPage
+        Component: DeliveredPage
+      },
+      {
+        path: "/trip-inventory",
+        Component: TripInventoryPage
       }
+    
     ]
 
   },
