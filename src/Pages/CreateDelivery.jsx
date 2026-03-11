@@ -139,87 +139,107 @@ const CreateDelivery = () => {
         }
     };
 
-    const handleConfirmDispatch = async () => {
-        if (!deliveryInfo.vehicleNumber || !deliveryInfo.driverNumber) {
-            return Swal.fire("Required", "Vehicle and Driver details are mandatory", "warning");
-        }
-        if (deliveryQueue.length === 0) {
-            return Swal.fire("Empty Queue", "Please add at least one challan", "warning");
+    // const handleConfirmDispatch = async () => {
+    //     if (!deliveryInfo.vehicleNumber || !deliveryInfo.driverNumber) {
+    //         return Swal.fire("Required", "Vehicle and Driver details are mandatory", "warning");
+    //     }
+    //     if (deliveryQueue.length === 0) {
+    //         return Swal.fire("Empty Queue", "Please add at least one challan", "warning");
+    //     }
+
+    //     const deliveryData = deliveryQueue.map(c => ({
+    //         ...deliveryInfo,
+    //         challanId: c._id.toString(),
+    //         customerName: c.customerName,
+    //         zone: c.zone,
+    //         address: c.address,
+    //         thana: c.thana,
+    //         district: c.district,
+    //         receiverNumber: c.receiverNumber,
+    //         products: c.products,
+    //         createdBy: role?.email || "unknown",
+    //     }));
+
+    //     try {
+    //         const res = await axiosSecure.post("/deliveries", deliveryData);
+    //         if (res.data.insertedCount > 0) {
+    //             Swal.fire({
+    //                 title: "Dispatch Confirmed",
+    //                 html: `<p>Delivery created successfully!</p><p class="text-green-600 font-bold">Trip ID: ${res.data.tripNumber || 'N/A'}</p>`,
+    //                 icon: "success"
+    //             });
+    //             setDeliveryQueue([]);
+    //             setDeliveryInfo({ vehicleNumber: "", vendorName: "", vendorNumber: "", driverName: "", driverNumber: "" });
+    //         }
+    //     } catch (error) {
+    //         Swal.fire("Error", "Failed to create delivery. Try again.", "error");
+    //     }
+    // };
+
+
+
+const handleConfirmDispatch = async () => {
+
+    if (!deliveryInfo.vehicleNumber || !deliveryInfo.driverNumber) {
+        return Swal.fire("Required", "Vehicle and Driver details are mandatory", "warning");
+    }
+
+    if (deliveryQueue.length === 0) {
+        return Swal.fire("Empty Queue", "Please add at least one challan", "warning");
+    }
+
+    const deliveryData = deliveryQueue.map(c => ({
+        ...deliveryInfo,
+        challanId: c._id,
+        customerName: c.customerName,
+        zone: c.zone,
+        address: c.address,
+        thana: c.thana,
+        district: c.district,
+        receiverNumber: c.receiverNumber,
+        products: c.products,
+        createdBy: role?.email || "unknown"
+    }));
+
+    try {
+
+        const res = await axiosSecure.post("/deliveries", deliveryData);
+
+        if (res.data.success) {
+
+            Swal.fire({
+                title: "Dispatch Confirmed",
+                html: `<p>Delivery created successfully!</p>
+                       <p class="text-green-600 font-bold">
+                       Trip ID: ${res.data.tripNumber}
+                       </p>`,
+                icon: "success"
+            });
+
+            setDeliveryQueue([]);
+
+            setDeliveryInfo({
+                vehicleNumber: "",
+                vendorName: "",
+                vendorNumber: "",
+                driverName: "",
+                driverNumber: ""
+            });
+
         }
 
-        const deliveryData = deliveryQueue.map(c => ({
-            ...deliveryInfo,
-            challanId: c._id.toString(),
-            customerName: c.customerName,
-            zone: c.zone,
-            address: c.address,
-            thana: c.thana,
-            district: c.district,
-            receiverNumber: c.receiverNumber,
-            products: c.products,
-            createdBy: role?.email || "unknown",
-        }));
+    } catch (error) {
+        console.error(error);
+        Swal.fire("Error", "Failed to create delivery. Try again.", "error");
+    }
 
-        try {
-            const res = await axiosSecure.post("/deliveries", deliveryData);
-            if (res.data.insertedCount > 0) {
-                Swal.fire({
-                    title: "Dispatch Confirmed",
-                    html: `<p>Delivery created successfully!</p><p class="text-green-600 font-bold">Trip ID: ${res.data.tripNumber || 'N/A'}</p>`,
-                    icon: "success"
-                });
-                setDeliveryQueue([]);
-                setDeliveryInfo({ vehicleNumber: "", vendorName: "", vendorNumber: "", driverName: "", driverNumber: "" });
-            }
-        } catch (error) {
-            Swal.fire("Error", "Failed to create delivery. Try again.", "error");
-        }
-    };
+};
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] p-4 md:p-8 font-sans antialiased text-slate-900">
+        <div className="min-h-screen bg-[#f8fafc] md: font-sans antialiased text-slate-900">
             <div className="max-w-[1800px] mx-auto">
 
-                {/* --- Header & Vehicle Info Section --- */}
-                {/* <div className="bg-white rounded-3xl shadow-sm border border-slate-200 mb-8 overflow-hidden">
-                    <div className="bg-slate-900 p-6 flex flex-col md:flex-row justify-between items-center gap-4">
-                        <div>
-                            <h2 className="text-2xl font-black text-white flex items-center gap-3">
-                                <FaTruck className="text-green-500" /> DELIVERY <span className="text-green-500">PLANNER</span>
-                            </h2>
-                            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Operational Control Center</p>
-                        </div>
-                        <div className="flex gap-4">
-                             <div className="text-right hidden sm:block">
-                                <p className="text-slate-400 text-[10px] font-bold uppercase">Active Search Results</p>
-                                <p className="text-white font-black text-lg">{challans.length}</p>
-                             </div>
-                        </div>
-                    </div>
-
-                    <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 bg-white">
-                        <InputGroup label="Vehicle Number" icon={<FaCarSide />} name="vehicleNumber" value={deliveryInfo.vehicleNumber} onChange={handleDeliveryInfoChange} placeholder="Metro-1234" isSearchable suggestions={vehicleSuggestions} onSelect={(v) => {
-                            setDeliveryInfo({
-                                vehicleNumber: v.vehicleNumber,
-                                vendorName: v.vendorName,
-                                vendorNumber: v.vendorPhone,
-                                driverName: v.driverName,
-                                driverNumber: v.driverPhone
-                            });
-                            setVehicleSuggestions([]);
-                        }} onSearch={async (val) => {
-                             setDeliveryInfo(p => ({...p, vehicleNumber: val}));
-                             if(val.length > 1) {
-                                 const res = await axiosSecure.get(`/vehicles/search?search=${val}`);
-                                 setVehicleSuggestions(res.data || []);
-                             }
-                        }} />
-                        <InputGroup label="Vendor Name" icon={<FaBuilding />} name="vendorName" value={deliveryInfo.vendorName} onChange={handleDeliveryInfoChange} placeholder="Vendor Ltd." />
-                        <InputGroup label="Vendor Phone" icon={<FaPhoneAlt />} name="vendorNumber" value={deliveryInfo.vendorNumber} onChange={handleDeliveryInfoChange} placeholder="017xxxxxxxx" />
-                        <InputGroup label="Driver Name" icon={<FaIdBadge />} name="driverName" value={deliveryInfo.driverName} onChange={handleDeliveryInfoChange} placeholder="Mr. Driver" />
-                        <InputGroup label="Driver Phone" icon={<FaPhoneAlt />} name="driverNumber" value={deliveryInfo.driverNumber} onChange={handleDeliveryInfoChange} placeholder="018xxxxxxxx" />
-                    </div>
-                </div> */}
+                {/* --- Header & Vehicle Info Section --- */}         
 
                 <div className="bg-white rounded-3xl shadow-sm border border-slate-200 mb-8">
 
