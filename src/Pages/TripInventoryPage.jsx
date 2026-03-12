@@ -360,18 +360,21 @@ const TripInventoryPage = () => {
   }, [month, year, searchText]);
 
   // Prepare trips for table
-  const getTrips = () => {
-    return deliveries.map((t) => ({
-      tripNumber: t.tripNumber,
-      vendorName: t.vendorName,
-      driverName: t.driverName,
-      vehicleNumber: t.vehicleNumber,
-      challanQty: t.totalChallan,
-      createdAt: t.createdAt,
-      status: "Delivered",
-      challans: t.challans,
-    }));
-  };
+const getTrips = () => {
+  return deliveries.map((t) => ({
+    tripNumber: t.tripNumber,
+    vendorName: t.vendorName,
+    vendorNumber: t.vendorNumber,
+    driverName: t.driverName,
+    driverNumber: t.driverNumber,
+    vehicleNumber: t.vehicleNumber,
+    totalChallan: t.totalChallan,
+    challanQty: t.totalChallan,
+    createdAt: t.createdAt,
+    status: "Delivered",
+    challans: t.challans,
+  }));
+};
 
   const tripRows = getTrips();
 
@@ -463,45 +466,55 @@ const TripInventoryPage = () => {
         ) : (
           <table className="w-full border-collapse text-sm">
             <thead className="bg-green-600 text-white text-center">
-              <tr>
-                <th className="border p-2">Date</th>
-                <th className="border p-2">Trip Number</th>
-                <th className="border p-2">Vendor</th>
-                <th className="border p-2">Driver</th>
-                <th className="border p-2">Vehicle</th>
-                <th className="border p-2">Challans</th>
-                <th className="border p-2">Status</th>
-                <th className="border p-2">View</th>
-              </tr>
-            </thead>
+  <tr>
+    <th className="border p-2">Date</th>
+    <th className="border p-2">Trip Number</th>
+    <th className="border p-2">Vendor</th>
+    <th className="border p-2">Driver</th>
+    <th className="border p-2">Vehicle</th>
+    <th className="border p-2">Point</th>
+    <th className="border p-2">Delivery</th>
+    <th className="border p-2">Challan</th>
+    <th className="border p-2">View</th>
+  </tr>
+</thead>
             <tbody>
-              {tripRows.map((t, i) => {
-                const date = new Date(t.createdAt);
-                return (
-                  <tr key={i} className="text-center even:bg-gray-50">
-                    <td className="border px-2 py-1">{date.toLocaleDateString()}</td>
-                    <td className="border px-2 py-1 font-bold">{t.tripNumber}</td>
-                    <td className="border px-2 py-1">{t.vendorName}</td>
-                    <td className="border px-2 py-1">{t.driverName}</td>
-                    <td className="border px-2 py-1">{t.vehicleNumber}</td>
-                    <td className="border px-2 py-1">{t.challanQty}</td>
-                    <td className="border px-2 py-1">
-                      <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">
-                        Delivered
-                      </span>
-                    </td>
-                    <td className="border px-2 py-1">
-                      <button
-                        onClick={() => setSelectedTrip(t)}
-                        className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
-                      >
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
+  {tripRows.map((t, i) => {
+    const date = new Date(t.createdAt);
+    const challans = t.challans || [];
+
+    const allDelivered = challans.length > 0 && challans.every(c => c.deliveryStatus === "confirmed");
+    const allReceived = challans.length > 0 && challans.every(c => c.challanReturnStatus === "received");
+
+    return (
+      <tr key={i} className="text-center even:bg-gray-50">
+        <td className="border px-2 py-1">{date.toLocaleDateString()}</td>
+        <td className="border px-2 py-1 font-bold">{t.tripNumber}</td>
+        <td className="border px-2 py-1">{t.vendorName}</td>
+        <td className="border px-2 py-1">{t.driverName}</td>
+        <td className="border px-2 py-1">{t.vehicleNumber}</td>
+        <td className="border px-2 py-1">{t.challanQty}</td>
+        {/* Delivery Status */}
+        <td className="border px-2 py-1">
+          <span className={`px-2 py-1 rounded text-xs ${allDelivered ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+            {allDelivered ? "All Delivered" : "Not Delivered"}
+          </span>
+        </td>
+        {/* Challan Return Status */}
+        <td className="border px-2 py-1">
+          <span className={`px-2 py-1 rounded text-xs ${allReceived ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+            {allReceived ? "All Received" : "Not Received"}
+          </span>
+        </td>
+        <td className="border px-2 py-1">
+          <button onClick={() => setSelectedTrip(t)} className="bg-blue-500 text-white px-2 py-1 rounded text-xs">
+            View
+          </button>
+        </td>
+      </tr>
+    );
+  })}
+</tbody>
           </table>
         )}
       </div>
