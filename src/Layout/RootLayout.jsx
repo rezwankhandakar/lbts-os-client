@@ -490,11 +490,11 @@ const RootLayout = () => {
       </div>
 
       {/* ================= Sidebar Design ================= */}
-      <div className={`drawer-side z-50 transition-all duration-300 ${!isSidebarOpen ? 'lg:w-0' : 'lg:w-60'}`}>
-        <label htmlFor="my-drawer-4" aria-label="close sidebar" className="drawer-overlay"></label>
+      <div className={`drawer-side z-50 lg:z-40 transition-width duration-300 ${isSidebarOpen ? 'w-60' : 'w-0'}'}`}>
+        <label htmlFor="my-drawer-4" className="drawer-overlay"></label>
         
         {/* Dynamic Width Sidebar Container */}
-        <div className={`p-5 min-h-full bg-white border-r border-gray-100 flex flex-col transition-all duration-300 overflow-hidden ${isSidebarOpen ? 'w-60' : 'w-0 p-0 border-none'}`}>
+       <div className={`flex flex-col bg-white min-h-full overflow-hidden ${isSidebarOpen ? 'w-60 p-5 border-r border-gray-100' : 'w-0 p-0 border-none'}`}>
           
           {/* Logo Section */}
           <div className="flex items-center gap-3 px-4 mb-10 mt-2 whitespace-nowrap">
