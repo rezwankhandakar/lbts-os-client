@@ -241,10 +241,10 @@ const handleConfirmDispatch = async () => {
 
                 {/* --- Header & Vehicle Info Section --- */}         
 
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 mb-8">
+                <div className="bg-white shadow-sm border border-slate-200 mb-3">
 
                     {/* Header */}
-                    <div className="bg-slate-900 p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div className="bg-slate-900  p-2 flex flex-col md:flex-row justify-between items-center gap-4">
                         <div>
                             <h2 className="text-2xl font-black text-white flex items-center gap-3">
                                 <FaTruck className="text-green-500" /> DELIVERY
@@ -270,7 +270,7 @@ const handleConfirmDispatch = async () => {
                     </div>
 
                     {/* Input Section */}
-                    <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
 
                         {/* Vehicle Number */}
                         <div className="relative">
@@ -452,8 +452,8 @@ const handleConfirmDispatch = async () => {
                     </div>
 
                     {/* RIGHT: Queue & Action */}
-                    <div className="xl:col-span-8 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden min-h-[75vh]">
-                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <div className="xl:col-span-8 bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden min-h-[75vh]">
+                        <div className="p-2 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                             <div>
                                 <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Delivery Queue</h3>
                                 <p className="text-[10px] text-slate-400 font-bold uppercase">Items ready for dispatch</p>
@@ -486,10 +486,10 @@ const handleConfirmDispatch = async () => {
                         </div>
 
                         {deliveryQueue.length > 0 && (
-                            <div className="p-6 bg-white border-t border-slate-100 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
+                            <div className="p-3 bg-white border-t border-slate-100 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
                                 <button
                                     onClick={handleConfirmDispatch}
-                                    className="w-full py-5 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-black text-lg shadow-lg shadow-green-200 flex items-center justify-center gap-4 transition-all active:scale-[0.98]"
+                                    className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-black text-lg shadow-lg shadow-green-200 flex items-center justify-center gap-4 transition-all active:scale-[0.98]"
                                 >
                                     CONFIRM DISPATCH & GENERATE TRIP <FaTruck />
                                 </button>
@@ -553,10 +553,11 @@ const ChallanCard = ({ data, onAdd, onEdit }) => (
         </div>
         <div className="p-4">
             <h4 className="text-sm font-black text-slate-800 uppercase leading-tight mb-1">{data.customerName}</h4>
-            <p className="text-[10px] text-green-600 font-black uppercase mb-3 tracking-widest">{data.zone}</p>
+            <p className="text-[10px] text-green-600 font-black uppercase mb-3 tracking-widest"> Zone : {data.zone}</p>
             <div className="space-y-1 mb-4 text-[11px] text-slate-500">
-                <p className="flex gap-1"><span className="font-bold text-slate-700">LOC:</span> <span className="truncate">{data.address}, {data.thana}</span></p>
-                <p className="flex gap-1"><span className="font-bold text-slate-700">TEL:</span> {data.receiverNumber}</p>
+                <p className="flex gap-1"><span className="font-bold text-slate-700">Location :</span> <span className="truncate">{data.address} </span></p>
+                <p className="flex gap-1"><span className="font-bold text-slate-700">District :</span> <span className="truncate"> {data.district}</span><span className="font-bold text-slate-700">Thana :</span>{data.thana}</p>
+                <p className="flex gap-1"><span className="font-bold text-slate-700">Receiver :</span> {data.receiverNumber}</p>
             </div>
             <div className="bg-slate-50 rounded-lg p-2 border border-slate-100">
                 {data.products?.slice(0, 2).map((p, i) => (
@@ -579,10 +580,13 @@ const QueueItem = ({ item, onRemove }) => (
         <div className="flex flex-col md:flex-row gap-6">
             <div className="md:w-1/2">
                 <h4 className="font-black text-slate-800 uppercase tracking-tight truncate">{item.customerName}</h4>
+                <span className="inline-block mt-1 px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-black uppercase">Zone: {item.zone}</span>
                 <div className="mt-2 space-y-1 text-[11px] text-slate-500 font-medium">
-                    <p className="flex items-center gap-2"><FaPhoneAlt className="text-slate-300" /> {item.receiverNumber}</p>
-                    <p className="uppercase tracking-tighter truncate">{item.address}, {item.thana}</p>
-                    <span className="inline-block mt-1 px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-black uppercase">Zone: {item.zone}</span>
+                    <p className="flex gap-1"><span className="font-bold text-slate-700">Location :</span> <span className="truncate">{item.address} </span></p>
+                     <p className="flex gap-1"><span className="font-bold text-slate-700">District :</span> <span className="truncate"> {item.district}</span><span className="font-bold text-slate-700">Thana :</span>{item.thana}</p>
+                    <p className="flex gap-1"><span className="font-bold text-slate-700">Receiver :</span> {item.receiverNumber}</p>
+                    
+                    
                 </div>
             </div>
             <div className="md:w-1/2 border-t md:border-t-0 md:border-l border-slate-100 pt-3 md:pt-0 md:pl-6">

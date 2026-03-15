@@ -806,6 +806,8 @@ const TripInventoryPage = () => {
   const [driverFilter, setDriverFilter] = useState("");
   const [vehicleFilter, setVehicleFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  const [deliveryFilter, setDeliveryFilter] = useState("");
+const [challanFilter, setChallanFilter] = useState("");
 
   // Fetch Deliveries
   const fetchDeliveries = async (m, y, search) => {
@@ -883,38 +885,55 @@ const TripInventoryPage = () => {
   };
 
   // Filtering Logic
+
   const getFilteredRows = () => {
 
-    return tripRows.filter((t) => {
+  return tripRows.filter((t) => {
 
-      const s = searchText?.toLowerCase() || "";
+    const s = searchText?.toLowerCase() || "";
 
-      const matchesSearch =
-        !searchText ||
-        [
-          t.tripNumber,
-          t.vendorName,
-          t.driverName,
-          t.vehicleNumber
-        ].some((val) => val?.toLowerCase().includes(s));
+    const challans = t.challans || [];
 
-      const matchesMonthYear =
-        new Date(t.createdAt).getMonth() + 1 === month &&
-        new Date(t.createdAt).getFullYear() === year;
+    const allDelivered =
+      challans.length > 0 &&
+      challans.every(c => c.deliveryStatus === "confirmed");
 
-      const matchesFilters =
-        (!tripFilter || t.tripNumber === tripFilter) &&
-        (!vendorFilter || t.vendorName === vendorFilter) &&
-        (!driverFilter || t.driverName === driverFilter) &&
-        (!vehicleFilter || t.vehicleNumber === vehicleFilter) &&
-        (!dateFilter ||
-          new Date(t.createdAt).toISOString().slice(0, 10) === dateFilter);
+    const allReceived =
+      challans.length > 0 &&
+      challans.every(c => c.challanReturnStatus === "received");
 
-      return matchesMonthYear && matchesSearch && matchesFilters;
+    const matchesSearch =
+      !searchText ||
+      [
+        t.tripNumber,
+        t.vendorName,
+        t.driverName,
+        t.vehicleNumber
+      ].some((val) => val?.toLowerCase().includes(s));
 
-    });
+    const matchesMonthYear =
+      new Date(t.createdAt).getMonth() + 1 === month &&
+      new Date(t.createdAt).getFullYear() === year;
 
-  };
+    const matchesFilters =
+      (!tripFilter || t.tripNumber === tripFilter) &&
+      (!vendorFilter || t.vendorName === vendorFilter) &&
+      (!driverFilter || t.driverName === driverFilter) &&
+      (!vehicleFilter || t.vehicleNumber === vehicleFilter) &&
+      (!dateFilter ||
+        new Date(t.createdAt).toISOString().slice(0, 10) === dateFilter) &&
+      (!deliveryFilter ||
+        (deliveryFilter === "delivered" && allDelivered) ||
+        (deliveryFilter === "notDelivered" && !allDelivered)) &&
+      (!challanFilter ||
+        (challanFilter === "received" && allReceived) ||
+        (challanFilter === "notReceived" && !allReceived));
+
+    return matchesMonthYear && matchesSearch && matchesFilters;
+
+  });
+
+};
 
   const filteredRows = getFilteredRows();
 
@@ -931,6 +950,8 @@ const TripInventoryPage = () => {
     setDriverFilter("");
     setVehicleFilter("");
     setDateFilter("");
+    setDeliveryFilter("");
+setChallanFilter("");
 
     Swal.fire({
       toast: true,
@@ -1121,6 +1142,56 @@ const TripInventoryPage = () => {
                 </th>
 
                 <th className="border"></th>
+
+                {/* Delivery Filter */}
+<th className="border p-1">
+<select
+  className="w-full border rounded text-xs p-1"
+  value={deliveryFilter}
+  onChange={(e) => setDeliveryFilter(e.target.value)}
+>
+  <option value="">All</option>
+
+  {filteredRows.some(t =>
+    (t.challans || []).every(c => c.deliveryStatus === "confirmed")
+  ) && (
+    <option value="delivered">All Delivered</option>
+  )}
+
+  {filteredRows.some(t =>
+    !(t.challans || []).every(c => c.deliveryStatus === "confirmed")
+  ) && (
+    <option value="notDelivered">Not Delivered</option>
+  )}
+
+</select>
+</th>
+
+{/* Challan Filter */}
+<th className="border p-1">
+<select
+  className="w-full border rounded text-xs p-1"
+  value={challanFilter}
+  onChange={(e) => setChallanFilter(e.target.value)}
+>
+  <option value="">All</option>
+
+  {filteredRows.some(t =>
+    (t.challans || []).every(c => c.challanReturnStatus === "received")
+  ) && (
+    <option value="received">All Received</option>
+  )}
+
+  {filteredRows.some(t =>
+    !(t.challans || []).every(c => c.challanReturnStatus === "received")
+  ) && (
+    <option value="notReceived">Not Received</option>
+  )}
+
+</select>
+</th>
+
+                
                 <th className="border"></th>
                 <th className="border"></th>
                 <th className="border"></th>

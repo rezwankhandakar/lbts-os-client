@@ -368,6 +368,8 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import useAuth from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 import useRole from '../hooks/useRole';
+import { useLocation } from "react-router";
+import { useEffect } from "react";
 import { useSearch } from '../hooks/SearchContext';
 import { 
   FiUsers, FiHome, FiPlusCircle, FiFileText, 
@@ -376,11 +378,18 @@ import {
 import { FaFileInvoice, FaPlusCircle } from 'react-icons/fa';
 
 const RootLayout = () => {
+  
   const { user, logOut } = useAuth();
   const { role, status } = useRole();
   const { searchText, setSearchText } = useSearch();
+   const location = useLocation();
   const navigate = useNavigate();
   
+
+
+    useEffect(() => {
+    setSearchText("");
+  }, [location.pathname]);
   // Sidebar state for desktop toggle
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 

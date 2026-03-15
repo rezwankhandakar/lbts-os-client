@@ -179,6 +179,7 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip }) => {
                         {/* Compact Stats Group */}
                         <div className="flex flex-1 flex-wrap items-center justify-between gap-4">
                             {/* Total Stats */}
+                            
 
                             <div className="flex items-center gap-2">
                                 {/* Total Point - Emerald/Green Theme (Success/Completion vibe) */}
@@ -206,13 +207,13 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip }) => {
                             <div className="flex items-center gap-3">
                                 <div className="flex items-center gap-3 px-3 py-1.5 bg-rose-500/10 border border-rose-500/20 rounded-lg">
                                     <div className="text-center">
-                                        <p className="text-[8px] font-bold text-rose-400 uppercase leading-none mb-0.5">Pending Delivery Confirmation</p>
+                                        <p className="text-[8px] font-bold text-rose-400 uppercase leading-none mb-0.5">Pending Delivery</p>
                                         <p className="text-sm font-black text-rose-500 leading-none">{deliveryNotConfirmed}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                                     <div className="text-center">
-                                        <p className="text-[8px] font-bold text-amber-400 uppercase leading-none mb-0.5">Pending Receiving Challan</p>
+                                        <p className="text-[8px] font-bold text-amber-400 uppercase leading-none mb-0.5">Pending Challan</p>
                                         <p className="text-sm font-black text-amber-500 leading-none">{challanNotReceived}</p>
                                     </div>
                                 </div>
@@ -270,7 +271,7 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip }) => {
                                                 }
                                                 className={`text-[8px] px-2.5 py-[3px] rounded-full font-bold border uppercase tracking-wide shadow-sm text-center cursor-pointer transition hover:opacity-80 whitespace-nowrap ${getStatusBadge(c.deliveryStatus)}`}
                                             >
-                                                P : {c.deliveryStatus || "Pending"}
+                                                D : {c.deliveryStatus || "Pending"}
                                             </span>
 
                                             {openDropdown.id === c.challanId && openDropdown.type === "delivery" && (
@@ -371,4 +372,3 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip }) => {
 };
 
 export default TripDetailsModal;
-
