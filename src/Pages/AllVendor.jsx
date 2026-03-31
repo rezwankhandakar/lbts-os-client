@@ -26,8 +26,8 @@ const AllVendor = () => {
         try {
             const res = await axiosSecure.get("/vendors");
             setVendors(res.data);
-        } catch (error) {
-            console.error("Error fetching vendors:", error);
+        } catch {
+            // fetch error silently handled
         } finally {
             setLoading(false);
         }
@@ -57,8 +57,7 @@ const AllVendor = () => {
                     timer: 1500,
                 });
             }
-        } catch (error) {
-            console.error("Upload failed", error);
+        } catch {
             Swal.fire("Error", "Image upload failed", "error");
         } finally {
             setUploading(false);
@@ -142,6 +141,13 @@ const AllVendor = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200">
+                            {vendors.length === 0 && (
+                                <tr>
+                                    <td colSpan="5" className="px-6 py-16 text-center text-slate-400 text-sm italic">
+                                        No vendors found. Add a vendor to get started.
+                                    </td>
+                                </tr>
+                            )}
                             {vendors.map((vendor, index) => (
                                 <tr key={vendor._id} className="hover:bg-slate-50 transition-all">
                                     <td className="px-6 py-4 text-center text-[12px] font-bold text-slate-400">{index + 1}</td>

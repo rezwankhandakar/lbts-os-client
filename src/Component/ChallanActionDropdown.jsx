@@ -19,10 +19,14 @@ const ChallanActionDropdown = ({ challan, product, axiosSecure, setChallans }) =
       confirmButtonText: "Yes, delete it!",
     }).then((result) => {
       if (result.isConfirmed) {
-        axiosSecure.delete(`/challan/${challan._id}`).then(() => {
-          setChallans((prev) => prev.filter((c) => c._id !== challan._id));
-          Swal.fire("Deleted!", "Challan has been deleted.", "success");
-        });
+        axiosSecure.delete(`/challan/${challan._id}`)
+          .then(() => {
+            setChallans((prev) => prev.filter((c) => c._id !== challan._id));
+            Swal.fire("Deleted!", "Challan has been deleted.", "success");
+          })
+          .catch(() => {
+            Swal.fire("Error!", "Failed to delete challan.", "error");
+          });
       }
     });
   };

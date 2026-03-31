@@ -34,7 +34,7 @@ const ActionDropdown = ({ gp, p, axiosSecure, setGatePasses }) => {
             });
           })
           .catch((err) => {
-            console.error(err);
+            
             Swal.fire("Error!", "Delete failed.", "error");
           });
       }

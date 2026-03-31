@@ -1,96 +1,132 @@
 import { createBrowserRouter } from "react-router";
+import { lazy, Suspense } from "react";
 import RootLayout from "../Layout/RootLayout";
 import ErrorPage from "../Pages/ErrorPage";
-import Home from "../Pages/Home";
-import Register from "../Pages/Register";
-import Login from "../Pages/Login";
-import Profile from "../Pages/Profile";
-import UserManagement from "../Pages/UserManagement";
 import PrivateRoute from "./PrivateRoute";
-import AddGatePass from "../Pages/AddGatePass";
-import AllGatePass from "../Pages/AllGatePass";
 import RoleRoute from "./RoleRoute";
-import AddChallan from "../Pages/AddChallan";
-import AllChallan from "../Pages/AllChallan";
-import AddVendor from "../Pages/AddVendor";
-import AllVendor from "../Pages/AllVendor";
-import VendorDetails from "../Pages/VendorDetails";
-import CreateDelivery from "../Pages/CreateDelivery";
-import DeliveredPage from "../Pages/Deliverd";
-import TripInventoryPage from "../Pages/TripInventoryPage";
 
+const Home = lazy(() => import("../Pages/Home"));
+const Register = lazy(() => import("../Pages/Register"));
+const Login = lazy(() => import("../Pages/Login"));
+const Profile = lazy(() => import("../Pages/Profile"));
+const UserManagement = lazy(() => import("../Pages/UserManagement"));
+const AddGatePass = lazy(() => import("../Pages/AddGatePass"));
+const AllGatePass = lazy(() => import("../Pages/AllGatePass"));
+const AddChallan = lazy(() => import("../Pages/AddChallan"));
+const AllChallan = lazy(() => import("../Pages/AllChallan"));
+const AddVendor = lazy(() => import("../Pages/AddVendor"));
+const AllVendor = lazy(() => import("../Pages/AllVendor"));
+const VendorDetails = lazy(() => import("../Pages/VendorDetails"));
+const CreateDelivery = lazy(() => import("../Pages/CreateDelivery"));
+const DeliveredPage = lazy(() => import("../Pages/Deliverd"));
+const TripInventoryPage = lazy(() => import("../Pages/TripInventoryPage"));
 
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="w-10 h-10 border-4 border-t-orange-500 border-gray-200 rounded-full animate-spin"></div>
+  </div>
+);
 
+const withSuspense = (Component) => (
+  <Suspense fallback={<PageLoader />}>
+    <Component />
+  </Suspense>
+);
 
 export const router = createBrowserRouter([
   {
     path: "/",
-    Component: RootLayout,
-    errorElement: <ErrorPage></ErrorPage>,
+    element: <RootLayout />,
+    errorElement: <ErrorPage />,
     children: [
       {
         index: true,
-        path: "/",
-        Component: Home,
+        element: withSuspense(Home),
       },
       {
         path: "/register",
-        Component: Register
+        element: withSuspense(Register),
       },
       {
         path: "/login",
-        Component: Login
+        element: withSuspense(Login),
       },
       {
         path: "/profile",
-        Component: Profile
+        element: withSuspense(Profile),
       },
       {
         path: "/user-management",
-        element: <PrivateRoute><RoleRoute roles={['admin']}><UserManagement></UserManagement></RoleRoute></PrivateRoute>
+        element: (
+          <PrivateRoute>
+            <RoleRoute roles={['admin']}>
+              <Suspense fallback={<PageLoader />}>
+                <UserManagement />
+              </Suspense>
+            </RoleRoute>
+          </PrivateRoute>
+        ),
       },
       {
         path: '/add-gate-pass',
-        element: <PrivateRoute><RoleRoute roles={['admin', 'manager', 'operator']}><AddGatePass></AddGatePass></RoleRoute></PrivateRoute>
+        element: (
+          <PrivateRoute>
+            <RoleRoute roles={['admin', 'manager', 'operator']}>
+              <Suspense fallback={<PageLoader />}>
+                <AddGatePass />
+              </Suspense>
+            </RoleRoute>
+          </PrivateRoute>
+        ),
       },
       {
         path: "/all-gate-pass",
-        element: <PrivateRoute><RoleRoute roles={['admin', 'manager', 'operator']}><AllGatePass></AllGatePass></RoleRoute></PrivateRoute>
+        element: (
+          <PrivateRoute>
+            <RoleRoute roles={['admin', 'manager', 'operator']}>
+              <Suspense fallback={<PageLoader />}>
+                <AllGatePass />
+              </Suspense>
+            </RoleRoute>
+          </PrivateRoute>
+        ),
       },
       {
         path: "/add-challan",
-        Component: AddChallan
+        element: withSuspense(AddChallan),
       },
       {
         path: "/all-challan",
-        Component: AllChallan
+        element: withSuspense(AllChallan),
       },
       {
         path: "/add-vendor",
-        Component: AddVendor
+        element: withSuspense(AddVendor),
       },
       {
         path: "/all-vendor",
-        Component: AllVendor
+        element: withSuspense(AllVendor),
       },
       {
         path: "/vendor-details/:id",
-        element: <VendorDetails></VendorDetails>
+        element: withSuspense(VendorDetails),
       },
       {
         path: "/create-delivery",
-        Component: CreateDelivery
+        element: withSuspense(CreateDelivery),
       },
       {
         path: "/deliverd",
-        Component: DeliveredPage
+        element: withSuspense(DeliveredPage),
       },
       {
         path: "/trip-inventory",
-        Component: TripInventoryPage
-      }
-    
-    ]
-
+        element: withSuspense(TripInventoryPage),
+      },
+      {
+        path: "*",
+        element: <ErrorPage />,
+      },
+    ],
   },
 ]);

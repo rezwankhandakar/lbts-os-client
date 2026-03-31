@@ -74,7 +74,7 @@ const EditRecentGatePassModal = ({ open, onClose, gp, p, axiosSecure, refreshGat
         showConfirmButton: false,
       });
     } catch (err) {
-      console.error(err);
+      
       Swal.fire({
         icon: "error",
         title: "Update failed",

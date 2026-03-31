@@ -40,8 +40,8 @@ const AllGatePass = () => {
             if (search) url += `&search=${search}`;
             const res = await axiosSecure.get(url);
             setGatePasses(res.data.data || []);
-        } catch (err) {
-            console.error(err);
+        } catch {
+            // silently handled
         }
         setLoading(false);
     };
