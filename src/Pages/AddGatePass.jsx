@@ -31,8 +31,8 @@ const AddGatePass = () => {
       const res = await axiosSecure.get(`/autocomplete?field=${field}&search=${value}`);
       setAutoData((prev) => ({ ...prev, [fieldKey]: res.data }));
       setActiveField(fieldKey);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // autocomplete error silently handled
     }
   };
 
@@ -41,8 +41,8 @@ const AddGatePass = () => {
     try {
       const res = await axiosSecure.get("/gate-pass?limit=1");
       setRecentGatePass(res.data.data?.[0] || null);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // silently handled
     }
   };
 
@@ -74,8 +74,7 @@ const AddGatePass = () => {
         reset();
         fetchRecentGatePass();
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
       Swal.fire({ icon: "error", title: "Failed", text: "Gate pass add failed ❌" });
     }
   };
@@ -94,8 +93,7 @@ const AddGatePass = () => {
         await axiosSecure.delete(`/gate-pass/${id}`);
         Swal.fire({ title: "Deleted!", text: "Gate pass has been deleted.", icon: "success", timer: 1500, showConfirmButton: false });
         fetchRecentGatePass();
-      } catch (err) {
-        console.error(err);
+      } catch {
         Swal.fire("Error!", "Failed to delete gate pass.", "error");
       }
     }

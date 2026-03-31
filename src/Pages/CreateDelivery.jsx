@@ -45,7 +45,7 @@ const CreateDelivery = () => {
             const res = await axiosSecure.get(`/challans?search=${search}`);
             setChallans(res.data.data || res.data || []);
         } catch (err) {
-            console.error("Error fetching challans:", err);
+            
         } finally {
             setLoading(false);
         }
@@ -132,7 +132,7 @@ const CreateDelivery = () => {
 
         } catch (err) {
 
-            console.error(err);
+            
 
             Swal.fire("Error", "Update failed", "error");
 
@@ -229,7 +229,7 @@ const handleConfirmDispatch = async () => {
         }
 
     } catch (error) {
-        console.error(error);
+        
         Swal.fire("Error", "Failed to create delivery. Try again.", "error");
     }
 
@@ -305,7 +305,7 @@ const handleConfirmDispatch = async () => {
                                                 setVehicleSuggestions(res.data || []);
 
                                             } catch (error) {
-                                                console.error(error);
+                                                
                                             }
 
                                         } else {

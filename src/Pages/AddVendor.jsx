@@ -51,8 +51,7 @@ const AddVendor = () => {
           timer: 1500,
         });
       }
-    } catch (error) {
-      console.error("Image Upload Error:", error);
+    } catch {
       Swal.fire("Error", "Failed to upload image", "error");
     } finally {
       setUploading(false);

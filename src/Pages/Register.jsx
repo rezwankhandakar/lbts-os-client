@@ -54,8 +54,6 @@ const Register = () => {
         navigate("/");
       }
     } catch (error) {
-      console.error(error);
-
       // ✅ Firebase email already exists
       if (error.code === "auth/email-already-in-use") {
         toast.error("❌ Email already in use");

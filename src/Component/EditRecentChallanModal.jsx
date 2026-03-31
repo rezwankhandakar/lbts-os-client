@@ -75,7 +75,7 @@
 //       onClose();
 //       refreshChallan();
 //     } catch (err) {
-//       console.error(err);
+//       
 //       Swal.fire("Error!", "Update failed!", "error");
 //     }
 //   };
@@ -311,7 +311,7 @@ const EditRecentChallanModal = ({
       onClose();
       refreshChallan();
     } catch (err) {
-      console.error(err);
+      
       Swal.fire("Error!", "Update failed!", "error");
     }
   };

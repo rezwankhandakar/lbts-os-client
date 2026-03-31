@@ -27,7 +27,6 @@ const Login = () => {
       navigate("/");
     } catch (error) {
       toast.error("Invalid email or password!");
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -44,8 +43,7 @@ const Login = () => {
     try {
       await sendPasswordResetEmail(auth, email);
       toast.success("Password reset email sent ✅");
-    } catch (error) {
-      console.error(error);
+    } catch {
       toast.error("Failed to send reset email");
     }
   };
