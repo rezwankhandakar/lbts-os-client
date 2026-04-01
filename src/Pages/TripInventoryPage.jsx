@@ -1194,7 +1194,7 @@ setChallanFilter("");
                 
                 <th className="border"></th>
                 <th className="border"></th>
-                <th className="border"></th>
+                
 
               </tr>
 
