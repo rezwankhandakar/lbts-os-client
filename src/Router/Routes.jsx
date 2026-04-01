@@ -19,14 +19,11 @@ import CreateDelivery from "../Pages/CreateDelivery";
 import DeliveredPage from "../Pages/Deliverd";
 import TripInventoryPage from "../Pages/TripInventoryPage";
 
-
-
-
 export const router = createBrowserRouter([
   {
     path: "/",
     Component: RootLayout,
-    errorElement: <ErrorPage></ErrorPage>,
+    errorElement: <ErrorPage />,
     children: [
       {
         index: true,
@@ -47,15 +44,15 @@ export const router = createBrowserRouter([
       },
       {
         path: "/user-management",
-        element: <PrivateRoute><RoleRoute roles={['admin']}><UserManagement></UserManagement></RoleRoute></PrivateRoute>
+        element: <PrivateRoute><RoleRoute roles={['admin']}><UserManagement /></RoleRoute></PrivateRoute>
       },
       {
         path: '/add-gate-pass',
-        element: <PrivateRoute><RoleRoute roles={['admin', 'manager', 'operator']}><AddGatePass></AddGatePass></RoleRoute></PrivateRoute>
+        element: <PrivateRoute><RoleRoute roles={['admin', 'manager', 'operator']}><AddGatePass /></RoleRoute></PrivateRoute>
       },
       {
         path: "/all-gate-pass",
-        element: <PrivateRoute><RoleRoute roles={['admin', 'manager', 'operator']}><AllGatePass></AllGatePass></RoleRoute></PrivateRoute>
+        element: <PrivateRoute><RoleRoute roles={['admin', 'manager', 'operator']}><AllGatePass /></RoleRoute></PrivateRoute>
       },
       {
         path: "/add-challan",
@@ -75,7 +72,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "/vendor-details/:id",
-        element: <VendorDetails></VendorDetails>
+        element: <VendorDetails />
       },
       {
         path: "/create-delivery",
@@ -88,9 +85,11 @@ export const router = createBrowserRouter([
       {
         path: "/trip-inventory",
         Component: TripInventoryPage
+      },
+      {
+        path: "*",
+        element: <ErrorPage />
       }
-    
     ]
-
   },
 ]);
