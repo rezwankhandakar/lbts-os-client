@@ -1,11 +1,32 @@
-// import React, { useState } from 'react';
+
+// import React, { useState, useRef, useEffect } from 'react';
 // import { useQuery } from '@tanstack/react-query';
 // import useAxiosSecure from '../hooks/useAxiosSecure';
 // import Swal from 'sweetalert2';
+// import { 
+//   MoreVertical, 
+//   UserCheck, 
+//   UserX, 
+//   ShieldCheck, 
+//   Trash2, 
+//   UserPlus 
+// } from 'lucide-react';
 
 // const UserManagement = () => {
 //   const axiosSecure = useAxiosSecure();
 //   const [openDropdownId, setOpenDropdownId] = useState(null);
+//   const dropdownRef = useRef(null);
+
+//   // Close dropdown on outside click
+//   useEffect(() => {
+//     const handleClickOutside = (event) => {
+//       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+//         setOpenDropdownId(null);
+//       }
+//     };
+//     document.addEventListener("mousedown", handleClickOutside);
+//     return () => document.removeEventListener("mousedown", handleClickOutside);
+//   }, []);
 
 //   const { data: users = [], isLoading, error, refetch } = useQuery({
 //     queryKey: ['users'],
@@ -15,211 +36,164 @@
 //     },
 //   });
 
-// const handleRole = async (id, role) => {
-//   try {
-//     await axiosSecure.patch(`/users/role/${id}`, { role });
-
-//     Swal.fire({
-//       icon: "success",
-//       title: "Role Updated",
-//       text: `User role changed to ${role}`,
-//       timer: 1500,
-//       showConfirmButton: false,
-//     });
-
-//     setOpenDropdownId(null);
-//     refetch();
-//   } catch (err) {
-//     Swal.fire("Error!", "Role update failed", "error");
-//   }
-// };
-
-// const handleStatus = async (id, status) => {
-//   try {
-//     await axiosSecure.patch(`/users/status/${id}`, { status });
-
-//     Swal.fire({
-//       icon: "success",
-//       title: "Status Updated",
-//       text: `User status changed to ${status}`,
-//       timer: 1500,
-//       showConfirmButton: false,
-//     });
-
-//     setOpenDropdownId(null);
-//     refetch();
-//   } catch (err) {
-//     Swal.fire("Error!", "Status update failed", "error");
-//   }
-// };
-
-// const handleDelete = async (id) => {
-//   Swal.fire({
-//     title: "Are you sure?",
-//     text: "This user will be deleted permanently!",
-//     icon: "warning",
-//     showCancelButton: true,
-//     confirmButtonColor: "#16a34a",
-//     cancelButtonColor: "#d33",
-//     confirmButtonText: "Yes, delete",
-//   }).then(async (result) => {
-//     if (result.isConfirmed) {
-//       try {
-//         await axiosSecure.delete(`/users/${id}`);
-
-//         Swal.fire({
-//           icon: "success",
-//           title: "Deleted!",
-//           text: "User deleted successfully",
-//           timer: 1500,
-//           showConfirmButton: false,
-//         });
-
-//         setOpenDropdownId(null);
-//         refetch();
-//       } catch (err) {
-//         Swal.fire("Error!", "Delete failed", "error");
-//       }
+//   const handleRole = async (id, role) => {
+//     try {
+//       await axiosSecure.patch(`/users/role/${id}`, { role });
+//       toastSuccess(`Role changed to ${role}`);
+//       setOpenDropdownId(null);
+//       refetch();
+//     } catch (err) {
+//       Swal.fire("Error!", "Role update failed", "error");
 //     }
-//   });
-// };
+//   };
 
-//   if (isLoading) return <p className="text-center mt-10 text-gray-500">Loading users...</p>;
+//   const handleStatus = async (id, status) => {
+//     try {
+//       await axiosSecure.patch(`/users/status/${id}`, { status });
+//       toastSuccess(`Status changed to ${status}`);
+//       setOpenDropdownId(null);
+//       refetch();
+//     } catch (err) {
+//       Swal.fire("Error!", "Status update failed", "error");
+//     }
+//   };
+
+//   const handleDelete = async (id) => {
+//     Swal.fire({
+//       title: "Are you sure?",
+//       text: "You won't be able to revert this!",
+//       icon: "warning",
+//       showCancelButton: true,
+//       confirmButtonColor: "#ef4444",
+//       cancelButtonColor: "#6b7280",
+//       confirmButtonText: "Yes, delete it!"
+//     }).then(async (result) => {
+//       if (result.isConfirmed) {
+//         try {
+//           await axiosSecure.delete(`/users/${id}`);
+//           toastSuccess("User deleted successfully");
+//           refetch();
+//         } catch (err) {
+//           Swal.fire("Error!", "Delete failed", "error");
+//         }
+//       }
+//     });
+//   };
+
+//   const toastSuccess = (msg) => {
+//     Swal.fire({
+//       toast: true,
+//       position: 'top-end',
+//       icon: 'success',
+//       title: msg,
+//       showConfirmButton: false,
+//       timer: 2000
+//     });
+//   };
+
+//   if (isLoading) return <div className="flex justify-center items-center h-screen text-indigo-600 font-medium animate-pulse">Loading secure user data...</div>;
 //   if (error) return <p className="text-center mt-10 text-red-500">Failed to load users</p>;
 
 //   return (
-//     <div className="p-4 md:p-6  min-h-screen">
-//       <h2 className="text-2xl md:text-3xl font-bold mb-4 md:mb-6 text-gray-800">User Management</h2>
+//     <div className="p-6 bg-gray-50 min-h-screen">
+//       <div className="max-w-7xl mx-auto">
+//         <div className="flex justify-between items-center mb-8">
+//           <div>
+//             <h2 className="text-2xl font-bold text-gray-900 tracking-tight">User Management</h2>
+//             <p className="text-sm text-gray-500">Manage user roles, status, and permissions</p>
+//           </div>
+//           <div className="bg-white px-4 py-2 rounded-lg shadow-sm border text-sm font-medium text-gray-600">
+//             Total Users: <span className="text-indigo-600">{users.length}</span>
+//           </div>
+//         </div>
 
-//       {/* Responsive container */}
-//       <div className="overflow-x-auto w-full shadow-lg rounded-lg bg-white">
-//         <table className="min-w-full divide-y divide-gray-200">
-//           <thead className="bg-gray-100">
-//             <tr>
-//               <th className="px-2 py-2 text-left text-xs sm:text-sm font-medium text-gray-700">SL</th>
-//               <th className="px-2 py-2 text-left text-xs sm:text-sm font-medium text-gray-700">Photo</th>
-//               <th className="px-2 py-2 text-left text-xs sm:text-sm font-medium text-gray-700">Name</th>
-//               <th className="px-2 py-2 text-left text-xs sm:text-sm font-medium text-gray-700">Email</th>
-//               <th className="px-2 py-2 text-left text-xs sm:text-sm font-medium text-gray-700">Status</th>
-//               <th className="px-2 py-2 text-left text-xs sm:text-sm font-medium text-gray-700">Role</th>
-//               <th className="px-2 py-2 text-left text-xs sm:text-sm font-medium text-gray-700">Action</th>
-//             </tr>
-//           </thead>
-
-//           <tbody className="bg-white divide-y divide-gray-200">
-//             {users.map((user, index) => (
-//               <tr key={user._id} className="hover:bg-gray-50 transition">
-//                 <td className="px-2 py-2 text-xs sm:text-sm">{index + 1}</td>
-
-//                 <td className="px-2 py-2">
-//                   <img
-//                     src={user.photoURL}
-//                     alt={user.displayName}
-//                     className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200"
-//                   />
-//                 </td>
-
-//                 <td className="px-2 py-2 text-xs sm:text-sm font-medium text-gray-800 truncate max-w-[80px] sm:max-w-[150px]">
-//                   {user.displayName}
-//                 </td>
-
-//                 <td className="px-2 py-2 text-xs sm:text-sm text-gray-600 truncate max-w-[100px] sm:max-w-[200px]">
-//                   {user.email}
-//                 </td>
-
-//                 {/* Status */}
-//                 <td className="px-2 py-2">
-//                   {user.status === 'approved' ? (
-//                     <span className="px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">
-//                       Approved
-//                     </span>
-//                   ) : user.status === 'rejected' ? (
-//                     <span className="px-2 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">
-//                       Rejected
-//                     </span>
-//                   ) : (
-//                     <span className="px-2 py-1 text-xs font-semibold text-yellow-800 bg-yellow-100 rounded-full">
-//                       Pending
-//                     </span>
-//                   )}
-//                 </td>
-
-//                 {/* Role */}
-//                 <td className="px-2 py-2">
-//                   <span className="px-2 py-1 text-xs font-semibold text-blue-800 bg-blue-100 rounded-full">
-//                     {user.role || 'User'}
-//                   </span>
-//                 </td>
-
-//                 {/* Action Dropdown */}
-//                 <td className="px-2 py-2 relative">
-//                   <button
-//                     onClick={() =>
-//                       setOpenDropdownId(openDropdownId === user._id ? null : user._id)
-//                     }
-//                     className="inline-flex justify-center w-full px-2 py-1 text-xs sm:text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none"
-//                   >
-//                     Actions
-//                     <svg
-//                       className="ml-1 h-3 sm:h-4 w-3 sm:w-4"
-//                       xmlns="http://www.w3.org/2000/svg"
-//                       viewBox="0 0 20 20"
-//                       fill="currentColor"
-//                       aria-hidden="true"
-//                     >
-//                       <path
-//                         fillRule="evenodd"
-//                         d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.06z"
-//                         clipRule="evenodd"
-//                       />
-//                     </svg>
-//                   </button>
-
-//                   {openDropdownId === user._id && (
-//                     <ul className="absolute right-0 mt-2 w-36 sm:w-44 bg-white border border-gray-200 rounded-md shadow-lg py-1 z-10">
-//                       <li
-//                         className="px-3 py-1 hover:bg-green-50 cursor-pointer text-green-600 text-xs sm:text-sm"
-//                         onClick={() => handleStatus(user._id, 'approved')}
+//         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+//           <div className="overflow-x-auto">
+//             <table className="w-full text-left border-collapse">
+//               <thead>
+//                 <tr className="bg-gray-50 border-b border-gray-200">
+//                   <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">User Info</th>
+//                   <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Role</th>
+//                   <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+//                   <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider text-right">Actions</th>
+//                 </tr>
+//               </thead>
+//               <tbody className="divide-y divide-gray-100">
+//                 {users.map((user) => (
+//                   <tr key={user._id} className="hover:bg-gray-50/50 transition-colors group">
+//                     <td className="px-6 py-4 whitespace-nowrap">
+//                       <div className="flex items-center">
+//                         <img
+//                           src={user.photoURL}
+//                           alt=""
+//                           className="h-10 w-10 rounded-full ring-2 ring-white shadow-sm object-cover"
+//                         />
+//                         <div className="ml-4">
+//                           <div className="text-sm font-bold text-gray-900">{user.displayName}</div>
+//                           <div className="text-xs text-gray-500">{user.email}</div>
+//                         </div>
+//                       </div>
+//                     </td>
+//                     <td className="px-6 py-4 whitespace-nowrap">
+//                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100 capitalize">
+//                         {user.role || 'User'}
+//                       </span>
+//                     </td>
+//                     <td className="px-6 py-4 whitespace-nowrap">
+//                       {user.status === 'approved' ? (
+//                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
+//                           Active
+//                         </span>
+//                       ) : user.status === 'rejected' ? (
+//                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-100">
+//                           Rejected
+//                         </span>
+//                       ) : (
+//                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">
+//                           Pending
+//                         </span>
+//                       )}
+//                     </td>
+//                     <td className="px-6 py-4 whitespace-nowrap text-right relative" ref={openDropdownId === user._id ? dropdownRef : null}>
+//                       <button
+//                         onClick={() => setOpenDropdownId(openDropdownId === user._id ? null : user._id)}
+//                         className="p-2 hover:bg-gray-100 rounded-full transition-colors inline-block"
 //                       >
-//                         Approve
-//                       </li>
-//                       <li
-//                         className="px-3 py-1 hover:bg-red-50 cursor-pointer text-red-600 text-xs sm:text-sm"
-//                         onClick={() => handleStatus(user._id, 'rejected')}
-//                       >
-//                         Reject
-//                       </li>
-//                       <li
-//                         className="px-3 py-1 hover:bg-blue-50 cursor-pointer text-blue-600 text-xs sm:text-sm"
-//                         onClick={() => handleRole(user._id, 'manager')}
-//                       >
-//                         Make Manager
-//                       </li>
-//                       <li
-//                         className="px-3 py-1 hover:bg-blue-50 cursor-pointer text-blue-600 text-xs sm:text-sm"
-//                         onClick={() => handleRole(user._id, 'ceo')}
-//                       >
-//                         Make CEO
-//                       </li>
-//                       <li
-//                         className="px-3 py-1 hover:bg-blue-50 cursor-pointer text-blue-600 text-xs sm:text-sm"
-//                         onClick={() => handleRole(user._id, 'operator')}
-//                       >
-//                         Make Operator
-//                       </li>
-//                       <li
-//                         className="px-3 py-1 hover:bg-red-50 cursor-pointer text-red-600 text-xs sm:text-sm"
-//                         onClick={() => handleDelete(user._id)}
-//                       >
-//                         Delete
-//                       </li>
-//                     </ul>
-//                   )}
-//                 </td>
-//               </tr>
-//             ))}
-//           </tbody>
-//         </table>
+//                         <MoreVertical size={18} className="text-gray-500" />
+//                       </button>
+
+//                       {openDropdownId === user._id && (
+//                         <div className="absolute right-6 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in duration-150">
+//                           <p className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50">Manage Status</p>
+//                           <button onClick={() => handleStatus(user._id, 'approved')} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700">
+//                             <UserCheck size={16} /> Approve User
+//                           </button>
+//                           <button onClick={() => handleStatus(user._id, 'rejected')} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-rose-50 hover:text-rose-700 border-b">
+//                             <UserX size={16} /> Reject User
+//                           </button>
+
+//                           <p className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50">Assign Role</p>
+//                           <button onClick={() => handleRole(user._id, 'manager')} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700">
+//                             <ShieldCheck size={16} /> Make Manager
+//                           </button>
+//                           <button onClick={() => handleRole(user._id, 'ceo')} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700">
+//                             <UserPlus size={16} /> Make CEO
+//                           </button>
+                          
+//                           <div className="border-t mt-1">
+//                             <button onClick={() => handleDelete(user._id)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-rose-600 hover:bg-rose-600 hover:text-white transition-colors">
+//                               <Trash2 size={16} /> Delete Account
+//                             </button>
+//                           </div>
+//                         </div>
+//                       )}
+//                     </td>
+//                   </tr>
+//                 ))}
+//               </tbody>
+//             </table>
+//           </div>
+//         </div>
 //       </div>
 //     </div>
 //   );
@@ -228,196 +202,302 @@
 // export default UserManagement;
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import useAxiosSecure from '../hooks/useAxiosSecure';
 import Swal from 'sweetalert2';
-import { 
-  MoreVertical, 
-  UserCheck, 
-  UserX, 
-  ShieldCheck, 
-  Trash2, 
-  UserPlus 
+import {
+  MoreVertical,
+  UserCheck,
+  UserX,
+  ShieldCheck,
+  Trash2,
+  UserPlus,
+  Users,
+  Search,
+  RefreshCw,
 } from 'lucide-react';
+import LoadingSpinner from '../Component/LoadingSpinner';
+
+const ROLE_CONFIG = {
+  admin:    { label: 'Admin',    bg: 'bg-purple-50',  text: 'text-purple-700',  border: 'border-purple-100' },
+  manager:  { label: 'Manager',  bg: 'bg-blue-50',    text: 'text-blue-700',    border: 'border-blue-100'   },
+  operator: { label: 'Operator', bg: 'bg-indigo-50',  text: 'text-indigo-700',  border: 'border-indigo-100' },
+  ceo:      { label: 'CEO',      bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-100'  },
+  user:     { label: 'User',     bg: 'bg-gray-50',    text: 'text-gray-600',    border: 'border-gray-200'   },
+};
+
+const STATUS_CONFIG = {
+  approved: { label: 'Active',   bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-100', dot: 'bg-emerald-500' },
+  rejected: { label: 'Rejected', bg: 'bg-rose-50',    text: 'text-rose-700',    border: 'border-rose-100',    dot: 'bg-rose-500'    },
+  pending:  { label: 'Pending',  bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-100',   dot: 'bg-amber-500'   },
+};
 
 const UserManagement = () => {
   const axiosSecure = useAxiosSecure();
+  const queryClient = useQueryClient();
   const [openDropdownId, setOpenDropdownId] = useState(null);
+  const [searchText, setSearchText] = useState('');
+  const [loadingId, setLoadingId] = useState(null);
   const dropdownRef = useRef(null);
 
-  // Close dropdown on outside click
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setOpenDropdownId(null);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const { data: users = [], isLoading, error, refetch } = useQuery({
+  const { data: users = [], isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
       const res = await axiosSecure.get('/users');
       return res.data;
     },
+    staleTime: 60 * 1000,
+  });
+
+  // ── Search filter ──────────────────────────────────────────────
+  const filteredUsers = users.filter((u) => {
+    const s = searchText.toLowerCase();
+    return (
+      !searchText ||
+      u.displayName?.toLowerCase().includes(s) ||
+      u.email?.toLowerCase().includes(s) ||
+      u.role?.toLowerCase().includes(s)
+    );
+  });
+
+  // ── Stats ──────────────────────────────────────────────────────
+  const stats = {
+    total:    users.length,
+    approved: users.filter((u) => u.status === 'approved').length,
+    pending:  users.filter((u) => u.status === 'pending').length,
+    rejected: users.filter((u) => u.status === 'rejected').length,
+  };
+
+  const toastSuccess = (msg) => Swal.fire({
+    toast: true, position: 'top-end', icon: 'success',
+    title: msg, showConfirmButton: false, timer: 2000,
   });
 
   const handleRole = async (id, role) => {
+    setLoadingId(id);
     try {
       await axiosSecure.patch(`/users/role/${id}`, { role });
       toastSuccess(`Role changed to ${role}`);
       setOpenDropdownId(null);
-      refetch();
-    } catch (err) {
-      Swal.fire("Error!", "Role update failed", "error");
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    } catch {
+      Swal.fire('Error!', 'Role update failed', 'error');
+    } finally {
+      setLoadingId(null);
     }
   };
 
   const handleStatus = async (id, status) => {
+    setLoadingId(id);
     try {
       await axiosSecure.patch(`/users/status/${id}`, { status });
       toastSuccess(`Status changed to ${status}`);
       setOpenDropdownId(null);
-      refetch();
-    } catch (err) {
-      Swal.fire("Error!", "Status update failed", "error");
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    } catch {
+      Swal.fire('Error!', 'Status update failed', 'error');
+    } finally {
+      setLoadingId(null);
     }
   };
 
-  const handleDelete = async (id) => {
-    Swal.fire({
-      title: "Are you sure?",
-      text: "You won't be able to revert this!",
-      icon: "warning",
+  const handleDelete = async (id, name) => {
+    const result = await Swal.fire({
+      title: 'Delete User?',
+      html: `<p class="text-sm text-gray-500">This will permanently delete <b>${name}</b>. This cannot be undone.</p>`,
+      icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: "#ef4444",
-      cancelButtonColor: "#6b7280",
-      confirmButtonText: "Yes, delete it!"
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        try {
-          await axiosSecure.delete(`/users/${id}`);
-          toastSuccess("User deleted successfully");
-          refetch();
-        } catch (err) {
-          Swal.fire("Error!", "Delete failed", "error");
-        }
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, delete',
+    });
+    if (result.isConfirmed) {
+      setLoadingId(id);
+      try {
+        await axiosSecure.delete(`/users/${id}`);
+        toastSuccess('User deleted');
+        queryClient.invalidateQueries({ queryKey: ['users'] });
+      } catch {
+        Swal.fire('Error!', 'Delete failed', 'error');
+      } finally {
+        setLoadingId(null);
       }
-    });
+    }
   };
 
-  const toastSuccess = (msg) => {
-    Swal.fire({
-      toast: true,
-      position: 'top-end',
-      icon: 'success',
-      title: msg,
-      showConfirmButton: false,
-      timer: 2000
-    });
-  };
-
-  if (isLoading) return <div className="flex justify-center items-center h-screen text-indigo-600 font-medium animate-pulse">Loading secure user data...</div>;
-  if (error) return <p className="text-center mt-10 text-red-500">Failed to load users</p>;
+  if (isLoading) return <LoadingSpinner text="Loading users..." />;
+  if (error) return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+      <p className="text-red-500 font-medium">Failed to load users</p>
+      <button onClick={() => refetch()} className="text-sm text-indigo-600 underline">Try again</button>
+    </div>
+  );
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+    <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
+      <div className="max-w-7xl mx-auto space-y-6">
+
+        {/* ── Header ── */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">User Management</h2>
-            <p className="text-sm text-gray-500">Manage user roles, status, and permissions</p>
+            <h2 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+              <Users size={24} className="text-indigo-600" /> User Management
+            </h2>
+            <p className="text-sm text-gray-500 mt-0.5">Manage roles, status, and permissions</p>
           </div>
-          <div className="bg-white px-4 py-2 rounded-lg shadow-sm border text-sm font-medium text-gray-600">
-            Total Users: <span className="text-indigo-600">{users.length}</span>
-          </div>
+          <button
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-white border rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} />
+            Refresh
+          </button>
         </div>
 
+        {/* ── Stats ── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { label: 'Total Users',  value: stats.total,    color: 'text-indigo-600', bg: 'bg-indigo-50'  },
+            { label: 'Active',       value: stats.approved, color: 'text-emerald-600',bg: 'bg-emerald-50' },
+            { label: 'Pending',      value: stats.pending,  color: 'text-amber-600',  bg: 'bg-amber-50'   },
+            { label: 'Rejected',     value: stats.rejected, color: 'text-rose-600',   bg: 'bg-rose-50'    },
+          ].map((s) => (
+            <div key={s.label} className={`${s.bg} rounded-xl p-4 border border-white`}>
+              <p className="text-xs font-medium text-gray-500">{s.label}</p>
+              <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Search ── */}
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by name, email or role..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300"
+          />
+        </div>
+
+        {/* ── Table ── */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">User Info</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Role</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider text-right">Actions</th>
+                  <th className="px-6 py-3.5 text-xs font-semibold text-gray-600 uppercase tracking-wider">User</th>
+                  <th className="px-6 py-3.5 text-xs font-semibold text-gray-600 uppercase tracking-wider">Role</th>
+                  <th className="px-6 py-3.5 text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3.5 text-xs font-semibold text-gray-600 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {users.map((user) => (
-                  <tr key={user._id} className="hover:bg-gray-50/50 transition-colors group">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <img
-                          src={user.photoURL}
-                          alt=""
-                          className="h-10 w-10 rounded-full ring-2 ring-white shadow-sm object-cover"
-                        />
-                        <div className="ml-4">
-                          <div className="text-sm font-bold text-gray-900">{user.displayName}</div>
-                          <div className="text-xs text-gray-500">{user.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100 capitalize">
-                        {user.role || 'User'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {user.status === 'approved' ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
-                          Active
-                        </span>
-                      ) : user.status === 'rejected' ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-100">
-                          Rejected
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">
-                          Pending
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right relative" ref={openDropdownId === user._id ? dropdownRef : null}>
-                      <button
-                        onClick={() => setOpenDropdownId(openDropdownId === user._id ? null : user._id)}
-                        className="p-2 hover:bg-gray-100 rounded-full transition-colors inline-block"
-                      >
-                        <MoreVertical size={18} className="text-gray-500" />
-                      </button>
+                {filteredUsers.length > 0 ? filteredUsers.map((user) => {
+                  const roleConf   = ROLE_CONFIG[user.role]   || ROLE_CONFIG.user;
+                  const statusConf = STATUS_CONFIG[user.status] || STATUS_CONFIG.pending;
+                  const isActionLoading = loadingId === user._id;
 
-                      {openDropdownId === user._id && (
-                        <div className="absolute right-6 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in duration-150">
-                          <p className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50">Manage Status</p>
-                          <button onClick={() => handleStatus(user._id, 'approved')} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700">
-                            <UserCheck size={16} /> Approve User
-                          </button>
-                          <button onClick={() => handleStatus(user._id, 'rejected')} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-rose-50 hover:text-rose-700 border-b">
-                            <UserX size={16} /> Reject User
-                          </button>
+                  return (
+                    <tr key={user._id} className={`hover:bg-gray-50/50 transition-colors ${isActionLoading ? 'opacity-50' : ''}`}>
 
-                          <p className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50">Assign Role</p>
-                          <button onClick={() => handleRole(user._id, 'manager')} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700">
-                            <ShieldCheck size={16} /> Make Manager
-                          </button>
-                          <button onClick={() => handleRole(user._id, 'ceo')} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700">
-                            <UserPlus size={16} /> Make CEO
-                          </button>
-                          
-                          <div className="border-t mt-1">
-                            <button onClick={() => handleDelete(user._id)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-rose-600 hover:bg-rose-600 hover:text-white transition-colors">
-                              <Trash2 size={16} /> Delete Account
-                            </button>
+                      {/* User info */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <img
+                              src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}&background=6366f1&color=fff`}
+                              alt=""
+                              className="h-10 w-10 rounded-full ring-2 ring-white shadow-sm object-cover"
+                              onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${user.displayName}&background=6366f1&color=fff`; }}
+                            />
+                            <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${statusConf.dot}`}></span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">{user.displayName}</p>
+                            <p className="text-xs text-gray-500">{user.email}</p>
                           </div>
                         </div>
-                      )}
+                      </td>
+
+                      {/* Role */}
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold border capitalize ${roleConf.bg} ${roleConf.text} ${roleConf.border}`}>
+                          {roleConf.label}
+                        </span>
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusConf.bg} ${statusConf.text} ${statusConf.border}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${statusConf.dot}`}></span>
+                          {statusConf.label}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-6 py-4 text-right relative" ref={openDropdownId === user._id ? dropdownRef : null}>
+                        <button
+                          onClick={() => setOpenDropdownId(openDropdownId === user._id ? null : user._id)}
+                          disabled={isActionLoading}
+                          className="p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-40"
+                        >
+                          <MoreVertical size={18} className="text-gray-500" />
+                        </button>
+
+                        {openDropdownId === user._id && (
+                          <div className="absolute right-6 mt-2 w-52 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-1 overflow-hidden">
+
+                            <p className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50/80">
+                              Manage Status
+                            </p>
+                            <button onClick={() => handleStatus(user._id, 'approved')} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors">
+                              <UserCheck size={15} /> Approve User
+                            </button>
+                            <button onClick={() => handleStatus(user._id, 'rejected')} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-rose-50 hover:text-rose-700 transition-colors border-b border-gray-100">
+                              <UserX size={15} /> Reject User
+                            </button>
+
+                            <p className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50/80">
+                              Assign Role
+                            </p>
+                            <button onClick={() => handleRole(user._id, 'manager')} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors">
+                              <ShieldCheck size={15} /> Make Manager
+                            </button>
+                            <button onClick={() => handleRole(user._id, 'operator')} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors">
+                              <UserPlus size={15} /> Make Operator
+                            </button>
+                            <button onClick={() => handleRole(user._id, 'ceo')} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-700 transition-colors border-b border-gray-100">
+                              <UserPlus size={15} /> Make CEO
+                            </button>
+
+                            <button onClick={() => handleDelete(user._id, user.displayName)} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-600 hover:text-white transition-colors mt-1">
+                              <Trash2 size={15} /> Delete Account
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                }) : (
+                  <tr>
+                    <td colSpan="4" className="text-center py-16 text-gray-400 italic text-sm">
+                      {searchText ? `No users found matching "${searchText}"` : 'No users found'}
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
