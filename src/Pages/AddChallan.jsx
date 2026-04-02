@@ -1,6 +1,7 @@
 
 
 // import React, { useState, useEffect } from "react";
+
 // import { useForm, useFieldArray } from "react-hook-form";
 // import { Plus, Trash2, Edit3, User, MapPin, Phone, Package, Send, History, Globe, Clock, Building, Navigation } from "lucide-react";
 // import useAxiosSecure from "../hooks/useAxiosSecure";
@@ -21,7 +22,7 @@
 
 //   const { register, control, handleSubmit, reset, setValue, formState: { errors } } = useForm({
 //     defaultValues: {
-//       products: [{ model: "", quantity: "" }], // Removed productName from default
+//       products: [{ model: "", productName: "", quantity: "" }],
 //     },
 //   });
 
@@ -70,7 +71,7 @@
 //   };
 
 //   const handleEdit = (product, index) => {
-//     setSelectedProduct({ ...product, productIndex: index }); 
+//     setSelectedProduct({ ...product, productIndex: index });
 //     setEditModalOpen(true);
 //   };
 
@@ -100,8 +101,8 @@
 //         {/* ================= FORM SECTION (Left) ================= */}
 //         <div className="lg:col-span-7 bg-white shadow-sm border border-slate-200 rounded-2xl overflow-hidden">
 //           <div className="bg-slate-50 border-b border-slate-200 p-6 flex items-center gap-3">
-//              <Package className="text-blue-600" size={24} />
-//              <h2 className="text-xl font-bold text-slate-800 tracking-tight">Create Delivery Challan</h2>
+//             <Package className="text-blue-600" size={24} />
+//             <h2 className="text-xl font-bold text-slate-800 tracking-tight">Create Delivery Challan</h2>
 //           </div>
 
 //           <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
@@ -129,11 +130,11 @@
 //                   <label className="text-xs font-semibold text-slate-500 mb-1 block">Zone</label>
 //                   <div className="relative">
 //                     <Globe className="absolute left-3 top-3 text-slate-400" size={18} />
-//                     <input 
-//                       {...register("zone", { required: true })} 
+//                     <input
+//                       {...register("zone", { required: true })}
 //                       onChange={(e) => handleAutoSearch("zone", "zone", e.target.value)}
-//                       className="input input-bordered w-full pl-10 h-11 border-slate-200 focus:ring-2 focus:ring-blue-500/20" 
-//                       placeholder="Zone" 
+//                       className="input input-bordered w-full pl-10 h-11 border-slate-200 focus:ring-2 focus:ring-blue-500/20"
+//                       placeholder="Zone"
 //                     />
 //                   </div>
 //                   <AutoDropdown fieldKey="zone" autoData={autoData} activeField={activeField} setActiveField={setActiveField} setFormValue={(v) => setValue("zone", v)} />
@@ -155,11 +156,11 @@
 //                   <label className="text-xs font-semibold text-slate-500 mb-1 block">Thana</label>
 //                   <div className="relative">
 //                     <Navigation className="absolute left-3 top-3 text-slate-400" size={18} />
-//                     <input 
-//                       {...register("thana", { required: true })} 
+//                     <input
+//                       {...register("thana", { required: true })}
 //                       onChange={(e) => handleAutoSearch("thana", "thana", e.target.value)}
-//                       className="input input-bordered w-full pl-10 h-11 border-slate-200 focus:ring-2 focus:ring-blue-500/20" 
-//                       placeholder="Enter Thana" 
+//                       className="input input-bordered w-full pl-10 h-11 border-slate-200 focus:ring-2 focus:ring-blue-500/20"
+//                       placeholder="Enter Thana"
 //                     />
 //                   </div>
 //                   <AutoDropdown fieldKey="thana" autoData={autoData} activeField={activeField} setActiveField={setActiveField} setFormValue={(v) => setValue("thana", v)} />
@@ -169,11 +170,11 @@
 //                   <label className="text-xs font-semibold text-slate-500 mb-1 block">District</label>
 //                   <div className="relative">
 //                     <Building className="absolute left-3 top-3 text-slate-400" size={18} />
-//                     <input 
-//                       {...register("district", { required: true })} 
+//                     <input
+//                       {...register("district", { required: true })}
 //                       onChange={(e) => handleAutoSearch("district", "district", e.target.value)}
-//                       className="input input-bordered w-full pl-10 h-11 border-slate-200 focus:ring-2 focus:ring-blue-500/20" 
-//                       placeholder="Enter District" 
+//                       className="input input-bordered w-full pl-10 h-11 border-slate-200 focus:ring-2 focus:ring-blue-500/20"
+//                       placeholder="Enter District"
 //                     />
 //                   </div>
 //                   <AutoDropdown fieldKey="district" autoData={autoData} activeField={activeField} setActiveField={setActiveField} setFormValue={(v) => setValue("district", v)} />
@@ -181,11 +182,11 @@
 //               </div>
 //             </div>
 
-//             {/* Product Section - ONLY MODEL & QTY */}
+//             {/* Product Section - MODEL, PRODUCT NAME & QTY */}
 //             <div className="pt-4 border-t border-slate-100">
 //               <div className="flex justify-between items-center mb-4">
 //                 <h3 className="font-bold text-slate-700 text-sm">Product Particulars</h3>
-//                 <button type="button" onClick={() => append({ model: "", quantity: "" })} className="btn btn-sm btn-ghost text-blue-600 normal-case">
+//                 <button type="button" onClick={() => append({ model: "", productName: "", quantity: "" })} className="btn btn-sm btn-ghost text-blue-600 normal-case">
 //                   <Plus size={16} /> Add Item
 //                 </button>
 //               </div>
@@ -193,18 +194,37 @@
 //               <div className="space-y-3">
 //                 {fields.map((item, index) => (
 //                   <div key={item.id} className="grid grid-cols-12 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl items-center">
-//                     <div className="col-span-9 relative">
-//                       <input 
-//                         {...register(`products.${index}.model`, { required: true })} 
-//                         onChange={(e) => handleAutoSearch(`model-${index}`, "model", e.target.value)} 
-//                         className="input input-sm input-bordered w-full bg-white h-10" 
-//                         placeholder="Model" 
+
+//                     <div className="col-span-4 relative">
+//                       <input
+//                         {...register(`products.${index}.productName`, { required: true })}
+//                         onChange={(e) => handleAutoSearch(`product-${index}`, "productName", e.target.value)}
+//                         className="input input-sm input-bordered w-full bg-white h-10"
+//                         placeholder="Product Name"
+//                       />
+//                       <AutoDropdown
+//                         fieldKey={`product-${index}`}
+//                         autoData={autoData}
+//                         activeField={activeField}
+//                         setActiveField={setActiveField}
+//                         setFormValue={(v) => setValue(`products.${index}.productName`, v)}
+//                       />
+//                     </div>
+
+//                     <div className="col-span-5 relative">
+//                       <input
+//                         {...register(`products.${index}.model`, { required: true })}
+//                         onChange={(e) => handleAutoSearch(`model-${index}`, "model", e.target.value)}
+//                         className="input input-sm input-bordered w-full bg-white h-10"
+//                         placeholder="Model"
 //                       />
 //                       <AutoDropdown fieldKey={`model-${index}`} autoData={autoData} activeField={activeField} setActiveField={setActiveField} setFormValue={(v) => setValue(`products.${index}.model`, v)} />
 //                     </div>
+
 //                     <div className="col-span-2">
 //                       <input type="number" {...register(`products.${index}.quantity`, { required: true })} className="input input-sm input-bordered w-full text-center bg-white h-10" placeholder="Qty" />
 //                     </div>
+
 //                     <div className="col-span-1 flex justify-center">
 //                       <button type="button" onClick={() => remove(index)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
 //                         <Trash2 size={18} />
@@ -266,8 +286,8 @@
 //                       <MapPin size={16} className="text-red-400 mt-0.5" /> {recentChallan.address}
 //                     </p>
 //                     <div className="flex gap-2 border-t border-slate-200 pt-2">
-//                        <span className="text-[11px] font-bold text-slate-500 bg-slate-200/50 px-2 py-0.5 rounded uppercase"> <span className="text-blue-400">Thana:</span> {recentChallan.thana}</span>
-//                        <span className="text-[11px] font-bold text-slate-500 bg-slate-200/50 px-2 py-0.5 rounded uppercase"> <span className="text-blue-400">District:</span> {recentChallan.district}</span>
+//                       <span className="text-[11px] font-bold text-slate-500 bg-slate-200/50 px-2 py-0.5 rounded uppercase"> <span className="text-blue-400">Thana:</span> {recentChallan.thana}</span>
+//                       <span className="text-[11px] font-bold text-slate-500 bg-slate-200/50 px-2 py-0.5 rounded uppercase"> <span className="text-blue-400">District:</span> {recentChallan.district}</span>
 //                     </div>
 //                   </div>
 //                 </div>
@@ -282,6 +302,7 @@
 //                             {i + 1}
 //                           </div>
 //                           <div>
+//                             <p className="text-[11px] text-slate-500">{p.productName}</p>
 //                             <p className="text-[13px] font-bold text-slate-800 uppercase">{p.model}</p>
 //                           </div>
 //                         </div>
@@ -332,9 +353,9 @@
 // export default AddChallan;
 
 
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, Edit3, User, MapPin, Phone, Package, Send, History, Globe, Clock, Building, Navigation } from "lucide-react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import useAuth from "../hooks/useAuth";
@@ -345,12 +366,13 @@ import EditRecentChallanModal from "../Component/EditRecentChallanModal";
 const AddChallan = () => {
   const axiosSecure = useAxiosSecure();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const [autoData, setAutoData] = useState({});
   const [activeField, setActiveField] = useState(null);
-  const [recentChallan, setRecentChallan] = useState(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const debounceRef = useRef(null);
 
   const { register, control, handleSubmit, reset, setValue, formState: { errors } } = useForm({
     defaultValues: {
@@ -358,35 +380,34 @@ const AddChallan = () => {
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: "products",
+  const { fields, append, remove } = useFieldArray({ control, name: "products" });
+
+  // ── React Query — Recent Challan ───────────────────────────────
+  const { data: recentChallan = null } = useQuery({
+    queryKey: ["recent-challan"],
+    queryFn: async () => {
+      const res = await axiosSecure.get("/challan/recent?limit=1");
+      return res.data.data?.[0] || null;
+    },
+    staleTime: 30 * 1000, // ৩০ সেকেন্ড cache
   });
 
-  const handleAutoSearch = async (fieldKey, field, value) => {
+  // ── Autocomplete — debounce সহ ────────────────────────────────
+  const handleAutoSearch = (fieldKey, field, value) => {
     if (!value) return;
-    try {
-      const res = await axiosSecure.get(`/autocomplete?collection=challan&field=${field}&search=${value}`);
-      setAutoData((prev) => ({ ...prev, [fieldKey]: res.data }));
-      setActiveField(fieldKey);
-    } catch (err) {
-      console.error(err);
-    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await axiosSecure.get(`/autocomplete?collection=challan&field=${field}&search=${value}`);
+        setAutoData((prev) => ({ ...prev, [fieldKey]: res.data }));
+        setActiveField(fieldKey);
+      } catch (err) {
+        console.error(err);
+      }
+    }, 400);
   };
 
-  const fetchRecentChallan = async () => {
-    try {
-      const res = await axiosSecure.get("/challan/recent?limit=1");
-      setRecentChallan(res.data.data?.[0] || null);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  useEffect(() => {
-    fetchRecentChallan();
-  }, []);
-
+  // ── Submit ─────────────────────────────────────────────────────
   const onSubmit = async (data) => {
     try {
       const payload = { ...data, currentUser: user?.displayName, createdAt: new Date() };
@@ -395,18 +416,20 @@ const AddChallan = () => {
       if (res.data.insertedId) {
         Swal.fire({ icon: "success", title: "Challan Created!", showConfirmButton: false, timer: 1500 });
         reset();
-        fetchRecentChallan();
+        queryClient.invalidateQueries({ queryKey: ["recent-challan"] });
       }
     } catch (err) {
       Swal.fire("Error!", "Failed to add challan", "error");
     }
   };
 
+  // ── Edit ───────────────────────────────────────────────────────
   const handleEdit = (product, index) => {
     setSelectedProduct({ ...product, productIndex: index });
     setEditModalOpen(true);
   };
 
+  // ── Delete ─────────────────────────────────────────────────────
   const handleDelete = async (id) => {
     const confirm = await Swal.fire({
       title: "Are you sure?",
@@ -421,8 +444,10 @@ const AddChallan = () => {
       try {
         await axiosSecure.delete(`/challan/${id}`);
         Swal.fire("Deleted!", "Challan deleted.", "success");
-        fetchRecentChallan();
-      } catch (err) { console.error(err); }
+        queryClient.invalidateQueries({ queryKey: ["recent-challan"] });
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 
@@ -514,7 +539,7 @@ const AddChallan = () => {
               </div>
             </div>
 
-            {/* Product Section - MODEL, PRODUCT NAME & QTY */}
+            {/* Product Section */}
             <div className="pt-4 border-t border-slate-100">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-slate-700 text-sm">Product Particulars</h3>
@@ -526,7 +551,6 @@ const AddChallan = () => {
               <div className="space-y-3">
                 {fields.map((item, index) => (
                   <div key={item.id} className="grid grid-cols-12 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl items-center">
-
                     <div className="col-span-4 relative">
                       <input
                         {...register(`products.${index}.productName`, { required: true })}
@@ -550,11 +574,22 @@ const AddChallan = () => {
                         className="input input-sm input-bordered w-full bg-white h-10"
                         placeholder="Model"
                       />
-                      <AutoDropdown fieldKey={`model-${index}`} autoData={autoData} activeField={activeField} setActiveField={setActiveField} setFormValue={(v) => setValue(`products.${index}.model`, v)} />
+                      <AutoDropdown
+                        fieldKey={`model-${index}`}
+                        autoData={autoData}
+                        activeField={activeField}
+                        setActiveField={setActiveField}
+                        setFormValue={(v) => setValue(`products.${index}.model`, v)}
+                      />
                     </div>
 
                     <div className="col-span-2">
-                      <input type="number" {...register(`products.${index}.quantity`, { required: true })} className="input input-sm input-bordered w-full text-center bg-white h-10" placeholder="Qty" />
+                      <input
+                        type="number"
+                        {...register(`products.${index}.quantity`, { required: true })}
+                        className="input input-sm input-bordered w-full text-center bg-white h-10"
+                        placeholder="Qty"
+                      />
                     </div>
 
                     <div className="col-span-1 flex justify-center">
@@ -618,8 +653,12 @@ const AddChallan = () => {
                       <MapPin size={16} className="text-red-400 mt-0.5" /> {recentChallan.address}
                     </p>
                     <div className="flex gap-2 border-t border-slate-200 pt-2">
-                      <span className="text-[11px] font-bold text-slate-500 bg-slate-200/50 px-2 py-0.5 rounded uppercase"> <span className="text-blue-400">Thana:</span> {recentChallan.thana}</span>
-                      <span className="text-[11px] font-bold text-slate-500 bg-slate-200/50 px-2 py-0.5 rounded uppercase"> <span className="text-blue-400">District:</span> {recentChallan.district}</span>
+                      <span className="text-[11px] font-bold text-slate-500 bg-slate-200/50 px-2 py-0.5 rounded uppercase">
+                        <span className="text-blue-400">Thana:</span> {recentChallan.thana}
+                      </span>
+                      <span className="text-[11px] font-bold text-slate-500 bg-slate-200/50 px-2 py-0.5 rounded uppercase">
+                        <span className="text-blue-400">District:</span> {recentChallan.district}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -651,10 +690,10 @@ const AddChallan = () => {
 
                 <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-slate-400">
                   <div className="flex items-center gap-2 text-xs font-semibold italic">
-                    By: {recentChallan.currentUser || 'Admin'}
+                    By: {recentChallan.currentUser || "Admin"}
                   </div>
                   <div className="flex items-center gap-1 text-[11px] font-medium">
-                    <Clock size={12} /> {new Date(recentChallan.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <Clock size={12} /> {new Date(recentChallan.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </div>
                 </div>
               </div>
@@ -675,7 +714,7 @@ const AddChallan = () => {
           challan={recentChallan}
           product={selectedProduct}
           axiosSecure={axiosSecure}
-          refreshChallan={fetchRecentChallan}
+          refreshChallan={() => queryClient.invalidateQueries({ queryKey: ["recent-challan"] })}
         />
       )}
     </div>

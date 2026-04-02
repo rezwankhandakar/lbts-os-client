@@ -2,7 +2,6 @@
 
 // import React, { useState } from "react";
 // import useAxiosSecure from "../hooks/useAxiosSecure";
-// import axios from "axios"; // Standard axios for external API
 // import Swal from "sweetalert2";
 // import { UserPlus, Image as ImageIcon, MapPin, Phone, RotateCcw, Save, Camera, Loader2 } from "lucide-react";
 
@@ -24,24 +23,24 @@
 //     setFormData({ ...formData, [name]: value });
 //   };
 
-//   // ✅ Image Upload Logic to ImgBB
+//   // ✅ Backend এর মাধ্যমে upload — imgbb key আর frontend এ নেই
 //   const handleImageUpload = async (e) => {
 //     const file = e.target.files[0];
 //     if (!file) return;
 
-//     // Show local preview
 //     setPreview(URL.createObjectURL(file));
 //     setUploading(true);
 
-//     const imgFormData = new FormData();
-//     imgFormData.append("image", file);
-
 //     try {
-//       const image_API_URL = `https://api.imgbb.com/1/upload?key=${import.meta.env.VITE_IMAGE_HOST_KEY}`;
-//       const res = await axios.post(image_API_URL, imgFormData);
-      
+//       const imgFormData = new FormData();
+//       imgFormData.append("image", file);
+
+//       const res = await axiosSecure.post("/upload-image", imgFormData, {
+//         headers: { "Content-Type": "multipart/form-data" },
+//       });
+
 //       if (res.data.success) {
-//         setFormData({ ...formData, vendorImg: res.data.data.url });
+//         setFormData(prev => ({ ...prev, vendorImg: res.data.url }));
 //         Swal.fire({
 //           toast: true,
 //           position: "top-end",
@@ -114,7 +113,7 @@
 //       {/* Main Form Card */}
 //       <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
 //         <div className="grid grid-cols-1 md:grid-cols-3">
-          
+
 //           {/* Left Side: Info/Preview */}
 //           <div className="bg-slate-900 p-8 text-white flex flex-col justify-between">
 //             <div>
@@ -127,11 +126,7 @@
 //             <div className="mt-8 flex flex-col items-center">
 //               <div className="w-32 h-32 rounded-2xl border-2 border-dashed border-slate-700 flex items-center justify-center overflow-hidden bg-slate-800">
 //                 {formData.vendorImg ? (
-//                   <img
-//                     src={formData.vendorImg}
-//                     alt="Preview"
-//                     className="w-full h-full object-cover"
-//                   />
+//                   <img src={formData.vendorImg} alt="Preview" className="w-full h-full object-cover" />
 //                 ) : (
 //                   <ImageIcon className="text-slate-600" size={40} />
 //                 )}
@@ -146,7 +141,7 @@
 //           <div className="md:col-span-2 p-8">
 //             <form onSubmit={handleSubmit} className="space-y-6">
 //               <div className="grid grid-cols-1 gap-6">
-                
+
 //                 {/* Vendor Name */}
 //                 <div className="relative">
 //                   <label className="text-xs font-bold uppercase text-slate-500 mb-2 block tracking-wider">
@@ -165,19 +160,29 @@
 //                     <UserPlus className="absolute left-3 top-3.5 text-slate-400" size={18} />
 //                   </div>
 //                 </div>
-//                     {/* Image Upload Field */}
+
+//                 {/* Image Upload Field */}
 //                 <div>
 //                   <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest ml-1">
 //                     Vendor Photo
 //                   </label>
 //                   <label className="flex items-center justify-center w-full px-4 py-3 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-100 hover:border-emerald-400 transition-all">
 //                     <div className="flex items-center gap-3">
-//                       <Camera size={20} className="text-slate-400" />
+//                       {uploading
+//                         ? <Loader2 size={20} className="text-slate-400 animate-spin" />
+//                         : <Camera size={20} className="text-slate-400" />
+//                       }
 //                       <span className="text-sm font-bold text-slate-600">
 //                         {uploading ? "Uploading to Cloud..." : "Select Business Image"}
 //                       </span>
 //                     </div>
-//                     <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+//                     <input
+//                       type="file"
+//                       className="hidden"
+//                       accept="image/jpeg,image/png,image/webp"
+//                       onChange={handleImageUpload}
+//                       disabled={uploading}
+//                     />
 //                   </label>
 //                 </div>
 
@@ -232,10 +237,10 @@
 //                   <RotateCcw size={18} />
 //                   Reset
 //                 </button>
-                
+
 //                 <button
 //                   type="submit"
-//                   disabled={loading}
+//                   disabled={loading || uploading}
 //                   className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white px-8 py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-200 transition-all active:scale-95"
 //                 >
 //                   {loading ? (
@@ -259,16 +264,15 @@
 // export default AddVendor;
 
 
-
-
-
 import React, { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import Swal from "sweetalert2";
 import { UserPlus, Image as ImageIcon, MapPin, Phone, RotateCcw, Save, Camera, Loader2 } from "lucide-react";
 
 const AddVendor = () => {
   const axiosSecure = useAxiosSecure();
+  const queryClient = useQueryClient(); // ✅ add
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -285,7 +289,6 @@ const AddVendor = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  // ✅ Backend এর মাধ্যমে upload — imgbb key আর frontend এ নেই
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -347,6 +350,8 @@ const AddVendor = () => {
           confirmButtonColor: "#10b981",
         });
         handleReset();
+        // ✅ AllVendor এর cache invalidate করো
+        queryClient.invalidateQueries({ queryKey: ["vendors"] });
       }
     } catch (error) {
       Swal.fire("Error", "Failed to add vendor.", "error");
@@ -357,7 +362,6 @@ const AddVendor = () => {
 
   return (
     <div className="min-h-screen bg-slate-50/50 p-4 md:p-8">
-      {/* Page Header */}
       <div className="max-w-4xl mx-auto mb-8">
         <div className="flex items-center gap-3 mb-2">
           <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
@@ -372,7 +376,6 @@ const AddVendor = () => {
         </p>
       </div>
 
-      {/* Main Form Card */}
       <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="grid grid-cols-1 md:grid-cols-3">
 
