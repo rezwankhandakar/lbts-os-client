@@ -325,6 +325,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import useRole from "../hooks/useRole";
 import Swal from "sweetalert2";
+import LoadingSpinner from "../Component/LoadingSpinner";
 
 const AllGatePass = () => {
   const axiosSecure = useAxiosSecure();
@@ -621,7 +622,7 @@ const AllGatePass = () => {
         </div>
 
         {loading ? (
-          <div className="text-center py-10 font-medium text-green-600">Loading Data...</div>
+          <LoadingSpinner text="Loading Gate Pass..." />
         ) : filteredRows.length === 0 ? (
           <div className="text-center py-10 text-gray-500 italic border rounded-lg">No gate pass found.</div>
         ) : (

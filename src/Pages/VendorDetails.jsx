@@ -382,6 +382,7 @@ import { useParams } from "react-router";
 import Swal from "sweetalert2";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import { Truck, Phone, MapPin, User, Plus, Loader2, ClipboardList, Briefcase, Camera, Edit3, Trash2, PhoneCall } from "lucide-react";
+import LoadingSpinner from "../Component/LoadingSpinner";
 
 const VendorDetails = () => {
   const { id } = useParams();
@@ -469,14 +470,7 @@ const VendorDetails = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <Loader2 className="animate-spin text-slate-400 mb-2" size={32} />
-        <p className="text-slate-500 text-sm font-medium tracking-wide">Loading Profile...</p>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner text="Loading Profile..." />;
 
   return (
     <div className="p-6 md:p-10 bg-[#F1F5F9] min-h-screen font-sans">

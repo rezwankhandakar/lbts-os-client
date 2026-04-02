@@ -238,6 +238,7 @@ import useAxiosSecure from "../hooks/useAxiosSecure";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router";
 import { Edit3, Trash2, Eye, Phone, MapPin, X, Loader2, User } from "lucide-react";
+import LoadingSpinner from "../Component/LoadingSpinner";
 
 const AllVendor = () => {
   const axiosSecure = useAxiosSecure();
@@ -337,14 +338,7 @@ const AllVendor = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[70vh]">
-        <Loader2 className="animate-spin text-slate-500 mb-3" size={35} />
-        <p className="text-slate-500 text-sm font-medium tracking-wide">Fetching Records...</p>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner text="Fetching Records..." />;
 
   return (
     <div className="p-6 md:p-10 bg-[#F1F5F9] min-h-screen font-sans">

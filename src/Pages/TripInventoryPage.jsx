@@ -502,6 +502,7 @@ import { saveAs } from "file-saver";
 import Swal from "sweetalert2";
 import TripDetailsModal from "../Component/TripDetailsModal";
 import Pagination from "../Component/Pagination";
+import LoadingSpinner from "../Component/LoadingSpinner";
 
 const TripInventoryPage = () => {
   const axiosSecure = useAxiosSecure();
@@ -763,7 +764,7 @@ const TripInventoryPage = () => {
         </div>
 
         {loading ? (
-          <div className="text-center py-10">Loading...</div>
+          <LoadingSpinner />
         ) : (
           <>
             <table className="w-full border-collapse text-sm">

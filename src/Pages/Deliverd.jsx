@@ -300,6 +300,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import Swal from "sweetalert2";
 import Pagination from "../Component/Pagination";
+import LoadingSpinner from "../Component/LoadingSpinner";
 
 const DeliveredPage = () => {
   const axiosSecure = useAxiosSecure();
@@ -552,7 +553,7 @@ const DeliveredPage = () => {
         </div>
 
         {loading ? (
-          <div className="text-center py-10">Loading...</div>
+          <LoadingSpinner text="Loading Deliveries..." />
         ) : (
           <>
             <div className="overflow-x-auto">

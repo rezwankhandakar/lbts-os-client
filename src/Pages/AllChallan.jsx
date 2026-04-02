@@ -379,6 +379,7 @@ import useRole from "../hooks/useRole";
 import ChallanActionDropdown from "../Component/ChallanActionDropdown";
 import Pagination from "../Component/Pagination";
 import Swal from "sweetalert2";
+import LoadingSpinner from "../Component/LoadingSpinner";
 
 const AllChallan = () => {
   const axiosSecure = useAxiosSecure();
@@ -670,7 +671,7 @@ const AllChallan = () => {
 
         {/* Table Section */}
         {loading ? (
-          <div className="text-center py-10 text-green-600 font-bold">Loading Challans...</div>
+          <LoadingSpinner text="Loading Challans..." />
         ) : (
           <>
             <table className="w-full border-collapse text-sm min-w-[1200px]">
