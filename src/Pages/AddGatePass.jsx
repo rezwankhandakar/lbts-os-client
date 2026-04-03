@@ -179,6 +179,7 @@ const AddGatePass = () => {
                     {[
                       { label: "Customer", value: recentGatePass.customerName, color: "text-blue-800 font-extrabold" },
                       { label: "Unit", value: recentGatePass.unit, color: "text-slate-900 font-bold" },
+                      { label: "CSD", value: recentGatePass.csd, color: "text-slate-900 font-bold" },
                       { label: "Date", value: recentGatePass.tripDate?.slice(0, 10), color: "text-slate-900 font-bold" },
                       { label: "Vehicle", value: recentGatePass.vehicleNo, color: "text-slate-900 font-bold" },
                       { label: "Zone/PO", value: recentGatePass.zone, color: "text-slate-900 font-bold" },
@@ -255,3 +256,4 @@ const AddGatePass = () => {
 };
 
 export default AddGatePass;
+

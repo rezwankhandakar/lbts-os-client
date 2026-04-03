@@ -1,173 +1,7 @@
 
 
-// import React from "react";
-
-// import { FaTimes, FaUser, FaPhoneAlt, FaMapMarkerAlt, FaBoxOpen, FaTrashAlt } from "react-icons/fa";
-
-// const EditCreateDeliveryChallanModal = ({
-//   isOpen,
-//   editingChallan,
-//   setIsEditModalOpen,
-//   handleEditChange,
-//   handleProductChange,
-//   handleDeleteProduct,
-//   handleUpdateChallan
-// }) => {
-
-//   if (!isOpen || !editingChallan) return null;
-
-//   // Input styling common classes
-//   const inputClasses = "w-full border-gray-200 border bg-gray-50/50 p-2.5 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all outline-none text-sm";
-//   const labelClasses = "text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1 block ml-1";
-
-//   return (
-//     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[9999] p-4 transition-all duration-300">
-      
-//       <div className="bg-white w-full max-w-2xl rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] overflow-hidden border border-white/20 animate-in fade-in zoom-in duration-200">
-        
-//         {/* Header Section */}
-//         <div className="bg-slate-900 text-white px-8 py-6 flex justify-between items-center relative">
-//           <div>
-//             <h3 className="text-xl font-black uppercase tracking-tighter italic">
-//               Edit <span className="text-blue-400">Challan</span>
-//             </h3>
-//             <p className="text-[10px] text-gray-400 font-medium tracking-widest mt-0.5">UPDATE DELIVERY INFORMATION</p>
-//           </div>
-
-//           <button
-//             onClick={() => setIsEditModalOpen(false)}
-//             className="h-10 w-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 hover:rotate-90 transition-all duration-300"
-//           >
-//             <FaTimes size={18} />
-//           </button>
-//         </div>
-
-//         {/* Scrollable Content */}
-//         <div className="p-8 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
-          
-//           {/* Section: Customer Info */}
-//           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-//             <div>
-//               <label className={labelClasses}><FaUser className="inline mr-1 mt-[-2px]"/> Customer Name</label>
-//               <input
-//                 name="customerName"
-//                 value={editingChallan.customerName || ""}
-//                 onChange={handleEditChange}
-//                 placeholder="Ex: Rahim & Co"
-//                 className={inputClasses}
-//               />
-//             </div>
-
-//             <div>
-//               <label className={labelClasses}><FaPhoneAlt className="inline mr-1 mt-[-2px]"/> Receiver Number</label>
-//               <input
-//                 name="receiverNumber"
-//                 value={editingChallan.receiverNumber || ""}
-//                 onChange={handleEditChange}
-//                 placeholder="+880 1XXX-XXXXXX"
-//                 className={inputClasses}
-//               />
-//             </div>
-//           </div>
-
-//           {/* Section: Location Info */}
-//           <div className="p-5 bg-gray-50 rounded-2xl border border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-4">
-//              <div className="md:col-span-3 border-b border-gray-200 pb-2 mb-1">
-//                 <h4 className="text-xs font-bold text-slate-700 flex items-center">
-//                     <FaMapMarkerAlt className="mr-2 text-red-500"/> DELIVERY ADDRESS DETAILS
-//                 </h4>
-//              </div>
-//             <div>
-//               <label className={labelClasses}>Zone</label>
-//               <input name="zone" value={editingChallan.zone || ""} onChange={handleEditChange} className={inputClasses} />
-//             </div>
-//             <div>
-//               <label className={labelClasses}>Thana</label>
-//               <input name="thana" value={editingChallan.thana || ""} onChange={handleEditChange} className={inputClasses} />
-//             </div>
-//             <div>
-//               <label className={labelClasses}>District</label>
-//               <input name="district" value={editingChallan.district || ""} onChange={handleEditChange} className={inputClasses} />
-//             </div>
-//             <div className="md:col-span-3">
-//               <label className={labelClasses}>Full Address</label>
-//               <input name="address" value={editingChallan.address || ""} onChange={handleEditChange} className={inputClasses} />
-//             </div>
-//           </div>
-
-//           {/* Section: Products List */}
-//           <div className="space-y-3">
-//             <h4 className="text-xs font-black text-slate-800 flex items-center tracking-widest uppercase">
-//                 <FaBoxOpen className="mr-2 text-blue-600" size={16}/> Products In Challan
-//             </h4>
-
-//             {editingChallan.products?.map((p, index) => (
-//               <div key={index} className="flex gap-3 items-end group animate-in slide-in-from-left-2 duration-300">
-//                 <div className="flex-grow grid grid-cols-3 gap-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm group-hover:border-blue-200 transition-colors">
-//                   <div>
-//                     <label className="text-[10px] text-gray-400 font-bold uppercase mb-1 block">Item Name</label>
-//                     <input
-//                       value={p.productName}
-//                       onChange={(e) => handleProductChange(index, "productName", e.target.value)}
-//                       className="w-full text-sm font-semibold outline-none bg-transparent"
-//                     />
-//                   </div>
-//                   <div>
-//                     <label className="text-[10px] text-gray-400 font-bold uppercase mb-1 block">Model</label>
-//                     <input
-//                       value={p.model}
-//                       onChange={(e) => handleProductChange(index, "model", e.target.value)}
-//                       className="w-full text-sm outline-none bg-transparent"
-//                     />
-//                   </div>
-//                   <div>
-//                     <label className="text-[10px] text-gray-400 font-bold uppercase mb-1 block">Quantity</label>
-//                     <input
-//                       value={p.quantity}
-//                       onChange={(e) => handleProductChange(index, "quantity", e.target.value)}
-//                       className="w-full text-sm font-bold text-blue-600 outline-none bg-transparent"
-//                     />
-//                   </div>
-//                 </div>
-
-//                 <button
-//                   onClick={() => handleDeleteProduct(index)}
-//                   className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white h-[52px] w-12 flex items-center justify-center rounded-xl transition-all"
-//                 >
-//                   <FaTrashAlt size={14} />
-//                 </button>
-//               </div>
-//             ))}
-//           </div>
-
-//           {/* Footer Actions */}
-//           <div className="flex gap-4 pt-6 border-t border-gray-100">
-//             <button
-//               onClick={() => setIsEditModalOpen(false)}
-//               className="flex-1 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-2xl font-bold transition-all active:scale-95"
-//             >
-//               Cancel
-//             </button>
-            
-//             <button
-//               onClick={handleUpdateChallan}
-//               className="flex-[2] py-3.5 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-black hover:to-slate-900 text-white rounded-2xl font-bold shadow-lg shadow-slate-200 transition-all active:scale-95"
-//             >
-//               Update Challan
-//             </button>
-//           </div>
-
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default EditCreateDeliveryChallanModal;
-
-
 import React from "react";
-import { FaTimes, FaUser, FaPhoneAlt, FaMapMarkerAlt, FaBoxOpen, FaTrashAlt } from "react-icons/fa";
+import { FaTimes, FaBoxOpen, FaTrashAlt, FaPlus } from "react-icons/fa";
 
 const EditCreateDeliveryChallanModal = ({
   isOpen,
@@ -176,191 +10,162 @@ const EditCreateDeliveryChallanModal = ({
   handleEditChange,
   handleProductChange,
   handleDeleteProduct,
-  handleUpdateChallan
+  handleUpdateChallan,
+  setEditingChallan,
 }) => {
 
   if (!isOpen || !editingChallan) return null;
 
-  const inputClasses = "w-full border-gray-200 border bg-gray-50/50 p-2.5 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all outline-none text-sm";
-  const labelClasses = "text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1 block ml-1";
-
-  // ✅ form submit handler
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    handleUpdateChallan();
+  const handleAddProduct = () => {
+    setEditingChallan(prev => ({
+      ...prev,
+      products: [...(prev.products || []), { productName: "", model: "", quantity: "" }],
+    }));
   };
 
+  const inp = "w-full px-3 py-2 border border-gray-200 rounded-md text-sm bg-gray-50 text-gray-900 outline-none focus:border-gray-400 focus:bg-white transition-colors placeholder:text-gray-400";
+  const lbl = "block text-[11px] uppercase tracking-wider text-gray-600 mb-1";
+
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[9999] p-4 transition-all duration-300">
-      <div className="bg-white w-full max-w-2xl rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] overflow-hidden border border-white/20 animate-in fade-in zoom-in duration-200">
+    <div
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+      onClick={e => e.target === e.currentTarget && setIsEditModalOpen(false)}
+    >
+      <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
 
         {/* Header */}
-        <div className="bg-slate-900 text-white px-8 py-6 flex justify-between items-center relative">
-          <div>
-            <h3 className="text-xl font-black uppercase tracking-tighter italic">
-              Edit <span className="text-blue-400">Challan</span>
-            </h3>
-            <p className="text-[10px] text-gray-400 font-medium tracking-widest mt-0.5">UPDATE DELIVERY INFORMATION</p>
+        <div className="bg-gray-800 px-6 py-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-white/60 border border-white/20 rounded px-2 py-0.5 font-mono">edit</span>
+            <span className="text-sm text-white">Edit Challan</span>
           </div>
           <button
-            type="button"
             onClick={() => setIsEditModalOpen(false)}
-            className="h-10 w-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 hover:rotate-90 transition-all duration-300"
+            className="w-7 h-7 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all"
           >
-            <FaTimes size={18} />
+            <FaTimes size={13} />
           </button>
         </div>
 
-        {/* ✅ form tag যোগ করা হয়েছে */}
-        <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+        {/* Body */}
+        <div className="p-6 space-y-5 overflow-y-auto flex-1">
 
           {/* Customer Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label className={labelClasses}>
-                <FaUser className="inline mr-1 mt-[-2px]" /> Customer Name
-              </label>
-              <input
-                required
-                name="customerName"
-                value={editingChallan.customerName || ""}
-                onChange={handleEditChange}
-                placeholder="Ex: Rahim & Co"
-                className={inputClasses}
-              />
-            </div>
-            <div>
-              <label className={labelClasses}>
-                <FaPhoneAlt className="inline mr-1 mt-[-2px]" /> Receiver Number
-              </label>
-              <input
-                required
-                name="receiverNumber"
-                value={editingChallan.receiverNumber || ""}
-                onChange={handleEditChange}
-                placeholder="+880 1XXX-XXXXXX"
-                className={inputClasses}
-              />
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2.5 flex items-center gap-2 after:flex-1 after:h-px after:bg-gray-100 after:content-['']">Customer Info</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className={lbl}>Customer Name</label>
+                <input name="customerName" value={editingChallan.customerName || ""} onChange={handleEditChange} placeholder="Ex: Rahim & Co" className={inp} />
+              </div>
+              <div>
+                <label className={lbl}>Receiver Number</label>
+                <input name="receiverNumber" value={editingChallan.receiverNumber || ""} onChange={handleEditChange} placeholder="+880 1XXX-XXXXXX" className={inp} />
+              </div>
             </div>
           </div>
 
-          {/* Location Info */}
-          <div className="p-5 bg-gray-50 rounded-2xl border border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-3 border-b border-gray-200 pb-2 mb-1">
-              <h4 className="text-xs font-bold text-slate-700 flex items-center">
-                <FaMapMarkerAlt className="mr-2 text-red-500" /> DELIVERY ADDRESS DETAILS
-              </h4>
+          {/* Address */}
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2.5 flex items-center gap-2 after:flex-1 after:h-px after:bg-gray-100 after:content-['']">Delivery Address</p>
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <div>
+                <label className={lbl}>Zone</label>
+                <input name="zone" value={editingChallan.zone || ""} onChange={handleEditChange} className={inp} />
+              </div>
+              <div>
+                <label className={lbl}>Thana</label>
+                <input name="thana" value={editingChallan.thana || ""} onChange={handleEditChange} className={inp} />
+              </div>
+              <div>
+                <label className={lbl}>District</label>
+                <input name="district" value={editingChallan.district || ""} onChange={handleEditChange} className={inp} />
+              </div>
             </div>
             <div>
-              <label className={labelClasses}>Zone</label>
-              <input
-                required
-                name="zone"
-                value={editingChallan.zone || ""}
-                onChange={handleEditChange}
-                className={inputClasses}
-              />
-            </div>
-            <div>
-              <label className={labelClasses}>Thana</label>
-              <input
-                required
-                name="thana"
-                value={editingChallan.thana || ""}
-                onChange={handleEditChange}
-                className={inputClasses}
-              />
-            </div>
-            <div>
-              <label className={labelClasses}>District</label>
-              <input
-                required
-                name="district"
-                value={editingChallan.district || ""}
-                onChange={handleEditChange}
-                className={inputClasses}
-              />
-            </div>
-            <div className="md:col-span-3">
-              <label className={labelClasses}>Full Address</label>
-              <input
-                required
-                name="address"
-                value={editingChallan.address || ""}
-                onChange={handleEditChange}
-                className={inputClasses}
-              />
+              <label className={lbl}>Full Address</label>
+              <input name="address" value={editingChallan.address || ""} onChange={handleEditChange} className={inp} />
             </div>
           </div>
 
-          {/* Products List */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-black text-slate-800 flex items-center tracking-widest uppercase">
-              <FaBoxOpen className="mr-2 text-blue-600" size={16} /> Products In Challan
-            </h4>
+          {/* Products */}
+          <div>
+            <div className="flex items-center justify-between mb-2.5">
+              <p className="text-[10px] uppercase tracking-widest text-gray-500 flex items-center gap-2 after:w-8 after:h-px after:bg-gray-100 after:content-['']">Products</p>
+              <button
+                type="button"
+                onClick={handleAddProduct}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-dashed border-gray-300 rounded-md text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-all"
+              >
+                <FaPlus size={9} /> Add Product
+              </button>
+            </div>
 
-            {editingChallan.products?.map((p, index) => (
-              <div key={index} className="flex gap-3 items-end group animate-in slide-in-from-left-2 duration-300">
-                <div className="flex-grow grid grid-cols-3 gap-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm group-hover:border-blue-200 transition-colors">
-                  <div>
-                    <label className="text-[10px] text-gray-400 font-bold uppercase mb-1 block">Item Name</label>
+            <div className="space-y-2">
+              {editingChallan.products?.map((p, index) => (
+                <div key={index} className="flex gap-2 items-center p-2.5 bg-gray-50 border border-gray-100 rounded-lg hover:border-gray-200 transition-colors">
+                  <div className="flex-[5]">
+                    <label className="text-[10px] uppercase tracking-wider text-gray-500 mb-1 block">Item Name</label>
                     <input
-                      required
                       value={p.productName}
-                      onChange={(e) => handleProductChange(index, "productName", e.target.value)}
-                      className="w-full text-sm font-semibold outline-none bg-transparent border-b border-gray-200 focus:border-blue-400 pb-1"
+                      onChange={e => handleProductChange(index, "productName", e.target.value)}
+                      className="w-full text-sm text-gray-900 outline-none bg-transparent border-b border-gray-200 focus:border-gray-500 pb-0.5 placeholder:text-gray-400"
+                      placeholder="Product name"
                     />
                   </div>
-                  <div>
-                    <label className="text-[10px] text-gray-400 font-bold uppercase mb-1 block">Model</label>
+                  <div className="flex-[4]">
+                    <label className="text-[10px] uppercase tracking-wider text-gray-500 mb-1 block">Model</label>
                     <input
-                      required
                       value={p.model}
-                      onChange={(e) => handleProductChange(index, "model", e.target.value)}
-                      className="w-full text-sm outline-none bg-transparent border-b border-gray-200 focus:border-blue-400 pb-1"
+                      onChange={e => handleProductChange(index, "model", e.target.value)}
+                      className="w-full text-sm text-gray-900 outline-none bg-transparent border-b border-gray-200 focus:border-gray-500 pb-0.5 placeholder:text-gray-400"
+                      placeholder="Model"
                     />
                   </div>
-                  <div>
-                    <label className="text-[10px] text-gray-400 font-bold uppercase mb-1 block">Quantity</label>
+                  <div className="w-16 shrink-0">
+                    <label className="text-[10px] uppercase tracking-wider text-gray-500 mb-1 block">Qty</label>
                     <input
-                      required
                       type="number"
                       min="1"
                       value={p.quantity}
-                      onChange={(e) => handleProductChange(index, "quantity", e.target.value)}
-                      className="w-full text-sm font-bold text-blue-600 outline-none bg-transparent border-b border-gray-200 focus:border-blue-400 pb-1"
+                      onChange={e => handleProductChange(index, "quantity", e.target.value)}
+                      className="w-full text-sm font-medium text-gray-900 outline-none bg-transparent border-b border-gray-200 focus:border-gray-500 pb-0.5"
+                      placeholder="0"
                     />
                   </div>
+                  {editingChallan.products.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteProduct(index)}
+                      className="shrink-0 w-7 h-7 flex items-center justify-center border border-red-100 rounded text-red-300 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                    >
+                      <FaTrashAlt size={11} />
+                    </button>
+                  )}
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleDeleteProduct(index)}
-                  className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white h-[52px] w-12 flex items-center justify-center rounded-xl transition-all"
-                >
-                  <FaTrashAlt size={14} />
-                </button>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
-          {/* Footer Actions */}
-          <div className="flex gap-4 pt-6 border-t border-gray-100">
+          {/* Footer */}
+          <div className="flex items-center justify-end gap-2 pt-1 border-t border-gray-100">
             <button
-              type="button"
               onClick={() => setIsEditModalOpen(false)}
-              className="flex-1 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-2xl font-bold transition-all active:scale-95"
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
             >
               Cancel
             </button>
             <button
-              type="submit"
-              className="flex-[2] py-3.5 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-black hover:to-slate-900 text-white rounded-2xl font-bold shadow-lg shadow-slate-200 transition-all active:scale-95"
+              onClick={handleUpdateChallan}
+              className="px-5 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded-md transition-colors flex items-center gap-2"
             >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
               Update Challan
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
