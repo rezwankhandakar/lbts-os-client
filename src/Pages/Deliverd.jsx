@@ -302,7 +302,7 @@ import Swal from "sweetalert2";
 import Pagination from "../Component/Pagination";
 import LoadingSpinner from "../Component/LoadingSpinner";
 
-/* ── Multi-select dropdown ── */
+/* ── Multi-select dropdown — search always visible ── */
 const MultiSelectFilter = ({ options, selected, onChange, placeholder = "All" }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -347,12 +347,16 @@ const MultiSelectFilter = ({ options, selected, onChange, placeholder = "All" })
             left: ref.current ? ref.current.getBoundingClientRect().left : 0,
           }}
         >
-          {options.length > 5 && (
-            <div className="p-1.5 border-b border-gray-100">
-              <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Search…" className="w-full px-2 py-1 text-xs border border-gray-200 rounded outline-none" />
-            </div>
-          )}
+          {/* search always visible */}
+          <div className="p-1.5 border-b border-gray-100">
+            <input
+              autoFocus
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search…"
+              className="w-full px-2 py-1 text-xs border border-gray-200 rounded outline-none"
+            />
+          </div>
           <div className="max-h-44 overflow-y-auto">
             {filtered.length === 0
               ? <div className="px-3 py-2 text-xs text-gray-400 text-center">No results</div>
@@ -406,11 +410,17 @@ const DeliveredPage = () => {
   const fetchDeliveries = async (m, y, search, page = 1) => {
     setLoading(true);
     try {
-      let url = `/deliveries?month=${m}&year=${y}&page=${page}&limit=50`;
-      if (search) url += `&search=${search}`;
+      let url;
+      if (search) {
+        // search থাকলে backend search দিয়ে সব data আনো (month filter নেই)
+        url = `/deliveries?search=${encodeURIComponent(search)}&page=1&limit=5000`;
+      } else {
+        // search নেই — month/year filter দিয়ে paginated
+        url = `/deliveries?month=${m}&year=${y}&page=${page}&limit=50`;
+      }
       const res = await axiosSecure.get(url);
       setDeliveries(res.data.data || []);
-      setPagination(res.data.pagination || null);
+      setPagination(search ? null : (res.data.pagination || null));
     } catch (err) { console.error(err); }
     setLoading(false);
   };
@@ -443,7 +453,6 @@ const DeliveredPage = () => {
       .some(v => v?.toString().toLowerCase().includes(s));
 
     const challanDate = new Date(trip.createdAt).toISOString().slice(0, 10);
-
     const check = (field, filter, val) =>
       field === excludeField || filter.length === 0 || filter.some(f => val?.toLowerCase() === f.toLowerCase());
 
@@ -612,15 +621,17 @@ const DeliveredPage = () => {
         ) : (
           <>
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="overflow-x-auto">
+              {/* ✅ overflow on same container for sticky to work */}
+              <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)]">
                 <table className="w-full border-collapse text-sm">
-                  <thead className="sticky top-0 z-20">
-                    <tr className="bg-gray-800 text-white text-left">
+                  <thead>
+                    {/* ✅ sticky top-0 on each row separately */}
+                    <tr className="bg-gray-800 text-white text-left sticky top-0 z-20">
                       {["Date", "Customer", "Zone", "Address", "Receiver", "District", "Thana", "Product", "Model", "Qty"].map(h => (
                         <th key={h} className="px-3 py-2.5 font-normal text-xs uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0">{h}</th>
                       ))}
                     </tr>
-                    <tr className="bg-gray-50 border-b-2 border-gray-200">
+                    <tr className="bg-gray-50 border-b-2 border-gray-200 sticky top-[41px] z-20">
                       <th className="p-1 border-r border-gray-200">
                         <input type="date"
                           className="w-full px-1.5 py-1 border border-gray-300 rounded text-[10px] outline-none focus:border-gray-500 bg-white"

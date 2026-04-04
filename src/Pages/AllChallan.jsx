@@ -679,15 +679,15 @@ const AllChallan = () => {
         ) : (
           <>
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)]">
                 <table className="w-full border-collapse text-sm">
-                  <thead className="sticky top-0 z-20">
-                    <tr className="bg-gray-800 text-white text-left">
+                  <thead>
+                    <tr className="bg-gray-800 text-white text-left sticky top-0 z-20">
                       {["Date", "Customer", "Address", "Thana", "District", "Receiver No", "Zone", "Product", "Model", "Qty", "Action"].map(h => (
                         <th key={h} className="px-3 py-2.5 font-normal text-xs uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0">{h}</th>
                       ))}
                     </tr>
-                    <tr className="bg-gray-50 border-b-2 border-gray-200">
+                    <tr className="bg-gray-50 border-b-2 border-gray-200 sticky top-[41px] z-20">
                       <th className="p-1 border-r border-gray-200">
                         <input type="date"
                           className="w-full px-1.5 py-1 border border-gray-300 rounded text-[10px] outline-none focus:border-gray-500 bg-white"
