@@ -144,6 +144,8 @@
 //     totalChallan: t.totalChallan,
 //     challanQty: t.totalChallan,
 //     createdAt: t.createdAt,
+//     createdBy: t.createdBy,
+//     currentUser: t.currentUser,
 //     challans: t.challans,
 //   }));
 
@@ -407,8 +409,6 @@
 
 
 
-
-
 import React, { useEffect, useState, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import { useSearch } from "../hooks/SearchContext";
@@ -496,7 +496,7 @@ const MultiSelectFilter = ({ options, selected, onChange, placeholder = "All" })
   );
 };
 
-/* ── Simple select filter (for fixed options like status) ── */
+/* ── Simple select filter ── */
 const SimpleSelect = ({ value, onChange, options }) => (
   <select
     value={value}
@@ -508,31 +508,34 @@ const SimpleSelect = ({ value, onChange, options }) => (
   </select>
 );
 
-/* ── Main Component ── */
+/* ════════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+════════════════════════════════════════════════════════════════ */
 const TripInventoryPage = () => {
   const axiosSecure = useAxiosSecure();
   const { searchText, setSearchText } = useSearch();
 
   const [deliveries, setDeliveries] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]       = useState(false);
   const [selectedTrip, setSelectedTrip] = useState(null);
 
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year,  setYear]  = useState(new Date().getFullYear());
 
-  const [tripFilter,      setTripFilter]      = useState([]);
-  const [vendorFilter,    setVendorFilter]    = useState([]);
-  const [driverFilter,    setDriverFilter]    = useState([]);
-  const [vehicleFilter,   setVehicleFilter]   = useState([]);
-  const [dateFilter,      setDateFilter]      = useState("");
-  const [deliveryFilter,  setDeliveryFilter]  = useState("");
-  const [challanFilter,   setChallanFilter]   = useState("");
+  const [tripFilter,     setTripFilter]     = useState([]);
+  const [vendorFilter,   setVendorFilter]   = useState([]);
+  const [driverFilter,   setDriverFilter]   = useState([]);
+  const [vehicleFilter,  setVehicleFilter]  = useState([]);
+  const [dateFilter,     setDateFilter]     = useState("");
+  const [deliveryFilter, setDeliveryFilter] = useState("");
+  const [challanFilter,  setChallanFilter]  = useState("");
 
+  /* ── fetch ── */
   const fetchDeliveries = async (m, y, search) => {
     setLoading(true);
     try {
       let url = `/deliveries?month=${m}&year=${y}&page=1&limit=5000`;
-      if (search) url += `&search=${search}`;
+      if (search) url += `&search=${encodeURIComponent(search)}`;
       const res = await axiosSecure.get(url);
       setDeliveries(res.data.data || []);
     } catch (err) { console.error(err); }
@@ -543,22 +546,33 @@ const TripInventoryPage = () => {
     fetchDeliveries(month, year, searchText);
   }, [month, year, searchText]);
 
-
+  /* ── FIX 1: _id included in tripRows ── */
   const tripRows = deliveries.map(t => ({
-    tripNumber: t.tripNumber,
-    vendorName: t.vendorName,
+    _id:          t._id,          // ← was missing before
+    tripNumber:   t.tripNumber,
+    vendorName:   t.vendorName,
     vendorNumber: t.vendorNumber,
-    driverName: t.driverName,
+    driverName:   t.driverName,
     driverNumber: t.driverNumber,
-    vehicleNumber: t.vehicleNumber,
+    vehicleNumber:t.vehicleNumber,
     totalChallan: t.totalChallan,
-    challanQty: t.totalChallan,
-    createdAt: t.createdAt,
-    createdBy: t.createdBy,
-    currentUser: t.currentUser,
-    challans: t.challans,
+    challanQty:   t.totalChallan,
+    createdAt:    t.createdAt,
+    createdBy:    t.createdBy,
+    currentUser:  t.currentUser,
+    challans:     t.challans,
   }));
 
+  /* ── FIX 2: callback so modal edits sync back to parent deliveries array ── */
+  const handleTripUpdate = (updatedTrip) => {
+    setDeliveries(prev =>
+      prev.map(d => d._id === updatedTrip._id ? { ...d, ...updatedTrip } : d)
+    );
+    // also keep selectedTrip in sync so modal shows fresh data without close/reopen
+    setSelectedTrip(prev => prev ? { ...prev, ...updatedTrip } : prev);
+  };
+
+  /* ── filtering ── */
   const rowMatchesAll = (t, excludeField = null) => {
     const s = searchText?.toLowerCase() || "";
     const challans = t.challans || [];
@@ -572,16 +586,16 @@ const TripInventoryPage = () => {
       field === excludeField || filter.length === 0 || filter.some(f => val?.toLowerCase() === f.toLowerCase());
 
     return matchesSearch &&
-      check("tripNumber",   tripFilter,    t.tripNumber) &&
-      check("vendorName",   vendorFilter,  t.vendorName) &&
-      check("driverName",   driverFilter,  t.driverName) &&
-      check("vehicleNumber",vehicleFilter, t.vehicleNumber) &&
+      check("tripNumber",    tripFilter,    t.tripNumber) &&
+      check("vendorName",    vendorFilter,  t.vendorName) &&
+      check("driverName",    driverFilter,  t.driverName) &&
+      check("vehicleNumber", vehicleFilter, t.vehicleNumber) &&
       (excludeField === "date" || !dateFilter || new Date(t.createdAt).toISOString().slice(0, 10) === dateFilter) &&
       (!deliveryFilter ||
-        (deliveryFilter === "delivered" && allDelivered) ||
+        (deliveryFilter === "delivered"    && allDelivered) ||
         (deliveryFilter === "notDelivered" && !allDelivered)) &&
       (!challanFilter ||
-        (challanFilter === "received" && allReceived) ||
+        (challanFilter === "received"    && allReceived) ||
         (challanFilter === "notReceived" && !allReceived));
   };
 
@@ -597,6 +611,7 @@ const TripInventoryPage = () => {
     return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
   };
 
+  /* ── reset ── */
   const handleReset = () => {
     setMonth(new Date().getMonth() + 1);
     setYear(new Date().getFullYear());
@@ -616,6 +631,7 @@ const TripInventoryPage = () => {
     ...(challanFilter  ? [{ label: "Challan",  values: [challanFilter],  clear: () => setChallanFilter("") }]  : []),
   ].filter(f => f.values.length > 0);
 
+  /* ── export ── */
   const handleExportExcel = async () => {
     const { value: exportType } = await Swal.fire({
       title: "Export to Excel",
@@ -664,12 +680,17 @@ const TripInventoryPage = () => {
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Trips");
-      saveAs(new Blob([XLSX.write(wb, { bookType: "xlsx", type: "array" })], { type: "application/octet-stream" }),
-        `TripInventory_${exportType === "filtered" ? "Filtered" : "Full"}_${month}_${year}.xlsx`);
+      saveAs(
+        new Blob([XLSX.write(wb, { bookType: "xlsx", type: "array" })], { type: "application/octet-stream" }),
+        `TripInventory_${exportType === "filtered" ? "Filtered" : "Full"}_${month}_${year}.xlsx`
+      );
       Swal.fire({ icon: "success", title: "Exported!", text: `${exportData.length} rows`, timer: 1800, showConfirmButton: false });
     } catch { Swal.fire("Error", "Export failed", "error"); }
   };
 
+  /* ════════════════════════════════════════════════════════════════
+     RENDER
+  ════════════════════════════════════════════════════════════════ */
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-full mx-auto">
@@ -725,88 +746,91 @@ const TripInventoryPage = () => {
             No trips found.
           </div>
         ) : (
-          <>
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)]">
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="bg-gray-800 text-white text-left sticky top-0 z-20">
-                      {["Date", "Trip Number", "Vendor", "Driver", "Vehicle", "Point", "Delivery", "Challan", "View"].map(h => (
-                        <th key={h} className="px-3 py-2.5 font-normal text-xs uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0">{h}</th>
-                      ))}
-                    </tr>
-                    <tr className="bg-gray-50 border-b-2 border-gray-200 sticky top-[41px] z-20">
-                      <th className="p-1 border-r border-gray-200">
-                        <input type="date"
-                          className="w-full px-1.5 py-1 border border-gray-300 rounded text-[10px] outline-none focus:border-gray-500 bg-white"
-                          value={dateFilter} onChange={e => setDateFilter(e.target.value)} />
-                      </th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("tripNumber")}    selected={tripFilter}    onChange={setTripFilter}    placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("vendorName")}    selected={vendorFilter}  onChange={setVendorFilter}  placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("driverName")}    selected={driverFilter}  onChange={setDriverFilter}  placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("vehicleNumber")} selected={vehicleFilter} onChange={setVehicleFilter} placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"></th>
-                      <th className="p-1 border-r border-gray-200">
-                        <SimpleSelect value={deliveryFilter} onChange={setDeliveryFilter} options={[
-                          { value: "", label: "All" },
-                          { value: "delivered", label: "All Delivered" },
-                          { value: "notDelivered", label: "Not Delivered" },
-                        ]} />
-                      </th>
-                      <th className="p-1 border-r border-gray-200">
-                        <SimpleSelect value={challanFilter} onChange={setChallanFilter} options={[
-                          { value: "", label: "All" },
-                          { value: "received", label: "All Received" },
-                          { value: "notReceived", label: "Not Received" },
-                        ]} />
-                      </th>
-                      <th className="p-1"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRows.map((t, i) => {
-                      const date = new Date(t.createdAt);
-                      const challans = t.challans || [];
-                      const allDelivered = challans.length > 0 && challans.every(c => c.deliveryStatus === "confirmed");
-                      const allReceived  = challans.length > 0 && challans.every(c => c.challanReturnStatus === "received");
-                      return (
-                        <tr key={i} className="border-b border-gray-100 hover:bg-amber-50 even:bg-gray-50/50 transition-colors text-center">
-                          <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{date.toLocaleDateString("en-GB")}</td>
-                          <td className="px-3 py-2">
-                            <span className="text-xs bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 font-mono">{t.tripNumber}</span>
-                          </td>
-                          <td className="px-3 py-2 text-gray-700 text-sm">{t.vendorName}</td>
-                          <td className="px-3 py-2 text-gray-700 text-sm">{t.driverName}</td>
-                          <td className="px-3 py-2 text-xs text-gray-600 uppercase">{t.vehicleNumber}</td>
-                          <td className="px-3 py-2 font-semibold">{t.challanQty}</td>
-                          <td className="px-3 py-2">
-                            <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${allDelivered ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
-                              {allDelivered ? "All Delivered" : "Not Delivered"}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2">
-                            <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${allReceived ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
-                              {allReceived ? "All Received" : "Not Received"}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2">
-                            <button onClick={() => setSelectedTrip(t)}
-                              className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded transition-colors">
-                              View
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)]">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="bg-gray-800 text-white text-left sticky top-0 z-20">
+                    {["Date", "Trip Number", "Vendor", "Driver", "Vehicle", "Point", "Delivery", "Challan", "View"].map(h => (
+                      <th key={h} className="px-3 py-2.5 font-normal text-xs uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0">{h}</th>
+                    ))}
+                  </tr>
+                  <tr className="bg-gray-50 border-b-2 border-gray-200 sticky top-[41px] z-20">
+                    <th className="p-1 border-r border-gray-200">
+                      <input type="date"
+                        className="w-full px-1.5 py-1 border border-gray-300 rounded text-[10px] outline-none focus:border-gray-500 bg-white"
+                        value={dateFilter} onChange={e => setDateFilter(e.target.value)} />
+                    </th>
+                    <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("tripNumber")}    selected={tripFilter}    onChange={setTripFilter}    placeholder="All" /></th>
+                    <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("vendorName")}    selected={vendorFilter}  onChange={setVendorFilter}  placeholder="All" /></th>
+                    <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("driverName")}    selected={driverFilter}  onChange={setDriverFilter}  placeholder="All" /></th>
+                    <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("vehicleNumber")} selected={vehicleFilter} onChange={setVehicleFilter} placeholder="All" /></th>
+                    <th className="p-1 border-r border-gray-200"></th>
+                    <th className="p-1 border-r border-gray-200">
+                      <SimpleSelect value={deliveryFilter} onChange={setDeliveryFilter} options={[
+                        { value: "", label: "All" },
+                        { value: "delivered", label: "All Delivered" },
+                        { value: "notDelivered", label: "Not Delivered" },
+                      ]} />
+                    </th>
+                    <th className="p-1 border-r border-gray-200">
+                      <SimpleSelect value={challanFilter} onChange={setChallanFilter} options={[
+                        { value: "", label: "All" },
+                        { value: "received", label: "All Received" },
+                        { value: "notReceived", label: "Not Received" },
+                      ]} />
+                    </th>
+                    <th className="p-1"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRows.map((t, i) => {
+                    const date = new Date(t.createdAt);
+                    const challans = t.challans || [];
+                    const allDelivered = challans.length > 0 && challans.every(c => c.deliveryStatus === "confirmed");
+                    const allReceived  = challans.length > 0 && challans.every(c => c.challanReturnStatus === "received");
+                    return (
+                      <tr key={i} className="border-b border-gray-100 hover:bg-amber-50 even:bg-gray-50/50 transition-colors text-center">
+                        <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{date.toLocaleDateString("en-GB")}</td>
+                        <td className="px-3 py-2">
+                          <span className="text-xs bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 font-mono">{t.tripNumber}</span>
+                        </td>
+                        <td className="px-3 py-2 text-gray-700 text-sm">{t.vendorName}</td>
+                        <td className="px-3 py-2 text-gray-700 text-sm">{t.driverName}</td>
+                        <td className="px-3 py-2 text-xs text-gray-600 uppercase">{t.vehicleNumber}</td>
+                        <td className="px-3 py-2 font-semibold">{t.challanQty}</td>
+                        <td className="px-3 py-2">
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${allDelivered ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
+                            {allDelivered ? "All Delivered" : "Not Delivered"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${allReceived ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
+                            {allReceived ? "All Received" : "Not Received"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <button onClick={() => setSelectedTrip(t)}
+                            className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded transition-colors">
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          </>
+          </div>
         )}
       </div>
 
-      <TripDetailsModal selectedTrip={selectedTrip} setSelectedTrip={setSelectedTrip} />
+      {/* FIX 3: pass onTripUpdate so modal edits bubble back up */}
+      <TripDetailsModal
+        selectedTrip={selectedTrip}
+        setSelectedTrip={setSelectedTrip}
+        onTripUpdate={handleTripUpdate}
+      />
     </div>
   );
 };

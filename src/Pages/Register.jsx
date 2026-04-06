@@ -37,11 +37,12 @@ const Register = () => {
       await registerUser(data.email, data.password);
 
       // ✅ 2. Upload photo to imgbb
-      const formData = new FormData();
-      formData.append("image", data.photo[0]);
-      const image_API_URL = `https://api.imgbb.com/1/upload?key=${import.meta.env.VITE_IMAGE_HOST_KEY}`;
-      const imageRes = await axios.post(image_API_URL, formData);
-      const photoURL = imageRes.data.data.url;
+      const imgFormData = new FormData();
+      imgFormData.append("image", data.photo[0]);
+      const imageRes = await axiosSecure.post("/upload-image", imgFormData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const photoURL = imageRes.data.url;
 
       // ✅ 3. Update Firebase user profile
       await updateUserProfile({ displayName: data.name, photoURL });

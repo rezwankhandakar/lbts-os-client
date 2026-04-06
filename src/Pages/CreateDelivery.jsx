@@ -292,7 +292,7 @@ const CreateDelivery = () => {
 const ChallanCard = ({ data, onAdd, onEdit }) => (
     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-all group">
         <div className="bg-slate-50 px-4 py-3 flex justify-between items-center border-b border-slate-100">
-            <span className="text-[10px] font-mono font-bold text-slate-400 tracking-tighter uppercase">ID: {data._id.slice(-8)}</span>
+            <span className="text-[10px]  font-bold">Date: {data.createdAt ? new Date(data.createdAt).toLocaleDateString("en-GB") : "—"}</span>
             <div className="flex gap-2">
                 <button onClick={onEdit} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><FaUserEdit size={14} /></button>
                 <button onClick={onAdd} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-1.5 transition-all shadow-sm active:scale-95"><FaPlusCircle /> Add to Trip</button>
@@ -323,6 +323,7 @@ const QueueItem = ({ item, onRemove }) => (
         <button onClick={() => onRemove(item._id)} className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 transition-colors"><FaTimes size={16} /></button>
         <div className="flex flex-col md:flex-row gap-6">
             <div className="md:w-1/2">
+            <span className="text-[10px]  font-bold">Date: {item.createdAt ? new Date(item.createdAt).toLocaleDateString("en-GB") : "—"}</span>
                 <h4 className="font-black text-slate-800 uppercase tracking-tight truncate">{item.customerName}</h4>
                 <span className="inline-block mt-1 px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-black uppercase">Zone: {item.zone}</span>
                 <div className="mt-2 space-y-1 text-[11px] text-slate-500 font-medium">
