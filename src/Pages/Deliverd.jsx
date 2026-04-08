@@ -705,7 +705,7 @@ const DeliveredPage = () => {
         Thana: row.challan.thana,
         Product: row.product.productName,
         Model: row.product.model,
-        Qty: row.product.quantity,
+        Qty: Number(row.product.quantity) || 0,
         "Delivery Status": row.deliveryStatus || "Pending",
         "Challan Status": row.challanReturnStatus || "—",
         Note: row.note || row.returnNote || "",

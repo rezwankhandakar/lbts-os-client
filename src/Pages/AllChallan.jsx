@@ -633,7 +633,7 @@ const AllChallan = () => {
         Thana: c.thana || "", District: c.district || "",
         "Receiver No": c.receiverNumber, Zone: c.zone,
         "Product Name": p.productName, Model: p.model,
-        Qty: p.quantity, User: c.currentUser || "N/A",
+        Qty: Number(p.quantity) || 0, User: c.currentUser || "N/A",
       });
 
       if (exportType === "filtered") {

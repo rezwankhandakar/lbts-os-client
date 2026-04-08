@@ -624,10 +624,10 @@ const Field = ({ label, value, onChange }) => (
 const EditTripInfoModal = ({ trip, onSave, onClose, axiosSecure }) => {
   const [form, setForm] = useState({
     vehicleNumber: trip.vehicleNumber || "",
-    vendorName:    trip.vendorName    || "",
-    vendorNumber:  trip.vendorNumber  || "",
-    driverName:    trip.driverName    || "",
-    driverNumber:  trip.driverNumber  || "",
+    vendorName: trip.vendorName || "",
+    vendorNumber: trip.vendorNumber || "",
+    driverName: trip.driverName || "",
+    driverNumber: trip.driverNumber || "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -666,7 +666,7 @@ const EditTripInfoModal = ({ trip, onSave, onClose, axiosSecure }) => {
               <Package size={11} className="text-indigo-400" /> Vendor
             </p>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Vendor Name"  value={form.vendorName}   onChange={v => setForm(f => ({ ...f, vendorName: v }))} />
+              <Field label="Vendor Name" value={form.vendorName} onChange={v => setForm(f => ({ ...f, vendorName: v }))} />
               <Field label="Vendor Phone" value={form.vendorNumber} onChange={v => setForm(f => ({ ...f, vendorNumber: v }))} />
             </div>
           </div>
@@ -675,7 +675,7 @@ const EditTripInfoModal = ({ trip, onSave, onClose, axiosSecure }) => {
               <User size={11} className="text-indigo-400" /> Driver
             </p>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Driver Name"  value={form.driverName}   onChange={v => setForm(f => ({ ...f, driverName: v }))} />
+              <Field label="Driver Name" value={form.driverName} onChange={v => setForm(f => ({ ...f, driverName: v }))} />
               <Field label="Driver Phone" value={form.driverNumber} onChange={v => setForm(f => ({ ...f, driverNumber: v }))} />
             </div>
           </div>
@@ -695,12 +695,12 @@ const EditTripInfoModal = ({ trip, onSave, onClose, axiosSecure }) => {
 /* ─── Edit Challan Modal ─── */
 const EditChallanCard = ({ tripId, challan, onSave, onClose, axiosSecure }) => {
   const [form, setForm] = useState({
-    customerName:   challan.customerName   || "",
-    address:        challan.address        || "",
-    thana:          challan.thana          || "",
-    district:       challan.district       || "",
+    customerName: challan.customerName || "",
+    address: challan.address || "",
+    thana: challan.thana || "",
+    district: challan.district || "",
     receiverNumber: challan.receiverNumber || "",
-    zone:           challan.zone           || "",
+    zone: challan.zone || "",
   });
   const [products, setProducts] = useState((challan.products || []).map(p => ({ ...p })));
   const [saving, setSaving] = useState(false);
@@ -760,10 +760,10 @@ const EditChallanCard = ({ tripId, challan, onSave, onClose, axiosSecure }) => {
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2"><Field label="Customer Name" value={form.customerName} onChange={v => setForm(f => ({ ...f, customerName: v }))} /></div>
             <div className="col-span-2"><Field label="Address" value={form.address} onChange={v => setForm(f => ({ ...f, address: v }))} /></div>
-            <Field label="Thana"           value={form.thana}          onChange={v => setForm(f => ({ ...f, thana: v }))} />
-            <Field label="District"        value={form.district}       onChange={v => setForm(f => ({ ...f, district: v }))} />
+            <Field label="Thana" value={form.thana} onChange={v => setForm(f => ({ ...f, thana: v }))} />
+            <Field label="District" value={form.district} onChange={v => setForm(f => ({ ...f, district: v }))} />
             <Field label="Receiver Number" value={form.receiverNumber} onChange={v => setForm(f => ({ ...f, receiverNumber: v }))} />
-            <Field label="Zone"            value={form.zone}           onChange={v => setForm(f => ({ ...f, zone: v }))} />
+            <Field label="Zone" value={form.zone} onChange={v => setForm(f => ({ ...f, zone: v }))} />
           </div>
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -810,11 +810,11 @@ const EditChallanCard = ({ tripId, challan, onSave, onClose, axiosSecure }) => {
 const ReturnModal = ({ tripId, challan, onSave, onClose, axiosSecure }) => {
   const [returnItems, setReturnItems] = useState(
     (challan.products || []).map(p => ({
-      _id:          p._id,
-      productName:  p.productName,
-      model:        p.model,
+      _id: p._id,
+      productName: p.productName,
+      model: p.model,
       deliveredQty: Number(p.quantity) || 0,
-      returnQty:    challan.returnedProducts?.find(r => r._id === p._id)?.returnQty || 0,
+      returnQty: challan.returnedProducts?.find(r => r._id === p._id)?.returnQty || 0,
     }))
   );
   const [returnNote, setReturnNote] = useState(challan.returnNote || "");
@@ -838,7 +838,7 @@ const ReturnModal = ({ tripId, challan, onSave, onClose, axiosSecure }) => {
   };
 
   const activeReturns = returnItems.filter(r => r.returnQty > 0);
-  const totalReturn   = activeReturns.reduce((s, r) => s + r.returnQty, 0);
+  const totalReturn = activeReturns.reduce((s, r) => s + r.returnQty, 0);
 
   const handleSave = async () => {
     if (activeReturns.length === 0)
@@ -850,12 +850,12 @@ const ReturnModal = ({ tripId, challan, onSave, onClose, axiosSecure }) => {
       }));
       const res = await axiosSecure.post(`/deliveries/${tripId}/return-challan`, {
         originalChallanId: challan.challanId,
-        customerName:      challan.customerName,
-        zone:              challan.zone,
-        address:           challan.address,
-        thana:             challan.thana,
-        district:          challan.district,
-        receiverNumber:    challan.receiverNumber,
+        customerName: challan.customerName,
+        zone: challan.zone,
+        address: challan.address,
+        thana: challan.thana,
+        district: challan.district,
+        receiverNumber: challan.receiverNumber,
         returnedProducts,
         returnNote,
       });
@@ -1021,29 +1021,29 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
   const [trip, setTrip] = useState(selectedTrip);
   const [loadingId, setLoadingId] = useState(null);
   const [openDropdown, setOpenDropdown] = useState({ id: null, type: null });
-  const [editingChallan,   setEditingChallan]   = useState(null);
-  const [editingTripInfo,  setEditingTripInfo]  = useState(false);
+  const [editingChallan, setEditingChallan] = useState(null);
+  const [editingTripInfo, setEditingTripInfo] = useState(false);
   const [returningChallan, setReturningChallan] = useState(null);
-  const [notingChallan,    setNotingChallan]    = useState(null);
+  const [notingChallan, setNotingChallan] = useState(null);
 
   useEffect(() => { setTrip(selectedTrip); }, [selectedTrip]);
 
   if (!trip) return null;
 
   const totalProducts = trip.challans?.reduce((sum, c) =>
-    sum + (c.products?.reduce((s, p) => s + Number(p.quantity || 0), 0) || 0), 0);
+    c.isReturn ? sum : sum + (c.products?.reduce((s, p) => s + Number(p.quantity || 0), 0) || 0), 0);
 
   const deliveryNotConfirmed = trip.challans?.filter(c => !c.isReturn && c.deliveryStatus !== "confirmed").length;
-  const challanNotReceived   = trip.challans?.filter(c => !c.isReturn && c.challanReturnStatus !== "received").length;
+  const challanNotReceived = trip.challans?.filter(c => !c.isReturn && c.challanReturnStatus !== "received").length;
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case "confirmed":    return "bg-emerald-100 text-emerald-700";
+      case "confirmed": return "bg-emerald-100 text-emerald-700";
       case "not_received": return "bg-rose-100 text-rose-700";
-      case "call_later":   return "bg-amber-100 text-amber-700";
-      case "received":     return "bg-indigo-100 text-indigo-700";
-      case "missing":      return "bg-red-100 text-red-700";
-      default:             return "bg-slate-100 text-slate-600";
+      case "call_later": return "bg-amber-100 text-amber-700";
+      case "received": return "bg-indigo-100 text-indigo-700";
+      case "missing": return "bg-red-100 text-red-700";
+      default: return "bg-slate-100 text-slate-600";
     }
   };
 
@@ -1178,7 +1178,9 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                   <div className="flex items-center px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg shadow-sm">
                     <div className="text-center">
                       <p className="text-[8px] font-bold text-emerald-400/80 uppercase tracking-wider leading-none mb-1">Total Point</p>
-                      <p className="text-sm font-black text-emerald-400 leading-none">{trip.totalChallan}</p>
+                      <p className="text-sm font-black text-emerald-400 leading-none">
+                        {trip.challans?.filter(c => !c.isReturn).length ?? trip.totalChallan}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center px-3 py-1.5 bg-sky-500/10 border border-sky-500/20 rounded-lg shadow-sm">
@@ -1211,9 +1213,9 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {trip.challans.map((c, i) => {
                 const isReturnCard = c.isReturn === true;
-                const totalReturn  = (c.returnedProducts || []).reduce((s, r) => s + (r.returnQty || 0), 0);
-                const hasReturn    = !isReturnCard && totalReturn > 0;
-                const hasNote      = !!c.note?.trim();
+                const totalReturn = (c.returnedProducts || []).reduce((s, r) => s + (r.returnQty || 0), 0);
+                const hasReturn = !isReturnCard && totalReturn > 0;
+                const hasNote = !!c.note?.trim();
 
                 return (
                   <div key={i} className={`group border rounded-2xl p-4 hover:shadow-md transition-all duration-200
@@ -1321,30 +1323,30 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                           </div>
                         )}
 
-                      {/* Action buttons — normal card */}
-{!isReturnCard && (
-  <div className="flex items-center gap-1 mt-1 flex-wrap justify-end">
-    <button onClick={() => setEditingChallan(c)}
-      className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition">
-      <Pencil size={10} /> Edit
-    </button>
-    <button onClick={() => setReturningChallan(c)}
-      className={`flex items-center gap-1 px-2 py-1 text-[10px] font-semibold border rounded-lg transition
+                        {/* Action buttons — normal card */}
+                        {!isReturnCard && (
+                          <div className="flex items-center gap-1 mt-1 flex-wrap justify-end">
+                            <button onClick={() => setEditingChallan(c)}
+                              className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition">
+                              <Pencil size={10} /> Edit
+                            </button>
+                            <button onClick={() => setReturningChallan(c)}
+                              className={`flex items-center gap-1 px-2 py-1 text-[10px] font-semibold border rounded-lg transition
         ${hasReturn
-          ? "text-orange-600 border-orange-300 bg-orange-50 hover:bg-orange-100"
-          : "text-orange-500 border-orange-200 hover:bg-orange-50"}`}>
-      <RotateCcw size={10} /> {hasReturn ? `Return (${totalReturn})` : "Return"}
-    </button>
-    <button onClick={() => setNotingChallan(c)}
-      className={`flex items-center gap-1 px-2 py-1 text-[10px] font-semibold border rounded-lg transition
+                                  ? "text-orange-600 border-orange-300 bg-orange-50 hover:bg-orange-100"
+                                  : "text-orange-500 border-orange-200 hover:bg-orange-50"}`}>
+                              <RotateCcw size={10} /> {hasReturn ? `Return (${totalReturn})` : "Return"}
+                            </button>
+                            <button onClick={() => setNotingChallan(c)}
+                              className={`flex items-center gap-1 px-2 py-1 text-[10px] font-semibold border rounded-lg transition
         ${hasNote
-          ? "text-amber-600 border-amber-300 bg-amber-50 hover:bg-amber-100"
-          : "text-amber-500 border-amber-200 hover:bg-amber-50"}`}>
-      <StickyNote size={10} /> Note
-    </button>
-    {/* Delete button সরানো হয়েছে */}
-  </div>
-)}
+                                  ? "text-amber-600 border-amber-300 bg-amber-50 hover:bg-amber-100"
+                                  : "text-amber-500 border-amber-200 hover:bg-amber-50"}`}>
+                              <StickyNote size={10} /> Note
+                            </button>
+                            {/* Delete button সরানো হয়েছে */}
+                          </div>
+                        )}
                       </div>
                     </div>
 

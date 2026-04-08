@@ -673,7 +673,7 @@ const AllGatePass = () => {
         "Trip Do": gp.tripDo, "Trip Date": gp.tripDate ? new Date(gp.tripDate).toLocaleDateString() : "",
         Customer: gp.customerName, CSD: gp.csd, Unit: gp.unit || "",
         "Vehicle No": gp.vehicleNo, Zone: gp.zone,
-        Product: p.productName, Model: p.model, Qty: p.quantity, User: gp.currentUser,
+        Product: p.productName, Model: p.model, Qty: Number(p.quantity) || 0, User: gp.currentUser,
       });
 
       if (exportType === "filtered") {

@@ -100,6 +100,7 @@ import ErrorPage from "../Pages/ErrorPage";
 import PrivateRoute from "./PrivateRoute";
 import RoleRoute from "./RoleRoute";
 import S from "../Component/SuspenseWrapper"; // ← PageLoader সরিয়ে S import করো
+import CarRentPage from "../Pages/BillPage";
 
 const Home           = lazy(() => import("../Pages/Home"));
 const Login          = lazy(() => import("../Pages/Login"));
@@ -147,6 +148,7 @@ export const router = createBrowserRouter([
       { path: "/create-delivery", element: <S><CreateDelivery /></S> },
       { path: "/deliverd", element: <S><DeliveredPage /></S> },
       { path: "/trip-inventory", element: <S><TripInventory /></S> },
+      { path: "/car-rent", element: <S><CarRentPage></CarRentPage></S> },
     ],
   },
 ]);

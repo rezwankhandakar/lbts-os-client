@@ -272,6 +272,12 @@ const NAV_SECTIONS = [
       { to: '/trip-inventory',  icon: <MdInventory2 size={17} />,           label: 'Trip Inventory',  color: 'text-orange-400' },
     ],
   },
+  {
+    label: 'Bill',
+    items: [
+      { to: '/car-rent', icon: <MdOutlineLocalShipping size={18} />, label: 'Car Rent', color: 'text-orange-400' },
+    ],
+  },
 ];
 
 const RootLayout = () => {
