@@ -596,6 +596,7 @@ const CarRentPage = () => {
         createdBy:    r.createdBy,
         currentUser:  r.currentUser,
         challans:     r.challans,
+        advance:       r.advance ?? null,
     }));
 
     /* ── callback so modal edits sync back to parent ── */

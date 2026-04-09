@@ -101,6 +101,7 @@ import PrivateRoute from "./PrivateRoute";
 import RoleRoute from "./RoleRoute";
 import S from "../Component/SuspenseWrapper"; // ← PageLoader সরিয়ে S import করো
 import CarRentPage from "../Pages/BillPage";
+import VendorTripSummary from "../Pages/VendorTripSummary";
 
 const Home           = lazy(() => import("../Pages/Home"));
 const Login          = lazy(() => import("../Pages/Login"));
@@ -145,6 +146,7 @@ export const router = createBrowserRouter([
       { path: "/add-vendor", element: <S><AddVendor /></S> },
       { path: "/all-vendor", element: <S><AllVendor /></S> },
       { path: "/vendor-details/:id", element: <S><VendorDetails /></S> },
+      { path: "/vendor-trip-summary/:id", element: <S><VendorTripSummary /></S> },
       { path: "/create-delivery", element: <S><CreateDelivery /></S> },
       { path: "/deliverd", element: <S><DeliveredPage /></S> },
       { path: "/trip-inventory", element: <S><TripInventory /></S> },

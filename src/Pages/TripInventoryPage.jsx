@@ -561,6 +561,7 @@ challanQty:   t.challans ? t.challans.filter(c => !c.isReturn).length : t.totalC
     createdBy:    t.createdBy,
     currentUser:  t.currentUser,
     challans:     t.challans,
+    advance:       t.advance ?? null,
   }));
 
   /* ── FIX 2: callback so modal edits sync back to parent deliveries array ── */
