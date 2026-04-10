@@ -409,17 +409,19 @@ const CreateDelivery = () => {
     };
 
     const fetchChallans = useCallback(async (search) => {
-        if (!search) { setChallans([]); return; }
-        setLoading(true);
-        try {
-            const res = await axiosSecure.get(`/challans?search=${search}`);
-            setChallans(res.data.data || res.data || []);
-        } catch (err) {
-            console.error("Error fetching challans:", err);
-        } finally {
-            setLoading(false);
-        }
-    }, [axiosSecure]);
+  if (!search) { setChallans([]); return; }
+  setLoading(true);
+  try {
+    const res = await axiosSecure.get(`/challans?search=${encodeURIComponent(search)}&page=1&limit=5000`);
+    const all = res.data.data || res.data || [];
+    // ← delivered challans বাদ দাও
+    setChallans(all.filter(c => c.status !== "delivered"));
+  } catch (err) {
+    console.error("Error fetching challans:", err);
+  } finally {
+    setLoading(false);
+  }
+}, [axiosSecure]);
 
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {

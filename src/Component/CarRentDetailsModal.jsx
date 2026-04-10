@@ -3,13 +3,13 @@
 // import useAxiosSecure from "../hooks/useAxiosSecure";
 // import Swal from "sweetalert2";
 // import {
-//   X, Truck, User, Package, PhoneForwarded, Save,
+//   X, Truck, User, Package, PhoneForwarded, Save, Wallet,
 // } from "lucide-react";
 
 // /* ════════════════════════════════════════════════════════════════
 //    CAR RENT DETAILS MODAL
 // ════════════════════════════════════════════════════════════════ */
-// const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate }) => {
+// const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate, readOnly = false }) => {
 //   const axiosSecure = useAxiosSecure();
 
 //   const [rental,    setRental]    = useState(null);
@@ -27,7 +27,6 @@
 //     }
 //   }, [selectedRental]);
 
-//   /* ── close — দুইটা state-ই null করে ── */
 //   const handleClose = () => {
 //     setRental(null);
 //     setSelectedRental(null);
@@ -35,12 +34,11 @@
 
 //   if (!rental) return null;
 
-//   /* ── totals ── */
-//   const challans      = rental.challans || [];
-// const totalProducts = challans.reduce((sum, c) =>
-//   c.isReturn ? sum : sum + (c.products?.reduce((s, p) => s + Number(p.quantity || 0), 0) || 0), 0);
+//   const challans       = rental.challans || [];
+//   const normalChallans = challans.filter(c => !c.isReturn);
+//   const totalProducts  = normalChallans.reduce((sum, c) =>
+//     sum + (c.products?.reduce((s, p) => s + Number(p.quantity || 0), 0) || 0), 0);
 
-//   /* ── save rent & leborBill ── */
 //   const handleSave = async () => {
 //     setSaving(true);
 //     try {
@@ -60,7 +58,6 @@
 //     setSaving(false);
 //   };
 
-//   /* ── status badge color ── */
 //   const getStatusBadge = (status) => {
 //     switch (status) {
 //       case "confirmed":    return "bg-emerald-100 text-emerald-700";
@@ -158,7 +155,7 @@
 //                 <div className="flex items-center px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg shadow-sm">
 //                   <div className="text-center">
 //                     <p className="text-[8px] font-bold text-emerald-400/80 uppercase tracking-wider leading-none mb-1">Total Point</p>
-//                     <p className="text-sm font-black text-emerald-400 leading-none">{rental.totalChallan ?? rental.point ?? challans.length}</p>
+//                     <p className="text-sm font-black text-emerald-400 leading-none">{normalChallans.length || (rental.totalChallan ?? rental.point)}</p>
 //                   </div>
 //                 </div>
 //                 <div className="flex items-center px-3 py-1.5 bg-sky-500/10 border border-sky-500/20 rounded-lg shadow-sm">
@@ -167,39 +164,49 @@
 //                     <p className="text-sm font-black text-sky-400 leading-none">{totalProducts}</p>
 //                   </div>
 //                 </div>
+//                 <div className="flex items-center px-3 py-1.5 bg-orange-500/10 border border-orange-500/20 rounded-lg shadow-sm">
+//                   <div className="flex flex-col gap-0.5">
+//                     <span className="text-[9px] text-orange-300 uppercase font-black tracking-widest leading-none">Advance</span>
+//                     <span className="text-xs font-black text-orange-300">
+//                       ৳ {rental.advance != null ? Number(rental.advance).toLocaleString() : "0"}
+//                     </span>
+//                   </div>
+//                 </div>
 //               </div>
 
-//               {/* Rent & Lebor Bill inline edit */}
-//               <div className="flex items-center gap-2">
-//                 <div className="flex flex-col gap-0.5">
-//                   <span className="text-[9px] text-slate-400 uppercase font-black tracking-widest leading-none">Rent (৳)</span>
-//                   <input
-//                     type="number"
-//                     value={rent}
-//                     onChange={e => setRent(e.target.value)}
-//                     placeholder="—"
-//                     className="w-24 text-xs font-bold bg-slate-700 border border-slate-600 text-white placeholder-slate-500 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 text-center"
-//                   />
+//               {/* ── Rent & Lebor Bill inline edit — readOnly=true হলে দেখাবে না ── */}
+//               {!readOnly && (
+//                 <div className="flex items-center gap-2">
+//                   <div className="flex flex-col gap-0.5">
+//                     <span className="text-[9px] text-slate-400 uppercase font-black tracking-widest leading-none">Rent (৳)</span>
+//                     <input
+//                       type="number"
+//                       value={rent}
+//                       onChange={e => setRent(e.target.value)}
+//                       placeholder="—"
+//                       className="w-24 text-xs font-bold bg-slate-700 border border-slate-600 text-white placeholder-slate-500 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 text-center"
+//                     />
+//                   </div>
+//                   <div className="flex flex-col gap-0.5">
+//                     <span className="text-[9px] text-slate-400 uppercase font-black tracking-widest leading-none">Lebor Bill (৳)</span>
+//                     <input
+//                       type="number"
+//                       value={leborBill}
+//                       onChange={e => setLeborBill(e.target.value)}
+//                       placeholder="—"
+//                       className="w-24 text-xs font-bold bg-slate-700 border border-slate-600 text-white placeholder-slate-500 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 text-center"
+//                     />
+//                   </div>
+//                   <button
+//                     onClick={handleSave}
+//                     disabled={saving}
+//                     className="flex items-center gap-1.5 px-3 py-2 mt-3.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition disabled:opacity-50"
+//                   >
+//                     <Save size={12} />
+//                     {saving ? "…" : "Save"}
+//                   </button>
 //                 </div>
-//                 <div className="flex flex-col gap-0.5">
-//                   <span className="text-[9px] text-slate-400 uppercase font-black tracking-widest leading-none">Lebor Bill (৳)</span>
-//                   <input
-//                     type="number"
-//                     value={leborBill}
-//                     onChange={e => setLeborBill(e.target.value)}
-//                     placeholder="—"
-//                     className="w-24 text-xs font-bold bg-slate-700 border border-slate-600 text-white placeholder-slate-500 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 text-center"
-//                   />
-//                 </div>
-//                 <button
-//                   onClick={handleSave}
-//                   disabled={saving}
-//                   className="flex items-center gap-1.5 px-3 py-2 mt-3.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition disabled:opacity-50"
-//                 >
-//                   <Save size={12} />
-//                   {saving ? "…" : "Save"}
-//                 </button>
-//               </div>
+//               )}
 //             </div>
 //           </div>
 //         </div>
@@ -315,6 +322,35 @@
 
 //         {/* ── Footer ── */}
 //         <div className="shrink-0 border-t px-5 py-3 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
+
+//           {/* Product Summary */}
+//           {normalChallans.length > 0 && (() => {
+//             const productMap = {};
+//             normalChallans.forEach(c =>
+//               (c.products || []).forEach(p => {
+//                 const key = p.productName;
+//                 if (!productMap[key]) productMap[key] = { productName: p.productName, quantity: 0 };
+//                 productMap[key].quantity += Number(p.quantity || 0);
+//               })
+//             );
+//             const summary = Object.values(productMap);
+//             return (
+//               <div className="rounded-xl border border-slate-200 overflow-hidden">
+//                 <div className="px-3 py-1.5 bg-slate-100 border-b border-slate-200">
+//                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Product Summary</span>
+//                 </div>
+//                 <div className="flex flex-wrap gap-2 px-3 py-2">
+//                   {summary.map((item, idx) => (
+//                     <div key={idx} className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg shadow-sm">
+//                       <span className="text-[11px] font-semibold text-slate-700">{item.productName}</span>
+//                       <span className="text-[11px] font-black text-indigo-600">{item.quantity} PCS</span>
+//                     </div>
+//                   ))}
+//                 </div>
+//               </div>
+//             );
+//           })()}
+
 //           <div className="flex items-center gap-4 text-sm">
 //             {rental.rent != null && (
 //               <span className="text-slate-600">
@@ -334,6 +370,7 @@
 //               </span>
 //             )}
 //           </div>
+
 //           <button
 //             onClick={handleClose}
 //             className="px-4 py-1.5 text-sm text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
@@ -341,6 +378,7 @@
 //             Close
 //           </button>
 //         </div>
+
 //       </div>
 //     </div>
 //   );
@@ -351,11 +389,13 @@
 
 
 
+
 import { useState, useEffect } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
+import useAuth from "../hooks/useAuth";
 import Swal from "sweetalert2";
 import {
-  X, Truck, User, Package, PhoneForwarded, Save, Wallet,
+  X, Truck, User, Package, PhoneForwarded, Save, Wallet, Pencil,
 } from "lucide-react";
 
 /* ════════════════════════════════════════════════════════════════
@@ -363,6 +403,8 @@ import {
 ════════════════════════════════════════════════════════════════ */
 const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate, readOnly = false }) => {
   const axiosSecure = useAxiosSecure();
+  const { user } = useAuth();
+  const loggedInUser = user?.displayName || user?.email || "Unknown";
 
   const [rental,    setRental]    = useState(null);
   const [rent,      setRent]      = useState("");
@@ -397,6 +439,7 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
       const res = await axiosSecure.patch(`/car-rents/${rental._id}`, {
         rent:      rent      !== "" ? Number(rent)      : null,
         leborBill: leborBill !== "" ? Number(leborBill) : null,
+        updatedBy: loggedInUser, // ← নতুন
       });
       if (res.data.success) {
         const updated = res.data.data;
@@ -440,14 +483,41 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 {new Date(rental.createdAt).toDateString()}
               </p>
+
+              {/* Created by */}
               {(rental.currentUser || rental.createdBy) && (
                 <>
                   <div className="h-4 w-[1px] bg-slate-200" />
                   <div className="flex items-center gap-1.5">
                     <User size={12} className="text-slate-400" />
+                    <span className="text-[10px] text-slate-400">Created:</span>
                     <span className="text-xs font-medium text-slate-600">
                       {rental.currentUser || rental.createdBy}
                     </span>
+                  </div>
+                </>
+              )}
+
+              {/* Updated by — trip info edit হলে */}
+              {rental.lastUpdatedBy && (
+                <>
+                  <div className="h-4 w-[1px] bg-slate-200" />
+                  <div className="flex items-center gap-1.5">
+                    <Pencil size={11} className="text-indigo-400" />
+                    <span className="text-[10px] text-slate-400">Updated:</span>
+                    <span className="text-xs font-medium text-indigo-600">{rental.lastUpdatedBy}</span>
+                  </div>
+                </>
+              )}
+
+              {/* Rent/Lebor saved by — আলাদা field */}
+              {rental.rentSavedBy && (
+                <>
+                  <div className="h-4 w-[1px] bg-slate-200" />
+                  <div className="flex items-center gap-1.5">
+                    <Wallet size={11} className="text-emerald-400" />
+                    <span className="text-[10px] text-slate-400">Rent by:</span>
+                    <span className="text-xs font-medium text-emerald-600">{rental.rentSavedBy}</span>
                   </div>
                 </>
               )}
@@ -526,7 +596,7 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                 </div>
               </div>
 
-              {/* ── Rent & Lebor Bill inline edit — readOnly=true হলে দেখাবে না ── */}
+              {/* ── Rent & Lebor Bill inline edit ── */}
               {!readOnly && (
                 <div className="flex items-center gap-2">
                   <div className="flex flex-col gap-0.5">
@@ -538,6 +608,7 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                       placeholder="—"
                       className="w-24 text-xs font-bold bg-slate-700 border border-slate-600 text-white placeholder-slate-500 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 text-center"
                     />
+                   
                   </div>
                   <div className="flex flex-col gap-0.5">
                     <span className="text-[9px] text-slate-400 uppercase font-black tracking-widest leading-none">Lebor Bill (৳)</span>

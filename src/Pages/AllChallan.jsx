@@ -1,5 +1,4 @@
 
-
 // import React, { useEffect, useState, useRef } from "react";
 // import useAxiosSecure from "../hooks/useAxiosSecure";
 // import { useSearch } from "../hooks/SearchContext";
@@ -88,6 +87,27 @@
 //   );
 // };
 
+// /* ── Status Badge ── */
+// const StatusBadge = ({ status, tripNumber }) => {
+//   if (status === "delivered") {
+//     return (
+//       <div className="flex flex-col gap-0.5">
+//         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded-full border border-green-200 whitespace-nowrap">
+//           ✓ Delivered
+//         </span>
+//         {tripNumber && (
+//           <span className="text-[9px] text-green-600 font-mono font-semibold pl-1">{tripNumber}</span>
+//         )}
+//       </div>
+//     );
+//   }
+//   return (
+//     <span className="inline-flex items-center px-2 py-0.5 bg-amber-50 text-amber-600 text-[10px] font-bold rounded-full border border-amber-200 whitespace-nowrap">
+//       ● Pending
+//     </span>
+//   );
+// };
+
 // /* ── Main Component ── */
 // const AllChallan = () => {
 //   const axiosSecure = useAxiosSecure();
@@ -107,6 +127,7 @@
 //   const [modelFilter,       setModelFilter]       = useState([]);
 //   const [productNameFilter, setProductNameFilter] = useState([]);
 //   const [dateFilter,        setDateFilter]        = useState("");
+//   const [statusFilter,      setStatusFilter]      = useState(""); // ── নতুন
 
 //   const [month, setMonth] = useState(new Date().getMonth() + 1);
 //   const [year,  setYear]  = useState(new Date().getFullYear());
@@ -142,6 +163,7 @@
 //     setCustomerFilter([]); setAddressFilter([]); setThanaFilter([]);
 //     setDistrictFilter([]); setReceiverFilter([]); setZoneFilter([]);
 //     setModelFilter([]); setProductNameFilter([]); setDateFilter("");
+//     setStatusFilter(""); // ── নতুন
 //     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
 //   };
 
@@ -153,7 +175,13 @@
 //     const check = (field, filter, val) =>
 //       field === excludeField || filter.length === 0 || filter.some(f => val?.toLowerCase() === f.toLowerCase());
 
+//     // ── status filter ──
+//     const matchesStatus = !statusFilter ||
+//       (statusFilter === "delivered" && c.status === "delivered") ||
+//       (statusFilter === "pending"   && c.status !== "delivered");
+
 //     return matchesSearch &&
+//       matchesStatus &&
 //       check("customerName",    customerFilter,    c.customerName) &&
 //       check("address",         addressFilter,     c.address) &&
 //       check("thana",           thanaFilter,       c.thana) &&
@@ -170,7 +198,6 @@
 //   );
 //   const totalQty = filteredRows.reduce((sum, { p }) => sum + (Number(p.quantity) || 0), 0);
 
-//   // cascading options
 //   const getOptionsFor = (field) => {
 //     const map = new Map();
 //     challans.forEach(c => {
@@ -194,7 +221,8 @@
 //     { label: "Zone",      values: zoneFilter,        clear: () => setZoneFilter([]) },
 //     { label: "Product",   values: productNameFilter, clear: () => setProductNameFilter([]) },
 //     { label: "Model",     values: modelFilter,       clear: () => setModelFilter([]) },
-//     ...(dateFilter ? [{ label: "Date", values: [dateFilter], clear: () => setDateFilter("") }] : []),
+//     ...(dateFilter   ? [{ label: "Date",   values: [dateFilter],   clear: () => setDateFilter("") }]   : []),
+//     ...(statusFilter ? [{ label: "Status", values: [statusFilter], clear: () => setStatusFilter("") }] : []),
 //   ].filter(f => f.values.length > 0);
 
 //   const handleExportExcel = async () => {
@@ -223,11 +251,13 @@
 //       let exportData = [];
 //       const toRow = (c, p) => ({
 //         Date: c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "",
+//         Status: c.status === "delivered" ? "Delivered" : "Pending",
+//         "Trip No": c.tripNumber || "",
 //         Customer: c.customerName, Address: c.address,
 //         Thana: c.thana || "", District: c.district || "",
 //         "Receiver No": c.receiverNumber, Zone: c.zone,
 //         "Product Name": p.productName, Model: p.model,
-//         Qty: p.quantity, User: c.currentUser || "N/A",
+//         Qty: Number(p.quantity) || 0, User: c.currentUser || "N/A",
 //       });
 
 //       if (exportType === "filtered") {
@@ -313,15 +343,29 @@
 //                 <table className="w-full border-collapse text-sm">
 //                   <thead>
 //                     <tr className="bg-gray-800 text-white text-left sticky top-0 z-20">
-//                       {["Date", "Customer", "Address", "Thana", "District", "Receiver No", "Zone", "Product", "Model", "Qty", "Action"].map(h => (
+//                       {["Date", "Status", "Customer", "Address", "Thana", "District", "Receiver No", "Zone", "Product", "Model", "Qty", "Action"].map(h => (
 //                         <th key={h} className="px-3 py-2.5 font-normal text-xs uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0">{h}</th>
 //                       ))}
 //                     </tr>
 //                     <tr className="bg-gray-50 border-b-2 border-gray-200 sticky top-[41px] z-20">
+//                       {/* Date */}
 //                       <th className="p-1 border-r border-gray-200">
 //                         <input type="date"
 //                           className="w-full px-1.5 py-1 border border-gray-300 rounded text-[10px] outline-none focus:border-gray-500 bg-white"
 //                           value={dateFilter} onChange={e => setDateFilter(e.target.value)} />
+//                       </th>
+//                       {/* Status filter */}
+//                       <th className="p-1 border-r border-gray-200">
+//                         <select
+//                           value={statusFilter}
+//                           onChange={e => setStatusFilter(e.target.value)}
+//                           className={`w-full px-2 py-1 text-xs rounded border outline-none transition-all
+//                             ${statusFilter ? "border-gray-700 bg-gray-100 text-gray-800" : "border-gray-300 bg-white text-gray-400"}`}
+//                         >
+//                           <option value="">All</option>
+//                           <option value="pending">Pending</option>
+//                           <option value="delivered">Delivered</option>
+//                         </select>
 //                       </th>
 //                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("customerName")}   selected={customerFilter}    onChange={setCustomerFilter}    placeholder="All" /></th>
 //                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("address")}        selected={addressFilter}     onChange={setAddressFilter}     placeholder="All" /></th>
@@ -337,8 +381,16 @@
 //                   </thead>
 //                   <tbody>
 //                     {filteredRows.map(({ c, p }, idx) => (
-//                       <tr key={`${c._id}-${idx}`} className="border-b border-gray-100 hover:bg-amber-50 even:bg-gray-50/50 transition-colors">
+//                       <tr key={`${c._id}-${idx}`} className={`border-b border-gray-100 transition-colors
+//                         ${c.status === "delivered"
+//                           ? "bg-green-50/40 hover:bg-green-50"
+//                           : "hover:bg-amber-50 even:bg-gray-50/50"
+//                         }`}>
 //                         <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-GB") : "—"}</td>
+//                         {/* Status cell */}
+//                         <td className="px-3 py-2">
+//                           <StatusBadge status={c.status} tripNumber={c.tripNumber} />
+//                         </td>
 //                         <td className="px-3 py-2 font-medium text-gray-800">{c.customerName}</td>
 //                         <td className="px-3 py-2 text-gray-600 text-xs max-w-[150px] truncate" title={c.address}>{c.address}</td>
 //                         <td className="px-3 py-2 text-gray-500 text-xs">{c.thana || "—"}</td>
@@ -374,16 +426,16 @@
 
 
 
-
 import React, { useEffect, useState, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import { useSearch } from "../hooks/SearchContext";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import ChallanActionDropdown from "../Component/ChallanActionDropdown";
-import Pagination from "../Component/Pagination";
 import Swal from "sweetalert2";
 import LoadingSpinner from "../Component/LoadingSpinner";
+
+const ITEMS_PER_PAGE = 100;
 
 /* ── Multi-select dropdown ── */
 const MultiSelectFilter = ({ options, selected, onChange, placeholder = "All" }) => {
@@ -489,8 +541,7 @@ const AllChallan = () => {
   const axiosSecure = useAxiosSecure();
   const [challans, setChallans] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [pagination, setPagination] = useState(null);
-  const [, setCurrentPage] = useState(1);
+  const [clientPage, setClientPage] = useState(1);
 
   const { searchText, setSearchText } = useSearch();
 
@@ -503,76 +554,84 @@ const AllChallan = () => {
   const [modelFilter,       setModelFilter]       = useState([]);
   const [productNameFilter, setProductNameFilter] = useState([]);
   const [dateFilter,        setDateFilter]        = useState("");
-  const [statusFilter,      setStatusFilter]      = useState(""); // ── নতুন
+  const [statusFilter,      setStatusFilter]      = useState("");
 
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year,  setYear]  = useState(new Date().getFullYear());
 
-  const fetchChallans = async (m, y, search, page = 1) => {
+  /* ── filter setter wrapper — resets page ── */
+  const setFilter = (setter) => (val) => {
+    setter(val);
+    setClientPage(1);
+  };
+
+  const fetchChallans = async (m, y, search) => {
     setLoading(true);
     try {
-      let url = `/challans?month=${m}&year=${y}&page=${page}&limit=50`;
-      if (search) url += `&search=${search}`;
+      const url = search
+        ? `/challans?search=${encodeURIComponent(search)}&page=1&limit=5000`
+        : `/challans?month=${m}&year=${y}&page=1&limit=5000`;
       const res = await axiosSecure.get(url);
       setChallans(res.data.data || []);
-      setPagination(res.data.pagination || null);
     } catch (err) { console.error(err); }
     setLoading(false);
   };
 
   useEffect(() => {
-    setCurrentPage(1);
-    fetchChallans(month, year, searchText, 1);
+    setClientPage(1);
+    fetchChallans(month, year, searchText);
   }, [month, year, searchText]);
-
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-    fetchChallans(month, year, searchText, page);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
 
   const handleResetAll = () => {
     setMonth(new Date().getMonth() + 1);
     setYear(new Date().getFullYear());
-    setCurrentPage(1);
+    setClientPage(1);
     if (setSearchText) setSearchText("");
     setCustomerFilter([]); setAddressFilter([]); setThanaFilter([]);
     setDistrictFilter([]); setReceiverFilter([]); setZoneFilter([]);
     setModelFilter([]); setProductNameFilter([]); setDateFilter("");
-    setStatusFilter(""); // ── নতুন
+    setStatusFilter("");
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
   };
 
   const rowMatchesAll = (c, p, excludeField = null) => {
     const s = searchText?.toLowerCase() || "";
-    const matchesSearch = !searchText || [c.customerName, c.address, c.thana, c.district, c.receiverNumber, c.zone, c.currentUser, p.productName, p.model]
-      .some(v => v?.toLowerCase().includes(s));
+    const matchesSearch = !searchText || [
+      c.customerName, c.address, c.thana, c.district,
+      c.receiverNumber, c.zone, c.currentUser, p.productName, p.model
+    ].some(v => v?.toLowerCase().includes(s));
 
     const check = (field, filter, val) =>
       field === excludeField || filter.length === 0 || filter.some(f => val?.toLowerCase() === f.toLowerCase());
 
-    // ── status filter ──
     const matchesStatus = !statusFilter ||
       (statusFilter === "delivered" && c.status === "delivered") ||
       (statusFilter === "pending"   && c.status !== "delivered");
 
     return matchesSearch &&
       matchesStatus &&
-      check("customerName",    customerFilter,    c.customerName) &&
-      check("address",         addressFilter,     c.address) &&
-      check("thana",           thanaFilter,       c.thana) &&
-      check("district",        districtFilter,    c.district) &&
-      check("receiverNumber",  receiverFilter,    c.receiverNumber) &&
-      check("zone",            zoneFilter,        c.zone) &&
-      check("productName",     productNameFilter, p.productName) &&
-      check("model",           modelFilter,       p.model) &&
+      check("customerName",   customerFilter,    c.customerName) &&
+      check("address",        addressFilter,     c.address) &&
+      check("thana",          thanaFilter,       c.thana) &&
+      check("district",       districtFilter,    c.district) &&
+      check("receiverNumber", receiverFilter,    c.receiverNumber) &&
+      check("zone",           zoneFilter,        c.zone) &&
+      check("productName",    productNameFilter, p.productName) &&
+      check("model",          modelFilter,       p.model) &&
       (excludeField === "date" || !dateFilter || (c.createdAt && new Date(c.createdAt).toISOString().slice(0, 10) === dateFilter));
   };
 
   const filteredRows = challans.flatMap(c =>
     (c.products || []).filter(p => rowMatchesAll(c, p)).map(p => ({ c, p }))
   );
-  const totalQty = filteredRows.reduce((sum, { p }) => sum + (Number(p.quantity) || 0), 0);
+
+  /* ── Client-side pagination ── */
+  const totalPages = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
+  const paginatedRows = filteredRows.slice(
+    (clientPage - 1) * ITEMS_PER_PAGE,
+    clientPage * ITEMS_PER_PAGE
+  );
+  const totalQtyAll = filteredRows.reduce((sum, { p }) => sum + (Number(p.quantity) || 0), 0);
 
   const getOptionsFor = (field) => {
     const map = new Map();
@@ -589,16 +648,16 @@ const AllChallan = () => {
   };
 
   const activeFilterGroups = [
-    { label: "Customer",  values: customerFilter,    clear: () => setCustomerFilter([]) },
-    { label: "Address",   values: addressFilter,     clear: () => setAddressFilter([]) },
-    { label: "Thana",     values: thanaFilter,       clear: () => setThanaFilter([]) },
-    { label: "District",  values: districtFilter,    clear: () => setDistrictFilter([]) },
-    { label: "Receiver",  values: receiverFilter,    clear: () => setReceiverFilter([]) },
-    { label: "Zone",      values: zoneFilter,        clear: () => setZoneFilter([]) },
-    { label: "Product",   values: productNameFilter, clear: () => setProductNameFilter([]) },
-    { label: "Model",     values: modelFilter,       clear: () => setModelFilter([]) },
-    ...(dateFilter   ? [{ label: "Date",   values: [dateFilter],   clear: () => setDateFilter("") }]   : []),
-    ...(statusFilter ? [{ label: "Status", values: [statusFilter], clear: () => setStatusFilter("") }] : []),
+    { label: "Customer", values: customerFilter,    clear: () => { setCustomerFilter([]);    setClientPage(1); } },
+    { label: "Address",  values: addressFilter,     clear: () => { setAddressFilter([]);     setClientPage(1); } },
+    { label: "Thana",    values: thanaFilter,       clear: () => { setThanaFilter([]);       setClientPage(1); } },
+    { label: "District", values: districtFilter,    clear: () => { setDistrictFilter([]);    setClientPage(1); } },
+    { label: "Receiver", values: receiverFilter,    clear: () => { setReceiverFilter([]);    setClientPage(1); } },
+    { label: "Zone",     values: zoneFilter,        clear: () => { setZoneFilter([]);        setClientPage(1); } },
+    { label: "Product",  values: productNameFilter, clear: () => { setProductNameFilter([]); setClientPage(1); } },
+    { label: "Model",    values: modelFilter,       clear: () => { setModelFilter([]);       setClientPage(1); } },
+    ...(dateFilter   ? [{ label: "Date",   values: [dateFilter],   clear: () => { setDateFilter("");   setClientPage(1); } }] : []),
+    ...(statusFilter ? [{ label: "Status", values: [statusFilter], clear: () => { setStatusFilter(""); setClientPage(1); } }] : []),
   ].filter(f => f.values.length > 0);
 
   const handleExportExcel = async () => {
@@ -656,6 +715,15 @@ const AllChallan = () => {
     } catch { Swal.fire("Error", "Export failed", "error"); }
   };
 
+  /* ── Page numbers ── */
+  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
+    .filter(p => p === 1 || p === totalPages || Math.abs(p - clientPage) <= 2)
+    .reduce((acc, p, i, arr) => {
+      if (i > 0 && p - arr[i - 1] > 1) acc.push("...");
+      acc.push(p);
+      return acc;
+    }, []);
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-full mx-auto">
@@ -664,21 +732,22 @@ const AllChallan = () => {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
           <div>
             <h2 className="text-xl font-semibold text-gray-800">Challan Inventory</h2>
-            {pagination && (
-              <p className="text-xs text-gray-400 mt-0.5">{pagination.total} total records</p>
-            )}
+            <p className="text-xs text-gray-400 mt-0.5">
+              {filteredRows.length} rows
+              {totalPages > 1 && ` — page ${clientPage} of ${totalPages}`}
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <select
               className="border border-gray-300 px-2.5 py-1.5 rounded text-sm bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400"
-              value={month} onChange={e => setMonth(parseInt(e.target.value))}>
+              value={month} onChange={e => { setMonth(parseInt(e.target.value)); setClientPage(1); }}>
               {[...Array(12)].map((_, i) => (
                 <option key={i} value={i + 1}>{new Date(0, i).toLocaleString("default", { month: "long" })}</option>
               ))}
             </select>
             <input type="number"
               className="border border-gray-300 px-2.5 py-1.5 rounded text-sm bg-white text-gray-700 w-20 focus:outline-none focus:ring-1 focus:ring-gray-400"
-              value={year} onChange={e => setYear(parseInt(e.target.value))} />
+              value={year} onChange={e => { setYear(parseInt(e.target.value)); setClientPage(1); }} />
             <button onClick={handleResetAll}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
@@ -715,7 +784,7 @@ const AllChallan = () => {
         ) : (
           <>
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)]">
+              <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-260px)]">
                 <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="bg-gray-800 text-white text-left sticky top-0 z-20">
@@ -728,13 +797,13 @@ const AllChallan = () => {
                       <th className="p-1 border-r border-gray-200">
                         <input type="date"
                           className="w-full px-1.5 py-1 border border-gray-300 rounded text-[10px] outline-none focus:border-gray-500 bg-white"
-                          value={dateFilter} onChange={e => setDateFilter(e.target.value)} />
+                          value={dateFilter} onChange={e => { setDateFilter(e.target.value); setClientPage(1); }} />
                       </th>
                       {/* Status filter */}
                       <th className="p-1 border-r border-gray-200">
                         <select
                           value={statusFilter}
-                          onChange={e => setStatusFilter(e.target.value)}
+                          onChange={e => { setStatusFilter(e.target.value); setClientPage(1); }}
                           className={`w-full px-2 py-1 text-xs rounded border outline-none transition-all
                             ${statusFilter ? "border-gray-700 bg-gray-100 text-gray-800" : "border-gray-300 bg-white text-gray-400"}`}
                         >
@@ -743,27 +812,26 @@ const AllChallan = () => {
                           <option value="delivered">Delivered</option>
                         </select>
                       </th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("customerName")}   selected={customerFilter}    onChange={setCustomerFilter}    placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("address")}        selected={addressFilter}     onChange={setAddressFilter}     placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("thana")}          selected={thanaFilter}       onChange={setThanaFilter}       placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("district")}       selected={districtFilter}    onChange={setDistrictFilter}    placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("receiverNumber")} selected={receiverFilter}    onChange={setReceiverFilter}    placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("zone")}           selected={zoneFilter}        onChange={setZoneFilter}        placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("productName")}    selected={productNameFilter} onChange={setProductNameFilter} placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("model")}          selected={modelFilter}       onChange={setModelFilter}       placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200 text-center text-sm font-semibold text-gray-700">{totalQty}</th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("customerName")}   selected={customerFilter}    onChange={setFilter(setCustomerFilter)}    placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("address")}        selected={addressFilter}     onChange={setFilter(setAddressFilter)}     placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("thana")}          selected={thanaFilter}       onChange={setFilter(setThanaFilter)}       placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("district")}       selected={districtFilter}    onChange={setFilter(setDistrictFilter)}    placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("receiverNumber")} selected={receiverFilter}    onChange={setFilter(setReceiverFilter)}    placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("zone")}           selected={zoneFilter}        onChange={setFilter(setZoneFilter)}        placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("productName")}    selected={productNameFilter} onChange={setFilter(setProductNameFilter)} placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("model")}          selected={modelFilter}       onChange={setFilter(setModelFilter)}       placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200 text-center text-sm font-semibold text-gray-700">{totalQtyAll}</th>
                       <th className="p-1"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRows.map(({ c, p }, idx) => (
+                    {paginatedRows.map(({ c, p }, idx) => (
                       <tr key={`${c._id}-${idx}`} className={`border-b border-gray-100 transition-colors
                         ${c.status === "delivered"
                           ? "bg-green-50/40 hover:bg-green-50"
                           : "hover:bg-amber-50 even:bg-gray-50/50"
                         }`}>
                         <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-GB") : "—"}</td>
-                        {/* Status cell */}
                         <td className="px-3 py-2">
                           <StatusBadge status={c.status} tripNumber={c.tripNumber} />
                         </td>
@@ -785,7 +853,46 @@ const AllChallan = () => {
                 </table>
               </div>
             </div>
-            <Pagination pagination={pagination} onPageChange={handlePageChange} />
+
+            {/* ── Client-side Pagination ── */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg mt-2 shadow-sm">
+                <p className="text-xs text-gray-500">
+                  Showing {(clientPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(clientPage * ITEMS_PER_PAGE, filteredRows.length)} of {filteredRows.length} rows
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setClientPage(p => Math.max(1, p - 1))}
+                    disabled={clientPage === 1}
+                    className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    ← Prev
+                  </button>
+                  {pageNumbers.map((p, i) =>
+                    p === "..." ? (
+                      <span key={i} className="px-2 text-gray-400 text-xs">…</span>
+                    ) : (
+                      <button key={i}
+                        onClick={() => setClientPage(p)}
+                        className={`px-3 py-1 text-xs border rounded transition-colors
+                          ${clientPage === p
+                            ? "bg-gray-800 text-white border-gray-800"
+                            : "border-gray-300 hover:bg-gray-100"}`}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+                  <button
+                    onClick={() => setClientPage(p => Math.min(totalPages, p + 1))}
+                    disabled={clientPage === totalPages}
+                    className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

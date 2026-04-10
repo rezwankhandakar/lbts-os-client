@@ -4,8 +4,10 @@
 // import Swal from "sweetalert2";
 // import {
 //   X, Truck, User, Package, PhoneForwarded,
-//   Plus, Trash2, Pencil, Check, RotateCcw, StickyNote, Save
+//   Plus, Trash2, Pencil, Check, RotateCcw, StickyNote, Save, Wallet
 // } from "lucide-react";
+// import useAuth from "../hooks/useAuth";
+
 
 // /* ─── Inline editable field ─── */
 // const Field = ({ label, value, onChange }) => (
@@ -20,7 +22,7 @@
 // );
 
 // /* ─── Edit Trip Info Modal ─── */
-// const EditTripInfoModal = ({ trip, onSave, onClose, axiosSecure }) => {
+// const EditTripInfoModal = ({ trip, onSave, onClose, axiosSecure, updatedBy }) => {
 //   const [form, setForm] = useState({
 //     vehicleNumber: trip.vehicleNumber || "",
 //     vendorName: trip.vendorName || "",
@@ -33,15 +35,19 @@
 //   const handleSave = async () => {
 //     setSaving(true);
 //     try {
-//       await axiosSecure.patch(`/deliveries/${trip._id}/trip-info`, form);
+//       const res = await axiosSecure.patch(`/deliveries/${trip._id}/trip-info`, {
+//         ...form,
+//         updatedBy,
+//       });
 //       Swal.fire({ icon: "success", title: "Updated!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
-//       onSave(form);
+//       onSave(form, res.data?.data);
 //       onClose();
 //     } catch (err) {
 //       Swal.fire({ icon: "error", title: "Update failed", text: err?.response?.data?.message || "" });
 //     }
 //     setSaving(false);
 //   };
+
 
 //   return (
 //     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-3">
@@ -92,7 +98,7 @@
 // };
 
 // /* ─── Edit Challan Modal ─── */
-// const EditChallanCard = ({ tripId, challan, onSave, onClose, axiosSecure }) => {
+// const EditChallanCard = ({ tripId, challan, onSave, onClose, axiosSecure,updatedBy  }) => {
 //   const [form, setForm] = useState({
 //     customerName: challan.customerName || "",
 //     address: challan.address || "",
@@ -122,28 +128,31 @@
 //   };
 
 //   const handleSave = async () => {
-//     setSaving(true);
-//     try {
-//       await axiosSecure.patch(`/deliveries/${tripId}/challan/${challan.challanId}`, form);
-//       for (const p of products) {
-//         if (!p.productName || !p.model) continue;
-//         const isNew = !p._id || p._id.startsWith("new_");
-//         if (isNew) {
-//           await axiosSecure.post(`/deliveries/${tripId}/challan/${challan.challanId}/product`,
-//             { productName: p.productName, model: p.model, quantity: Number(p.quantity) || 1 });
-//         } else {
-//           await axiosSecure.patch(`/deliveries/${tripId}/challan/${challan.challanId}/product/${p._id}`,
-//             { productName: p.productName, model: p.model, quantity: Number(p.quantity) || 1 });
-//         }
+//   setSaving(true);
+//   try {
+//     const res = await axiosSecure.patch(`/deliveries/${tripId}/challan/${challan.challanId}`, {
+//       ...form,
+//       updatedBy, // ← নতুন
+//     });
+//     for (const p of products) {
+//       if (!p.productName || !p.model) continue;
+//       const isNew = !p._id || p._id.startsWith("new_");
+//       if (isNew) {
+//         await axiosSecure.post(`/deliveries/${tripId}/challan/${challan.challanId}/product`,
+//           { productName: p.productName, model: p.model, quantity: Number(p.quantity) || 1 });
+//       } else {
+//         await axiosSecure.patch(`/deliveries/${tripId}/challan/${challan.challanId}/product/${p._id}`,
+//           { productName: p.productName, model: p.model, quantity: Number(p.quantity) || 1 });
 //       }
-//       Swal.fire({ icon: "success", title: "Updated!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
-//       onSave({ ...challan, ...form, products });
-//       onClose();
-//     } catch (err) {
-//       Swal.fire({ icon: "error", title: "Update failed", text: err?.response?.data?.message || "" });
 //     }
-//     setSaving(false);
-//   };
+//     Swal.fire({ icon: "success", title: "Updated!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
+//     onSave({ ...challan, ...form, products }, res.data?.data); // ← serverData পাঠাও
+//     onClose();
+//   } catch (err) {
+//     Swal.fire({ icon: "error", title: "Update failed", text: err?.response?.data?.message || "" });
+//   }
+//   setSaving(false);
+// };
 
 //   return (
 //     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-3">
@@ -207,6 +216,8 @@
 
 // /* ─── Product Return Modal ─── */
 // const ReturnModal = ({ tripId, challan, onSave, onClose, axiosSecure }) => {
+//   const isEdit = !!(challan.returnedProducts?.length > 0);
+
 //   const [returnItems, setReturnItems] = useState(
 //     (challan.products || []).map(p => ({
 //       _id: p._id,
@@ -240,36 +251,42 @@
 //   const totalReturn = activeReturns.reduce((s, r) => s + r.returnQty, 0);
 
 //   const handleSave = async () => {
-//   if (activeReturns.length === 0) {
-//     const { isConfirmed } = await Swal.fire({
-//       icon: "warning",
-//       title: "No return items selected",
-//       text: "All quantities are 0. Do you want to cancel the return?",
-//       showCancelButton: true,
-//       confirmButtonText: "Yes, cancel return",
-//       cancelButtonText: "Go back",
-//     });
-//     if (!isConfirmed) return;
-//     // 0 দিয়ে save করো — return cancel
-//   }
+//     if (activeReturns.length === 0) {
+//       await Swal.fire({
+//         icon: "warning",
+//         title: "No return items",
+//         text: "All quantities are 0. Please set at least one return quantity.",
+//         confirmButtonText: "OK",
+//       });
+//       return;
+//     }
 //     setSaving(true);
 //     try {
 //       const returnedProducts = activeReturns.map(r => ({
 //         _id: r._id, productName: r.productName, model: r.model, returnQty: r.returnQty,
 //       }));
-//       const res = await axiosSecure.post(`/deliveries/${tripId}/return-challan`, {
-//         originalChallanId: challan.challanId,
-//         customerName: challan.customerName,
-//         zone: challan.zone,
-//         address: challan.address,
-//         thana: challan.thana,
-//         district: challan.district,
-//         receiverNumber: challan.receiverNumber,
-//         returnedProducts,
-//         returnNote,
-//       });
-//       Swal.fire({ icon: "success", title: "Return Added!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
-//       onSave({ updatedOriginal: { ...challan, returnedProducts, returnNote }, newReturnChallan: res.data.returnChallan });
+
+//       if (isEdit) {
+//         await axiosSecure.patch(`/deliveries/${tripId}/challan/${challan.challanId}/return`, {
+//           returnedProducts, returnNote,
+//         });
+//         Swal.fire({ icon: "success", title: "Return Updated!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
+//         onSave({ updatedOriginal: { ...challan, returnedProducts, returnNote }, newReturnChallan: null });
+//       } else {
+//         const res = await axiosSecure.post(`/deliveries/${tripId}/return-challan`, {
+//           originalChallanId: challan.challanId,
+//           customerName: challan.customerName,
+//           zone: challan.zone,
+//           address: challan.address,
+//           thana: challan.thana,
+//           district: challan.district,
+//           receiverNumber: challan.receiverNumber,
+//           returnedProducts,
+//           returnNote,
+//         });
+//         Swal.fire({ icon: "success", title: "Return Added!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
+//         onSave({ updatedOriginal: { ...challan, returnedProducts, returnNote }, newReturnChallan: res.data.returnChallan });
+//       }
 //       onClose();
 //     } catch (err) {
 //       Swal.fire({ icon: "error", title: "Failed", text: err?.response?.data?.message || "" });
@@ -282,12 +299,13 @@
 //       <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
 //         <div className="px-5 py-3 bg-orange-600 flex items-center justify-between text-white shrink-0">
 //           <div>
-//             <p className="font-bold text-sm flex items-center gap-2"><RotateCcw size={14} /> Product Return</p>
+//             <p className="font-bold text-sm flex items-center gap-2">
+//               <RotateCcw size={14} /> {isEdit ? "Edit Return" : "Product Return"}
+//             </p>
 //             <p className="text-orange-200 text-[10px] font-mono">{challan.customerName}</p>
 //           </div>
 //           <button onClick={onClose} className="p-1.5 hover:bg-white/20 rounded-lg transition"><X size={16} /></button>
 //         </div>
-
 //         <div className="p-5 space-y-4 overflow-y-auto flex-1">
 //           <div>
 //             <div className="flex items-center justify-between mb-3">
@@ -354,7 +372,6 @@
 //               className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-orange-400 focus:bg-white transition-colors resize-none" />
 //           </div>
 //         </div>
-
 //         <div className="px-5 py-3 border-t flex items-center justify-between bg-slate-50 shrink-0">
 //           <p className="text-[10px] text-slate-400">
 //             {activeReturns.length > 0 ? `${activeReturns.length} item(s) — ${totalReturn} PCS total` : "No items selected"}
@@ -363,7 +380,7 @@
 //             <button onClick={onClose} className="px-4 py-1.5 text-sm text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition">Cancel</button>
 //             <button onClick={handleSave} disabled={saving}
 //               className="px-5 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-bold rounded-lg transition flex items-center gap-2 disabled:opacity-60">
-//               <Check size={14} /> {saving ? "Saving…" : "Save Return"}
+//               <Check size={14} /> {saving ? "Saving…" : isEdit ? "Update Return" : "Save Return"}
 //             </button>
 //           </div>
 //         </div>
@@ -427,6 +444,8 @@
 // ════════════════════════════════════════════════════════════════ */
 // const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
 //   const axiosSecure = useAxiosSecure();
+//   const { user } = useAuth();
+//   const loggedInUser = user?.displayName || user?.email || "Unknown";
 //   const [trip, setTrip] = useState(selectedTrip);
 //   const [loadingId, setLoadingId] = useState(null);
 //   const [openDropdown, setOpenDropdown] = useState({ id: null, type: null });
@@ -435,7 +454,14 @@
 //   const [returningChallan, setReturningChallan] = useState(null);
 //   const [notingChallan, setNotingChallan] = useState(null);
 
-//   useEffect(() => { setTrip(selectedTrip); }, [selectedTrip]);
+//   /* ── Advance state ── */
+//   const [advance, setAdvance] = useState("");
+//   const [savingAdvance, setSavingAdvance] = useState(false);
+
+//   useEffect(() => {
+//     setTrip(selectedTrip);
+//     setAdvance(selectedTrip?.advance ?? "");
+//   }, [selectedTrip]);
 
 //   if (!trip) return null;
 
@@ -509,6 +535,30 @@
 //     }
 //   };
 
+//   /* ── Save advance ── */
+// const handleSaveAdvance = async () => {
+//   setSavingAdvance(true);
+//   try {
+//     const res = await axiosSecure.patch(`/deliveries/${trip._id}/advance`, {
+//       advance: advance !== "" ? Number(advance) : null,
+//       updatedBy: loggedInUser, // ← নতুন
+//     });
+//     if (res.data.success) {
+//       const updated = res.data.data;
+//       setAdvance(updated.advance ?? "");
+//       syncTrip({
+//         ...trip,
+//         advance: updated.advance,
+//         advanceSavedBy: updated.advanceSavedBy,  // ← নতুন
+//       });
+//       Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Saved!", showConfirmButton: false, timer: 1200 });
+//     }
+//   } catch {
+//     Swal.fire("Error", "Failed to save advance", "error");
+//   }
+//   setSavingAdvance(false);
+// };
+
 //   /* ── Product summary (normal challans only) ── */
 //   const productSummary = (() => {
 //     const map = {};
@@ -537,15 +587,43 @@
 //                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
 //                   {new Date(trip.createdAt).toDateString()}
 //                 </p>
-//                 {(trip.currentUser || trip.createdBy) && (
-//                   <>
-//                     <div className="h-4 w-[1px] bg-slate-200" />
-//                     <div className="flex items-center gap-1.5">
-//                       <User size={12} className="text-slate-400" />
-//                       <span className="text-xs font-medium text-slate-600">{trip.currentUser || trip.createdBy}</span>
-//                     </div>
-//                   </>
-//                 )}
+//         {/* Created by */}
+// {(trip.currentUser || trip.createdBy) && (
+//   <>
+//     <div className="h-4 w-[1px] bg-slate-200" />
+//     <div className="flex items-center gap-1.5">
+//       <User size={12} className="text-slate-400" />
+//       <span className="text-[10px] text-slate-400">Created:</span>
+//       <span className="text-xs font-medium text-slate-600">
+//         {trip.currentUser || trip.createdBy}
+//       </span>
+//     </div>
+//   </>
+// )}
+
+// {/* Updated by — trip info edit করলে */}
+// {trip.lastUpdatedBy && (
+//   <>
+//     <div className="h-4 w-[1px] bg-slate-200" />
+//     <div className="flex items-center gap-1.5">
+//       <Pencil size={11} className="text-indigo-400" />
+//       <span className="text-[10px] text-slate-400">Updated:</span>
+//       <span className="text-xs font-medium text-indigo-600">{trip.lastUpdatedBy}</span>
+//     </div>
+//   </>
+// )}
+
+// {/* Advance by — advance save করলে, আলাদা */}
+// {trip.advanceSavedBy && (
+//   <>
+//     <div className="h-4 w-[1px] bg-slate-200" />
+//     <div className="flex items-center gap-1.5">
+//       <Wallet size={11} className="text-violet-400" />
+//       <span className="text-[10px] text-slate-400">Advance by:</span>
+//       <span className="text-xs font-medium text-violet-500">{trip.advanceSavedBy}</span>
+//     </div>
+//   </>
+// )}
 //               </div>
 //               <div className="flex items-center gap-2">
 //                 <button onClick={() => setEditingTripInfo(true)}
@@ -596,6 +674,7 @@
 //                   </div>
 //                 </div>
 //               </div>
+
 //               <div className="flex flex-1 flex-wrap items-center justify-between gap-4">
 //                 <div className="flex items-center gap-2">
 //                   <div className="flex items-center px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg shadow-sm">
@@ -613,6 +692,7 @@
 //                     </div>
 //                   </div>
 //                 </div>
+
 //                 <div className="flex items-center gap-3">
 //                   <div className="flex items-center gap-3 px-3 py-1.5 bg-rose-500/10 border border-rose-500/20 rounded-lg">
 //                     <div className="text-center">
@@ -626,6 +706,33 @@
 //                       <p className="text-sm font-black text-amber-500 leading-none">{challanNotReceived}</p>
 //                     </div>
 //                   </div>
+
+//                   {/* ── Advance inline input ── */}
+//                   {/* ── Advance inline input ── */}
+// <div className="flex items-center gap-2 border-l border-slate-700 pl-3">
+//   <Wallet size={14} className="text-violet-400 shrink-0" />
+//   <div className="flex flex-col gap-0.5">
+//     <span className="text-[9px] text-slate-400 uppercase font-black tracking-widest leading-none">
+//       Advance (৳)
+//     </span>
+//     <input
+//       type="number"
+//       value={advance}
+//       onChange={e => setAdvance(e.target.value)}
+//       placeholder="—"
+//       className="w-24 text-xs font-bold bg-slate-700 border border-slate-600 text-white placeholder-slate-500 rounded-lg px-2 py-1.5 outline-none focus:border-violet-400 text-center"
+//     />
+ 
+//   </div>
+//   <button
+//     onClick={handleSaveAdvance}
+//     disabled={savingAdvance}
+//     className="flex items-center gap-1 px-2.5 py-1.5 mt-3.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold rounded-lg transition disabled:opacity-50"
+//   >
+//     <Save size={11} />
+//     {savingAdvance ? "…" : "Save"}
+//   </button>
+// </div>
 //                 </div>
 //               </div>
 //             </div>
@@ -647,7 +754,6 @@
 //                       : "bg-white border-slate-200 hover:border-indigo-200"
 //                     }`}>
 
-//                     {/* ── Return card top badge ── */}
 //                     {isReturnCard && (
 //                       <div className="flex items-center justify-between mb-3 pb-2 border-b border-orange-200">
 //                         <div className="flex items-center gap-2">
@@ -813,17 +919,30 @@
 
 //           {/* ── Footer ── */}
 //           <div className="shrink-0 border-t px-5 py-3 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
-//             {productSummary.length > 0 && (
-//               <div className="flex items-center gap-2 flex-wrap">
-//                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">Summary:</span>
-//                 {productSummary.map(([name, qty], idx) => (
-//                   <div key={idx} className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg shadow-sm">
-//                     <span className="text-[11px] font-semibold text-slate-700">{name}</span>
-//                     <span className="text-[11px] font-black text-indigo-600">{qty} PCS</span>
-//                   </div>
-//                 ))}
-//               </div>
-//             )}
+//             <div className="flex flex-wrap items-center gap-4">
+//               {/* Product Summary */}
+//               {productSummary.length > 0 && (
+//                 <div className="flex items-center gap-2 flex-wrap">
+//                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">Summary:</span>
+//                   {productSummary.map(([name, qty], idx) => (
+//                     <div key={idx} className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg shadow-sm">
+//                       <span className="text-[11px] font-semibold text-slate-700">{name}</span>
+//                       <span className="text-[11px] font-black text-indigo-600">{qty} PCS</span>
+//                     </div>
+//                   ))}
+//                 </div>
+//               )}
+
+//               {/* Advance display in footer */}
+//               {trip.advance != null && (
+//                 <div className="flex items-center gap-1.5 px-3 py-1 bg-violet-50 border border-violet-200 rounded-lg">
+//                   <Wallet size={11} className="text-violet-500 shrink-0" />
+//                   <span className="text-[11px] text-violet-600 font-semibold">Advance:</span>
+//                   <span className="text-[11px] font-black text-violet-700">৳ {Number(trip.advance).toLocaleString()}</span>
+//                 </div>
+//               )}
+//             </div>
+
 //             <button
 //               onClick={() => setSelectedTrip(null)}
 //               className="px-4 py-1.5 text-sm text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition ml-auto"
@@ -837,27 +956,34 @@
 
 //       {/* Sub-modals */}
 //       {editingTripInfo && (
-//         <EditTripInfoModal trip={trip} axiosSecure={axiosSecure}
-//           onSave={info => syncTrip({ ...trip, ...info })}
-//           onClose={() => setEditingTripInfo(false)} />
-//       )}
+//   <EditTripInfoModal
+//     trip={trip}
+//     axiosSecure={axiosSecure}
+//     updatedBy={loggedInUser}  // ← নতুন
+//     onSave={(info, serverData) => syncTrip({
+//       ...trip, ...info,
+//       lastUpdatedBy: serverData?.lastUpdatedBy || loggedInUser,  // ← নতুন
+//     })}
+//     onClose={() => setEditingTripInfo(false)}
+//   />
+// )}
 //       {editingChallan && (
-//         <EditChallanCard tripId={trip._id} challan={editingChallan} axiosSecure={axiosSecure}
+//         <EditChallanCard tripId={trip._id} challan={editingChallan} axiosSecure={axiosSecure} updatedBy={loggedInUser} 
 //           onSave={updateChallanInTrip}
 //           onClose={() => setEditingChallan(null)} />
 //       )}
 //       {returningChallan && (
 //         <ReturnModal tripId={trip._id} challan={returningChallan} axiosSecure={axiosSecure}
 //           onSave={({ updatedOriginal, newReturnChallan }) => {
+//             const updatedChallans = trip.challans.map(c =>
+//               c.challanId === updatedOriginal.challanId ? updatedOriginal : c
+//             );
 //             syncTrip({
 //               ...trip,
-//               totalChallan: trip.totalChallan + 1,
-//               challans: [
-//                 ...trip.challans.map(c =>
-//                   c.challanId === updatedOriginal.challanId ? updatedOriginal : c
-//                 ),
-//                 newReturnChallan,
-//               ]
+//               totalChallan: newReturnChallan ? trip.totalChallan + 1 : trip.totalChallan,
+//               challans: newReturnChallan
+//                 ? [...updatedChallans, newReturnChallan]
+//                 : updatedChallans,
 //             });
 //           }}
 //           onClose={() => setReturningChallan(null)} />
@@ -883,6 +1009,8 @@ import {
   X, Truck, User, Package, PhoneForwarded,
   Plus, Trash2, Pencil, Check, RotateCcw, StickyNote, Save, Wallet
 } from "lucide-react";
+import useAuth from "../hooks/useAuth";
+
 
 /* ─── Inline editable field ─── */
 const Field = ({ label, value, onChange }) => (
@@ -897,7 +1025,7 @@ const Field = ({ label, value, onChange }) => (
 );
 
 /* ─── Edit Trip Info Modal ─── */
-const EditTripInfoModal = ({ trip, onSave, onClose, axiosSecure }) => {
+const EditTripInfoModal = ({ trip, onSave, onClose, axiosSecure, updatedBy }) => {
   const [form, setForm] = useState({
     vehicleNumber: trip.vehicleNumber || "",
     vendorName: trip.vendorName || "",
@@ -910,9 +1038,12 @@ const EditTripInfoModal = ({ trip, onSave, onClose, axiosSecure }) => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await axiosSecure.patch(`/deliveries/${trip._id}/trip-info`, form);
+      const res = await axiosSecure.patch(`/deliveries/${trip._id}/trip-info`, {
+        ...form,
+        updatedBy,
+      });
       Swal.fire({ icon: "success", title: "Updated!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
-      onSave(form);
+      onSave(form, res.data?.data);
       onClose();
     } catch (err) {
       Swal.fire({ icon: "error", title: "Update failed", text: err?.response?.data?.message || "" });
@@ -969,7 +1100,7 @@ const EditTripInfoModal = ({ trip, onSave, onClose, axiosSecure }) => {
 };
 
 /* ─── Edit Challan Modal ─── */
-const EditChallanCard = ({ tripId, challan, onSave, onClose, axiosSecure }) => {
+const EditChallanCard = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy }) => {
   const [form, setForm] = useState({
     customerName: challan.customerName || "",
     address: challan.address || "",
@@ -1001,7 +1132,10 @@ const EditChallanCard = ({ tripId, challan, onSave, onClose, axiosSecure }) => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await axiosSecure.patch(`/deliveries/${tripId}/challan/${challan.challanId}`, form);
+      const res = await axiosSecure.patch(`/deliveries/${tripId}/challan/${challan.challanId}`, {
+        ...form,
+        updatedBy,
+      });
       for (const p of products) {
         if (!p.productName || !p.model) continue;
         const isNew = !p._id || p._id.startsWith("new_");
@@ -1014,7 +1148,7 @@ const EditChallanCard = ({ tripId, challan, onSave, onClose, axiosSecure }) => {
         }
       }
       Swal.fire({ icon: "success", title: "Updated!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
-      onSave({ ...challan, ...form, products });
+      onSave({ ...challan, ...form, products }, res.data?.data);
       onClose();
     } catch (err) {
       Swal.fire({ icon: "error", title: "Update failed", text: err?.response?.data?.message || "" });
@@ -1083,7 +1217,7 @@ const EditChallanCard = ({ tripId, challan, onSave, onClose, axiosSecure }) => {
 };
 
 /* ─── Product Return Modal ─── */
-const ReturnModal = ({ tripId, challan, onSave, onClose, axiosSecure }) => {
+const ReturnModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy }) => {
   const isEdit = !!(challan.returnedProducts?.length > 0);
 
   const [returnItems, setReturnItems] = useState(
@@ -1136,7 +1270,7 @@ const ReturnModal = ({ tripId, challan, onSave, onClose, axiosSecure }) => {
 
       if (isEdit) {
         await axiosSecure.patch(`/deliveries/${tripId}/challan/${challan.challanId}/return`, {
-          returnedProducts, returnNote,
+          returnedProducts, returnNote, updatedBy,
         });
         Swal.fire({ icon: "success", title: "Return Updated!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
         onSave({ updatedOriginal: { ...challan, returnedProducts, returnNote }, newReturnChallan: null });
@@ -1151,6 +1285,7 @@ const ReturnModal = ({ tripId, challan, onSave, onClose, axiosSecure }) => {
           receiverNumber: challan.receiverNumber,
           returnedProducts,
           returnNote,
+          updatedBy,
         });
         Swal.fire({ icon: "success", title: "Return Added!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
         onSave({ updatedOriginal: { ...challan, returnedProducts, returnNote }, newReturnChallan: res.data.returnChallan });
@@ -1258,16 +1393,19 @@ const ReturnModal = ({ tripId, challan, onSave, onClose, axiosSecure }) => {
 };
 
 /* ─── Note Modal ─── */
-const NoteModal = ({ tripId, challan, onSave, onClose, axiosSecure }) => {
+const NoteModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy }) => {
   const [note, setNote] = useState(challan.note || "");
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await axiosSecure.patch(`/deliveries/${tripId}/challan/${challan.challanId}/note`, { note });
+      const res = await axiosSecure.patch(
+        `/deliveries/${tripId}/challan/${challan.challanId}/note`,
+        { note, updatedBy }
+      );
       Swal.fire({ icon: "success", title: "Note Saved!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
-      onSave({ ...challan, note });
+      onSave({ ...challan, note }, res.data?.data);
       onClose();
     } catch (err) {
       Swal.fire({ icon: "error", title: "Failed", text: err?.response?.data?.message || "" });
@@ -1312,6 +1450,8 @@ const NoteModal = ({ tripId, challan, onSave, onClose, axiosSecure }) => {
 ════════════════════════════════════════════════════════════════ */
 const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
   const axiosSecure = useAxiosSecure();
+  const { user } = useAuth();
+  const loggedInUser = user?.displayName || user?.email || "Unknown";
   const [trip, setTrip] = useState(selectedTrip);
   const [loadingId, setLoadingId] = useState(null);
   const [openDropdown, setOpenDropdown] = useState({ id: null, type: null });
@@ -1351,15 +1491,6 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
   const syncTrip = (updated) => {
     setTrip(updated);
     if (onTripUpdate) onTripUpdate(updated);
-  };
-
-  const updateChallanInTrip = (updatedChallan) => {
-    syncTrip({
-      ...trip,
-      challans: trip.challans.map(c =>
-        c.challanId === updatedChallan.challanId ? updatedChallan : c
-      )
-    });
   };
 
   const updateStatus = async (challanId, status, endpoint, field) => {
@@ -1402,23 +1533,29 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
   };
 
   /* ── Save advance ── */
- const handleSaveAdvance = async () => {
-  setSavingAdvance(true);
-  try {
-    const res = await axiosSecure.patch(`/deliveries/${trip._id}/advance`, {
-      advance: advance !== "" ? Number(advance) : null,
-    });
-    if (res.data.success) {
-      const newAdvance = res.data.data.advance;
-      setAdvance(newAdvance ?? "");              // ← এটা missing ছিল
-      syncTrip({ ...trip, advance: newAdvance });
-      Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Saved!", showConfirmButton: false, timer: 1200 });
+  const handleSaveAdvance = async () => {
+    setSavingAdvance(true);
+    try {
+      const res = await axiosSecure.patch(`/deliveries/${trip._id}/advance`, {
+        advance: advance !== "" ? Number(advance) : null,
+        updatedBy: loggedInUser,
+      });
+      if (res.data.success) {
+        const updated = res.data.data;
+        setAdvance(updated.advance ?? "");
+        syncTrip({
+          ...trip,
+          advance: updated.advance,
+          advanceSavedBy: updated.advanceSavedBy,
+          // lastUpdatedBy touch করছি না
+        });
+        Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Saved!", showConfirmButton: false, timer: 1200 });
+      }
+    } catch {
+      Swal.fire("Error", "Failed to save advance", "error");
     }
-  } catch {
-    Swal.fire("Error", "Failed to save advance", "error");
-  }
-  setSavingAdvance(false);
-};
+    setSavingAdvance(false);
+  };
 
   /* ── Product summary (normal challans only) ── */
   const productSummary = (() => {
@@ -1448,12 +1585,41 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   {new Date(trip.createdAt).toDateString()}
                 </p>
+
+                {/* Created by */}
                 {(trip.currentUser || trip.createdBy) && (
                   <>
                     <div className="h-4 w-[1px] bg-slate-200" />
                     <div className="flex items-center gap-1.5">
                       <User size={12} className="text-slate-400" />
-                      <span className="text-xs font-medium text-slate-600">{trip.currentUser || trip.createdBy}</span>
+                      <span className="text-[10px] text-slate-400">Created:</span>
+                      <span className="text-xs font-medium text-slate-600">
+                        {trip.currentUser || trip.createdBy}
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                {/* Updated by — challan/trip info edit করলে */}
+                {trip.lastUpdatedBy && (
+                  <>
+                    <div className="h-4 w-[1px] bg-slate-200" />
+                    <div className="flex items-center gap-1.5">
+                      <Pencil size={11} className="text-indigo-400" />
+                      <span className="text-[10px] text-slate-400">Updated:</span>
+                      <span className="text-xs font-medium text-indigo-600">{trip.lastUpdatedBy}</span>
+                    </div>
+                  </>
+                )}
+
+                {/* Advance by — advance save করলে, সম্পূর্ণ আলাদা */}
+                {trip.advanceSavedBy && (
+                  <>
+                    <div className="h-4 w-[1px] bg-slate-200" />
+                    <div className="flex items-center gap-1.5">
+                      <Wallet size={11} className="text-violet-400" />
+                      <span className="text-[10px] text-slate-400">Advance by:</span>
+                      <span className="text-xs font-medium text-violet-500">{trip.advanceSavedBy}</span>
                     </div>
                   </>
                 )}
@@ -1544,7 +1710,9 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                   <div className="flex items-center gap-2 border-l border-slate-700 pl-3">
                     <Wallet size={14} className="text-violet-400 shrink-0" />
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-[9px] text-slate-400 uppercase font-black tracking-widest leading-none">Advance (৳)</span>
+                      <span className="text-[9px] text-slate-400 uppercase font-black tracking-widest leading-none">
+                        Advance (৳)
+                      </span>
                       <input
                         type="number"
                         value={advance}
@@ -1749,7 +1917,6 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
           {/* ── Footer ── */}
           <div className="shrink-0 border-t px-5 py-3 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-4">
-              {/* Product Summary */}
               {productSummary.length > 0 && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">Summary:</span>
@@ -1761,8 +1928,6 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                   ))}
                 </div>
               )}
-
-              {/* Advance display in footer */}
               {trip.advance != null && (
                 <div className="flex items-center gap-1.5 px-3 py-1 bg-violet-50 border border-violet-200 rounded-lg">
                   <Wallet size={11} className="text-violet-500 shrink-0" />
@@ -1771,7 +1936,6 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                 </div>
               )}
             </div>
-
             <button
               onClick={() => setSelectedTrip(null)}
               className="px-4 py-1.5 text-sm text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition ml-auto"
@@ -1785,41 +1949,81 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
 
       {/* Sub-modals */}
       {editingTripInfo && (
-        <EditTripInfoModal trip={trip} axiosSecure={axiosSecure}
-          onSave={info => syncTrip({ ...trip, ...info })}
-          onClose={() => setEditingTripInfo(false)} />
+        <EditTripInfoModal
+          trip={trip}
+          axiosSecure={axiosSecure}
+          updatedBy={loggedInUser}
+          onSave={(info, serverData) => syncTrip({
+            ...trip, ...info,
+            lastUpdatedBy: serverData?.lastUpdatedBy || loggedInUser,
+            // advanceSavedBy touch করছি না
+          })}
+          onClose={() => setEditingTripInfo(false)}
+        />
       )}
+
       {editingChallan && (
-        <EditChallanCard tripId={trip._id} challan={editingChallan} axiosSecure={axiosSecure}
-          onSave={updateChallanInTrip}
-          onClose={() => setEditingChallan(null)} />
+        <EditChallanCard
+          tripId={trip._id}
+          challan={editingChallan}
+          axiosSecure={axiosSecure}
+          updatedBy={loggedInUser}
+          onSave={(updatedChallan, serverData) => {
+            syncTrip({
+              ...trip,
+              lastUpdatedBy: serverData?.lastUpdatedBy || loggedInUser,
+              challans: trip.challans.map(c =>
+                c.challanId === updatedChallan.challanId ? updatedChallan : c
+              ),
+            });
+          }}
+          onClose={() => setEditingChallan(null)}
+        />
       )}
+
       {returningChallan && (
-        <ReturnModal tripId={trip._id} challan={returningChallan} axiosSecure={axiosSecure}
+        <ReturnModal
+          tripId={trip._id}
+          challan={returningChallan}
+          axiosSecure={axiosSecure}
+          updatedBy={loggedInUser}
           onSave={({ updatedOriginal, newReturnChallan }) => {
             const updatedChallans = trip.challans.map(c =>
               c.challanId === updatedOriginal.challanId ? updatedOriginal : c
             );
             syncTrip({
               ...trip,
+              lastUpdatedBy: loggedInUser,
               totalChallan: newReturnChallan ? trip.totalChallan + 1 : trip.totalChallan,
               challans: newReturnChallan
                 ? [...updatedChallans, newReturnChallan]
                 : updatedChallans,
             });
           }}
-          onClose={() => setReturningChallan(null)} />
+          onClose={() => setReturningChallan(null)}
+        />
       )}
+
       {notingChallan && (
-        <NoteModal tripId={trip._id} challan={notingChallan} axiosSecure={axiosSecure}
-          onSave={updateChallanInTrip}
-          onClose={() => setNotingChallan(null)} />
+        <NoteModal
+          tripId={trip._id}
+          challan={notingChallan}
+          axiosSecure={axiosSecure}
+          updatedBy={loggedInUser}
+          onSave={(updatedChallan, serverData) => {
+            syncTrip({
+              ...trip,
+              lastUpdatedBy: serverData?.lastUpdatedBy || loggedInUser,
+              challans: trip.challans.map(c =>
+                c.challanId === updatedChallan.challanId ? updatedChallan : c
+              ),
+            });
+          }}
+          onClose={() => setNotingChallan(null)}
+        />
       )}
     </>
   );
 };
 
 export default TripDetailsModal;
-
-
-

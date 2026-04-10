@@ -1,4 +1,5 @@
 
+
 // import React, { useEffect, useState, useRef } from "react";
 // import useAxiosSecure from "../hooks/useAxiosSecure";
 // import { useSearch } from "../hooks/SearchContext";
@@ -8,7 +9,7 @@
 // import Pagination from "../Component/Pagination";
 // import LoadingSpinner from "../Component/LoadingSpinner";
 
-// /* ── Multi-select dropdown — search always visible ── */
+// /* ── Multi-select dropdown ── */
 // const MultiSelectFilter = ({ options, selected, onChange, placeholder = "All" }) => {
 //   const [open, setOpen] = useState(false);
 //   const [search, setSearch] = useState("");
@@ -53,15 +54,9 @@
 //             left: ref.current ? ref.current.getBoundingClientRect().left : 0,
 //           }}
 //         >
-//           {/* search always visible */}
 //           <div className="p-1.5 border-b border-gray-100">
-//             <input
-//               autoFocus
-//               value={search}
-//               onChange={e => setSearch(e.target.value)}
-//               placeholder="Search…"
-//               className="w-full px-2 py-1 text-xs border border-gray-200 rounded outline-none"
-//             />
+//             <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
+//               placeholder="Search…" className="w-full px-2 py-1 text-xs border border-gray-200 rounded outline-none" />
 //           </div>
 //           <div className="max-h-44 overflow-y-auto">
 //             {filtered.length === 0
@@ -90,6 +85,36 @@
 //   );
 // };
 
+// /* ── Type filter (All / Delivery / Return) ── */
+// const TypeSelect = ({ value, onChange }) => (
+//   <select
+//     value={value}
+//     onChange={e => onChange(e.target.value)}
+//     className={`w-full px-2 py-1 text-xs rounded border outline-none transition-all
+//       ${value ? "border-gray-700 bg-gray-100 text-gray-800" : "border-gray-300 bg-white text-gray-400"}`}
+//   >
+//     <option value="">All</option>
+//     <option value="delivery">Delivery</option>
+//     <option value="return">Return</option>
+//   </select>
+// );
+
+// /* ── Delivery status badge ── */
+// const DeliveryBadge = ({ status }) => {
+//   const map = {
+//     confirmed: "bg-emerald-100 text-emerald-700 border-emerald-200",
+//     not_received: "bg-rose-100 text-rose-700 border-rose-200",
+//     call_later: "bg-amber-100 text-amber-700 border-amber-200",
+//     return: "bg-orange-100 text-orange-700 border-orange-200",
+//   };
+//   const label = status === "not_received" ? "Not Received" : status === "call_later" ? "Call Later" : status || "Pending";
+//   return (
+//     <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold border uppercase whitespace-nowrap ${map[status] || "bg-slate-100 text-slate-500 border-slate-200"}`}>
+//       {label}
+//     </span>
+//   );
+// };
+
 // /* ── Main Component ── */
 // const DeliveredPage = () => {
 //   const axiosSecure = useAxiosSecure();
@@ -100,30 +125,27 @@
 //   const [pagination, setPagination] = useState(null);
 //   const [, setCurrentPage] = useState(1);
 
-//   const [customerFilter,  setCustomerFilter]  = useState([]);
-//   const [zoneFilter,      setZoneFilter]      = useState([]);
-//   const [districtFilter,  setDistrictFilter]  = useState([]);
-//   const [thanaFilter,     setThanaFilter]     = useState([]);
-//   const [productFilter,   setProductFilter]   = useState([]);
-//   const [modelFilter,     setModelFilter]     = useState([]);
-//   const [addressFilter,   setAddressFilter]   = useState([]);
-//   const [receiverFilter,  setReceiverFilter]  = useState([]);
-//   const [dateFilter,      setDateFilter]      = useState("");
+//   const [customerFilter, setCustomerFilter] = useState([]);
+//   const [zoneFilter, setZoneFilter] = useState([]);
+//   const [districtFilter, setDistrictFilter] = useState([]);
+//   const [thanaFilter, setThanaFilter] = useState([]);
+//   const [productFilter, setProductFilter] = useState([]);
+//   const [modelFilter, setModelFilter] = useState([]);
+//   const [addressFilter, setAddressFilter] = useState([]);
+//   const [receiverFilter, setReceiverFilter] = useState([]);
+//   const [dateFilter, setDateFilter] = useState("");
+//   const [typeFilter, setTypeFilter] = useState(""); // ── new
+//   const [noteFilter, setNoteFilter] = useState([]);
 
 //   const [month, setMonth] = useState(new Date().getMonth() + 1);
-//   const [year,  setYear]  = useState(new Date().getFullYear());
+//   const [year, setYear] = useState(new Date().getFullYear());
 
 //   const fetchDeliveries = async (m, y, search, page = 1) => {
 //     setLoading(true);
 //     try {
-//       let url;
-//       if (search) {
-//         // search থাকলে backend search দিয়ে সব data আনো (month filter নেই)
-//         url = `/deliveries?search=${encodeURIComponent(search)}&page=1&limit=5000`;
-//       } else {
-//         // search নেই — month/year filter দিয়ে paginated
-//         url = `/deliveries?month=${m}&year=${y}&page=${page}&limit=50`;
-//       }
+//       let url = search
+//         ? `/deliveries?search=${encodeURIComponent(search)}&page=1&limit=5000`
+//         : `/deliveries?month=${m}&year=${y}&page=${page}&limit=50`;
 //       const res = await axiosSecure.get(url);
 //       setDeliveries(res.data.data || []);
 //       setPagination(search ? null : (res.data.pagination || null));
@@ -150,46 +172,79 @@
 //     setCustomerFilter([]); setZoneFilter([]); setDistrictFilter([]);
 //     setThanaFilter([]); setProductFilter([]); setModelFilter([]);
 //     setAddressFilter([]); setReceiverFilter([]); setDateFilter("");
+//     setTypeFilter("");
+//     setNoteFilter([]);
 //     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
 //   };
 
-//   const rowMatchesAll = (trip, challan, product, excludeField = null) => {
-//     const s = searchText?.toLowerCase() || "";
-//     const matchesSearch = !searchText || [challan.customerName, challan.zone, challan.address, challan.receiverNumber, challan.district, challan.thana, product.productName, product.model]
-//       .some(v => v?.toString().toLowerCase().includes(s));
+//   /* ─── Build flat rows — delivery + return rows ─── */
+//   const buildRows = () => {
+//     const rows = [];
+//     deliveries.forEach(trip => {
+//       (trip.challans || []).forEach(challan => {
+//         const isReturn = challan.isReturn === true;
+//         const rowType = isReturn ? "return" : "delivery";
 
-//     const challanDate = new Date(trip.createdAt).toISOString().slice(0, 10);
-//     const check = (field, filter, val) =>
-//       field === excludeField || filter.length === 0 || filter.some(f => val?.toLowerCase() === f.toLowerCase());
+//         // type filter
+//         if (typeFilter && typeFilter !== rowType) return;
 
-//     return matchesSearch &&
-//       (excludeField === "date" || !dateFilter || challanDate === dateFilter) &&
-//       check("customerName",   customerFilter,  challan.customerName) &&
-//       check("zone",           zoneFilter,      challan.zone) &&
-//       check("address",        addressFilter,   challan.address) &&
-//       check("receiverNumber", receiverFilter,  challan.receiverNumber) &&
-//       check("district",       districtFilter,  challan.district) &&
-//       check("thana",          thanaFilter,     challan.thana) &&
-//       check("productName",    productFilter,   product.productName) &&
-//       check("model",          modelFilter,     product.model);
+//         const products = challan.products || [];
+//         products.forEach(product => {
+//           const s = searchText?.toLowerCase() || "";
+//           const matchesSearch = !searchText || [
+//             challan.customerName, challan.zone, challan.address,
+//             challan.receiverNumber, challan.district, challan.thana,
+//             product.productName, product.model
+//           ].some(v => v?.toString().toLowerCase().includes(s));
+//           if (!matchesSearch) return;
+
+//           const challanDate = new Date(trip.createdAt).toISOString().slice(0, 10);
+//           if (dateFilter && challanDate !== dateFilter) return;
+
+//           const check = (filter, val) => filter.length === 0 || filter.some(f => val?.toLowerCase() === f.toLowerCase());
+//           if (!check(customerFilter, challan.customerName)) return;
+//           if (!check(zoneFilter, challan.zone)) return;
+//           if (!check(addressFilter, challan.address)) return;
+//           if (!check(receiverFilter, challan.receiverNumber)) return;
+//           if (!check(districtFilter, challan.district)) return;
+//           if (!check(thanaFilter, challan.thana)) return;
+//           if (!check(productFilter, product.productName)) return;
+//           if (!check(modelFilter, product.model)) return;
+
+//           // note filter
+//           if (noteFilter.length > 0) {
+//             const isReturn = challan.isReturn === true;
+//             const noteVal = isReturn ? (challan.returnNote || "") : (challan.note || "");
+//             if (!noteFilter.some(f => noteVal.toLowerCase() === f.toLowerCase())) return;
+//           }
+
+//           rows.push({
+//             trip, challan, product,
+//             date: new Date(trip.createdAt),
+//             isReturn,
+//             rowType,
+//             // delivery status
+//             deliveryStatus: challan.deliveryStatus,
+//             challanReturnStatus: challan.challanReturnStatus,
+//             // note
+//             note: challan.note || "",
+//             returnNote: challan.returnNote || "",
+//           });
+//         });
+//       });
+//     });
+//     return rows;
 //   };
 
-//   const filteredRows = deliveries.flatMap(trip =>
-//     (trip.challans || []).flatMap(challan =>
-//       (challan.products || [])
-//         .filter(product => rowMatchesAll(trip, challan, product))
-//         .map(product => ({ trip, challan, product, date: new Date(trip.createdAt) }))
-//     )
-//   );
-
+//   const filteredRows = buildRows();
 //   const totalQty = filteredRows.reduce((sum, { product }) => sum + (Number(product.quantity) || 0), 0);
 
+//   /* cascading options — from delivery rows only for delivery fields */
 //   const getOptionsFor = (field) => {
 //     const map = new Map();
 //     deliveries.forEach(trip => {
 //       (trip.challans || []).forEach(challan => {
 //         (challan.products || []).forEach(product => {
-//           if (!rowMatchesAll(trip, challan, product, field)) return;
 //           const val = (field === "productName" || field === "model")
 //             ? product[field]?.trim()
 //             : challan[field]?.trim();
@@ -200,16 +255,32 @@
 //     return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
 //   };
 
+//   const getNoteOptions = () => {
+//     const map = new Map();
+//     deliveries.forEach(trip => {
+//       (trip.challans || []).forEach(challan => {
+//         const isReturn = challan.isReturn === true;
+//         const note = isReturn ? (challan.returnNote || "") : (challan.note || "");
+//         if (note.trim() && !map.has(note.toLowerCase())) {
+//           map.set(note.toLowerCase(), note.trim());
+//         }
+//       });
+//     });
+//     return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
+//   };
+
 //   const activeFilterGroups = [
-//     { label: "Customer",  values: customerFilter,  clear: () => setCustomerFilter([]) },
-//     { label: "Zone",      values: zoneFilter,      clear: () => setZoneFilter([]) },
-//     { label: "Address",   values: addressFilter,   clear: () => setAddressFilter([]) },
-//     { label: "Receiver",  values: receiverFilter,  clear: () => setReceiverFilter([]) },
-//     { label: "District",  values: districtFilter,  clear: () => setDistrictFilter([]) },
-//     { label: "Thana",     values: thanaFilter,     clear: () => setThanaFilter([]) },
-//     { label: "Product",   values: productFilter,   clear: () => setProductFilter([]) },
-//     { label: "Model",     values: modelFilter,     clear: () => setModelFilter([]) },
+//     { label: "Customer", values: customerFilter, clear: () => setCustomerFilter([]) },
+//     { label: "Zone", values: zoneFilter, clear: () => setZoneFilter([]) },
+//     { label: "Address", values: addressFilter, clear: () => setAddressFilter([]) },
+//     { label: "Receiver", values: receiverFilter, clear: () => setReceiverFilter([]) },
+//     { label: "District", values: districtFilter, clear: () => setDistrictFilter([]) },
+//     { label: "Thana", values: thanaFilter, clear: () => setThanaFilter([]) },
+//     { label: "Product", values: productFilter, clear: () => setProductFilter([]) },
+//     { label: "Model", values: modelFilter, clear: () => setModelFilter([]) },
 //     ...(dateFilter ? [{ label: "Date", values: [dateFilter], clear: () => setDateFilter("") }] : []),
+//     ...(typeFilter ? [{ label: "Type", values: [typeFilter], clear: () => setTypeFilter("") }] : []),
+//     { label: "Note", values: noteFilter, clear: () => setNoteFilter([]) },
 //   ].filter(f => f.values.length > 0);
 
 //   const handleExportExcel = async () => {
@@ -236,24 +307,43 @@
 
 //     try {
 //       let exportData = [];
-//       const toRow = (challan, product, date) => ({
-//         Date: date.toLocaleDateString(),
-//         Customer: challan.customerName, Zone: challan.zone,
-//         Address: challan.address, "Receiver Number": challan.receiverNumber,
-//         District: challan.district, Thana: challan.thana,
-//         Product: product.productName, Model: product.model, Qty: product.quantity,
+//       const toRow = (row) => ({
+//         Date: row.date.toLocaleDateString(),
+//         Type: row.isReturn ? "Return" : "Delivery",
+//         "Trip No": row.trip.tripNumber || "",
+//         Customer: row.challan.customerName,
+//         Zone: row.challan.zone,
+//         Address: row.challan.address,
+//         "Receiver Number": row.challan.receiverNumber,
+//         District: row.challan.district,
+//         Thana: row.challan.thana,
+//         Product: row.product.productName,
+//         Model: row.product.model,
+//         Qty: Number(row.product.quantity) || 0,
+//         "Delivery Status": row.deliveryStatus || "Pending",
+//         "Challan Status": row.challanReturnStatus || "—",
+//         Note: row.note || row.returnNote || "",
 //       });
 
 //       if (exportType === "filtered") {
 //         if (!filteredRows.length) return Swal.fire({ icon: "warning", title: "No Data" });
-//         exportData = filteredRows.map(({ challan, product, date }) => toRow(challan, product, date));
+//         exportData = filteredRows.map(toRow);
 //       } else {
 //         Swal.fire({ title: "Fetching…", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 //         const res = await axiosSecure.get(`/deliveries?month=${month}&year=${year}&page=1&limit=5000`);
 //         (res.data.data || []).forEach(trip => {
 //           (trip.challans || []).forEach(challan => {
+//             const isReturn = challan.isReturn === true;
 //             (challan.products || []).forEach(product => {
-//               exportData.push(toRow(challan, product, new Date(trip.createdAt)));
+//               exportData.push(toRow({
+//                 trip, challan, product,
+//                 date: new Date(trip.createdAt),
+//                 isReturn,
+//                 deliveryStatus: challan.deliveryStatus,
+//                 challanReturnStatus: challan.challanReturnStatus,
+//                 note: challan.note || "",
+//                 returnNote: challan.returnNote || "",
+//               }));
 //             });
 //           });
 //         });
@@ -293,12 +383,12 @@
 //               value={year} onChange={e => setYear(parseInt(e.target.value))} />
 //             <button onClick={handleResetAll}
 //               className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all">
-//               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+//               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
 //               Reset All
 //             </button>
 //             <button onClick={handleExportExcel}
 //               className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded bg-gray-800 text-white hover:bg-gray-700 transition-all">
-//               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+//               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
 //               Export Excel
 //             </button>
 //           </div>
@@ -327,48 +417,94 @@
 //         ) : (
 //           <>
 //             <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-//               {/* ✅ overflow on same container for sticky to work */}
 //               <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)]">
 //                 <table className="w-full border-collapse text-sm">
 //                   <thead>
-//                     {/* ✅ sticky top-0 on each row separately */}
 //                     <tr className="bg-gray-800 text-white text-left sticky top-0 z-20">
-//                       {["Date", "Customer", "Zone", "Address", "Receiver", "District", "Thana", "Product", "Model", "Qty"].map(h => (
+//                       {["Date", "Type", "Customer", "Zone", "Address", "Receiver", "District", "Thana", "Product", "Model", "Qty", "Note"].map(h => (
 //                         <th key={h} className="px-3 py-2.5 font-normal text-xs uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0">{h}</th>
 //                       ))}
 //                     </tr>
 //                     <tr className="bg-gray-50 border-b-2 border-gray-200 sticky top-[41px] z-20">
+//                       {/* Date */}
 //                       <th className="p-1 border-r border-gray-200">
 //                         <input type="date"
 //                           className="w-full px-1.5 py-1 border border-gray-300 rounded text-[10px] outline-none focus:border-gray-500 bg-white"
 //                           value={dateFilter} onChange={e => setDateFilter(e.target.value)} />
 //                       </th>
-//                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("customerName")}   selected={customerFilter}  onChange={setCustomerFilter}  placeholder="All" /></th>
-//                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("zone")}           selected={zoneFilter}      onChange={setZoneFilter}      placeholder="All" /></th>
-//                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("address")}        selected={addressFilter}   onChange={setAddressFilter}   placeholder="All" /></th>
-//                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("receiverNumber")} selected={receiverFilter}  onChange={setReceiverFilter}  placeholder="All" /></th>
-//                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("district")}       selected={districtFilter}  onChange={setDistrictFilter}  placeholder="All" /></th>
-//                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("thana")}          selected={thanaFilter}     onChange={setThanaFilter}     placeholder="All" /></th>
-//                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("productName")}    selected={productFilter}   onChange={setProductFilter}   placeholder="All" /></th>
-//                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("model")}          selected={modelFilter}     onChange={setModelFilter}     placeholder="All" /></th>
-//                       <th className="p-1 text-center text-sm font-semibold text-gray-700">{totalQty}</th>
+//                       {/* Type */}
+//                       <th className="p-1 border-r border-gray-200">
+//                         <TypeSelect value={typeFilter} onChange={setTypeFilter} />
+//                       </th>
+//                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("customerName")} selected={customerFilter} onChange={setCustomerFilter} placeholder="All" /></th>
+//                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("zone")} selected={zoneFilter} onChange={setZoneFilter} placeholder="All" /></th>
+//                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("address")} selected={addressFilter} onChange={setAddressFilter} placeholder="All" /></th>
+//                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("receiverNumber")} selected={receiverFilter} onChange={setReceiverFilter} placeholder="All" /></th>
+//                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("district")} selected={districtFilter} onChange={setDistrictFilter} placeholder="All" /></th>
+//                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("thana")} selected={thanaFilter} onChange={setThanaFilter} placeholder="All" /></th>
+//                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("productName")} selected={productFilter} onChange={setProductFilter} placeholder="All" /></th>
+//                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("model")} selected={modelFilter} onChange={setModelFilter} placeholder="All" /></th>
+//                       <th className="p-1 border-r border-gray-200 text-center text-sm font-semibold text-gray-700">{totalQty}</th>
+//                       {/* D.Status, C.Status, Note — no filter */}
+//                       <th className="p-1">
+//                         <MultiSelectFilter
+//                           options={getNoteOptions()}
+//                           selected={noteFilter}
+//                           onChange={setNoteFilter}
+//                           placeholder="All"
+//                         />
+//                       </th>
 //                     </tr>
 //                   </thead>
 //                   <tbody>
-//                     {filteredRows.map(({ challan, product, date }, idx) => (
-//                       <tr key={idx} className="border-b border-gray-100 hover:bg-amber-50 even:bg-gray-50/50 transition-colors">
-//                         <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{date.toLocaleDateString("en-GB")}</td>
-//                         <td className="px-3 py-2 font-medium text-gray-800">{challan.customerName}</td>
-//                         <td className="px-3 py-2 text-gray-600 text-xs">{challan.zone}</td>
-//                         <td className="px-3 py-2 text-gray-500 text-xs max-w-[130px] truncate" title={challan.address}>{challan.address}</td>
-//                         <td className="px-3 py-2 text-xs">{challan.receiverNumber}</td>
-//                         <td className="px-3 py-2 text-gray-500 text-xs">{challan.district}</td>
-//                         <td className="px-3 py-2 text-gray-500 text-xs">{challan.thana}</td>
-//                         <td className="px-3 py-2">{product.productName}</td>
-//                         <td className="px-3 py-2 text-gray-500 text-xs">{product.model}</td>
-//                         <td className="px-3 py-2 text-center font-semibold">{product.quantity}</td>
-//                       </tr>
-//                     ))}
+//                     {filteredRows.map((row, idx) => {
+//                       const { challan, product, date, isReturn, note, returnNote } = row;
+//                       const displayNote = isReturn ? returnNote : note;
+
+//                       return (
+//                         <tr key={idx} className={`border-b border-gray-100 transition-colors
+//                           ${isReturn
+//                             ? "bg-orange-50/60 hover:bg-orange-50"
+//                             : "hover:bg-amber-50 even:bg-gray-50/50"
+//                           }`}>
+//                           <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{date.toLocaleDateString("en-GB")}</td>
+//                           {/* Type badge */}
+//                           <td className="px-3 py-2">
+//                             {isReturn ? (
+//                               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-orange-100 text-orange-700 border border-orange-200 rounded text-[10px] font-bold uppercase whitespace-nowrap">
+//                                 ↩ Return
+//                               </span>
+//                             ) : (
+//                               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[10px] font-bold uppercase whitespace-nowrap">
+//                                 ↗ Delivery
+//                               </span>
+//                             )}
+//                           </td>
+//                           <td className="px-3 py-2 font-medium text-gray-800">{challan.customerName}</td>
+//                           <td className="px-3 py-2 text-gray-600 text-xs">{challan.zone}</td>
+//                           <td className="px-3 py-2 text-gray-500 text-xs max-w-[120px] truncate" title={challan.address}>{challan.address}</td>
+//                           <td className="px-3 py-2 text-xs">{challan.receiverNumber}</td>
+//                           <td className="px-3 py-2 text-gray-500 text-xs">{challan.district}</td>
+//                           <td className="px-3 py-2 text-gray-500 text-xs">{challan.thana}</td>
+//                           <td className="px-3 py-2 text-xs">{product.productName}</td>
+//                           <td className="px-3 py-2 text-gray-500 text-xs uppercase">{product.model}</td>
+//                           <td className="px-3 py-2 text-center font-semibold">{product.quantity}</td>
+
+
+//                           {/* Note */}
+//                           <td className="px-3 py-2 max-w-[160px]">
+//                             {displayNote ? (
+//                               <span className={`text-[10px] truncate block max-w-[150px] ${isReturn ? "text-orange-600" : "text-amber-600"}`}
+//                                 title={displayNote}>
+//                                  {displayNote.length > 40 ? displayNote.slice(0, 40) + "…" : displayNote}
+//                               </span>
+//                             ) : (
+//                               <span className="text-gray-300 text-xs">—</span>
+//                             )}
+//                           </td>
+//                         </tr>
+//                       );
+//                     })}
 //                   </tbody>
 //                 </table>
 //               </div>
@@ -384,16 +520,15 @@
 // export default DeliveredPage;
 
 
-
-
 import React, { useEffect, useState, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import { useSearch } from "../hooks/SearchContext";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import Swal from "sweetalert2";
-import Pagination from "../Component/Pagination";
 import LoadingSpinner from "../Component/LoadingSpinner";
+
+const ITEMS_PER_PAGE = 100;
 
 /* ── Multi-select dropdown ── */
 const MultiSelectFilter = ({ options, selected, onChange, placeholder = "All" }) => {
@@ -471,7 +606,7 @@ const MultiSelectFilter = ({ options, selected, onChange, placeholder = "All" })
   );
 };
 
-/* ── Type filter (All / Delivery / Return) ── */
+/* ── Type filter ── */
 const TypeSelect = ({ value, onChange }) => (
   <select
     value={value}
@@ -485,22 +620,6 @@ const TypeSelect = ({ value, onChange }) => (
   </select>
 );
 
-/* ── Delivery status badge ── */
-const DeliveryBadge = ({ status }) => {
-  const map = {
-    confirmed: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    not_received: "bg-rose-100 text-rose-700 border-rose-200",
-    call_later: "bg-amber-100 text-amber-700 border-amber-200",
-    return: "bg-orange-100 text-orange-700 border-orange-200",
-  };
-  const label = status === "not_received" ? "Not Received" : status === "call_later" ? "Call Later" : status || "Pending";
-  return (
-    <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold border uppercase whitespace-nowrap ${map[status] || "bg-slate-100 text-slate-500 border-slate-200"}`}>
-      {label}
-    </span>
-  );
-};
-
 /* ── Main Component ── */
 const DeliveredPage = () => {
   const axiosSecure = useAxiosSecure();
@@ -508,8 +627,7 @@ const DeliveredPage = () => {
 
   const [deliveries, setDeliveries] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [pagination, setPagination] = useState(null);
-  const [, setCurrentPage] = useState(1);
+  const [clientPage, setClientPage] = useState(1);
 
   const [customerFilter, setCustomerFilter] = useState([]);
   const [zoneFilter, setZoneFilter] = useState([]);
@@ -520,50 +638,48 @@ const DeliveredPage = () => {
   const [addressFilter, setAddressFilter] = useState([]);
   const [receiverFilter, setReceiverFilter] = useState([]);
   const [dateFilter, setDateFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState(""); // ── new
+  const [typeFilter, setTypeFilter] = useState("");
   const [noteFilter, setNoteFilter] = useState([]);
 
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
 
-  const fetchDeliveries = async (m, y, search, page = 1) => {
+  /* ── filter setter wrapper — resets page ── */
+  const setFilter = (setter) => (val) => {
+    setter(val);
+    setClientPage(1);
+  };
+
+  const fetchDeliveries = async (m, y, search) => {
     setLoading(true);
     try {
-      let url = search
+      const url = search
         ? `/deliveries?search=${encodeURIComponent(search)}&page=1&limit=5000`
-        : `/deliveries?month=${m}&year=${y}&page=${page}&limit=50`;
+        : `/deliveries?month=${m}&year=${y}&page=1&limit=5000`;
       const res = await axiosSecure.get(url);
       setDeliveries(res.data.data || []);
-      setPagination(search ? null : (res.data.pagination || null));
     } catch (err) { console.error(err); }
     setLoading(false);
   };
 
   useEffect(() => {
-    setCurrentPage(1);
-    fetchDeliveries(month, year, searchText, 1);
+    setClientPage(1);
+    fetchDeliveries(month, year, searchText);
   }, [month, year, searchText]);
-
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-    fetchDeliveries(month, year, searchText, page);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
 
   const handleResetAll = () => {
     setMonth(new Date().getMonth() + 1);
     setYear(new Date().getFullYear());
-    setCurrentPage(1);
+    setClientPage(1);
     if (setSearchText) setSearchText("");
     setCustomerFilter([]); setZoneFilter([]); setDistrictFilter([]);
     setThanaFilter([]); setProductFilter([]); setModelFilter([]);
     setAddressFilter([]); setReceiverFilter([]); setDateFilter("");
-    setTypeFilter("");
-    setNoteFilter([]);
+    setTypeFilter(""); setNoteFilter([]);
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
   };
 
-  /* ─── Build flat rows — delivery + return rows ─── */
+  /* ─── Build flat rows ─── */
   const buildRows = () => {
     const rows = [];
     deliveries.forEach(trip => {
@@ -571,7 +687,6 @@ const DeliveredPage = () => {
         const isReturn = challan.isReturn === true;
         const rowType = isReturn ? "return" : "delivery";
 
-        // type filter
         if (typeFilter && typeFilter !== rowType) return;
 
         const products = challan.products || [];
@@ -597,9 +712,7 @@ const DeliveredPage = () => {
           if (!check(productFilter, product.productName)) return;
           if (!check(modelFilter, product.model)) return;
 
-          // note filter
           if (noteFilter.length > 0) {
-            const isReturn = challan.isReturn === true;
             const noteVal = isReturn ? (challan.returnNote || "") : (challan.note || "");
             if (!noteFilter.some(f => noteVal.toLowerCase() === f.toLowerCase())) return;
           }
@@ -607,12 +720,9 @@ const DeliveredPage = () => {
           rows.push({
             trip, challan, product,
             date: new Date(trip.createdAt),
-            isReturn,
-            rowType,
-            // delivery status
+            isReturn, rowType,
             deliveryStatus: challan.deliveryStatus,
             challanReturnStatus: challan.challanReturnStatus,
-            // note
             note: challan.note || "",
             returnNote: challan.returnNote || "",
           });
@@ -623,9 +733,16 @@ const DeliveredPage = () => {
   };
 
   const filteredRows = buildRows();
-  const totalQty = filteredRows.reduce((sum, { product }) => sum + (Number(product.quantity) || 0), 0);
 
-  /* cascading options — from delivery rows only for delivery fields */
+  /* ── Client-side pagination ── */
+  const totalPages = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
+  const paginatedRows = filteredRows.slice(
+    (clientPage - 1) * ITEMS_PER_PAGE,
+    clientPage * ITEMS_PER_PAGE
+  );
+  const totalQtyAll = filteredRows.reduce((sum, { product }) => sum + (Number(product.quantity) || 0), 0);
+
+  /* ── Options ── */
   const getOptionsFor = (field) => {
     const map = new Map();
     deliveries.forEach(trip => {
@@ -647,28 +764,27 @@ const DeliveredPage = () => {
       (trip.challans || []).forEach(challan => {
         const isReturn = challan.isReturn === true;
         const note = isReturn ? (challan.returnNote || "") : (challan.note || "");
-        if (note.trim() && !map.has(note.toLowerCase())) {
-          map.set(note.toLowerCase(), note.trim());
-        }
+        if (note.trim() && !map.has(note.toLowerCase())) map.set(note.toLowerCase(), note.trim());
       });
     });
     return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
   };
 
   const activeFilterGroups = [
-    { label: "Customer", values: customerFilter, clear: () => setCustomerFilter([]) },
-    { label: "Zone", values: zoneFilter, clear: () => setZoneFilter([]) },
-    { label: "Address", values: addressFilter, clear: () => setAddressFilter([]) },
-    { label: "Receiver", values: receiverFilter, clear: () => setReceiverFilter([]) },
-    { label: "District", values: districtFilter, clear: () => setDistrictFilter([]) },
-    { label: "Thana", values: thanaFilter, clear: () => setThanaFilter([]) },
-    { label: "Product", values: productFilter, clear: () => setProductFilter([]) },
-    { label: "Model", values: modelFilter, clear: () => setModelFilter([]) },
-    ...(dateFilter ? [{ label: "Date", values: [dateFilter], clear: () => setDateFilter("") }] : []),
-    ...(typeFilter ? [{ label: "Type", values: [typeFilter], clear: () => setTypeFilter("") }] : []),
-    { label: "Note", values: noteFilter, clear: () => setNoteFilter([]) },
+    { label: "Customer", values: customerFilter, clear: () => { setCustomerFilter([]); setClientPage(1); } },
+    { label: "Zone",     values: zoneFilter,     clear: () => { setZoneFilter([]);     setClientPage(1); } },
+    { label: "Address",  values: addressFilter,  clear: () => { setAddressFilter([]);  setClientPage(1); } },
+    { label: "Receiver", values: receiverFilter, clear: () => { setReceiverFilter([]); setClientPage(1); } },
+    { label: "District", values: districtFilter, clear: () => { setDistrictFilter([]); setClientPage(1); } },
+    { label: "Thana",    values: thanaFilter,    clear: () => { setThanaFilter([]);    setClientPage(1); } },
+    { label: "Product",  values: productFilter,  clear: () => { setProductFilter([]);  setClientPage(1); } },
+    { label: "Model",    values: modelFilter,    clear: () => { setModelFilter([]);    setClientPage(1); } },
+    ...(dateFilter ? [{ label: "Date", values: [dateFilter], clear: () => { setDateFilter(""); setClientPage(1); } }] : []),
+    ...(typeFilter ? [{ label: "Type", values: [typeFilter], clear: () => { setTypeFilter(""); setClientPage(1); } }] : []),
+    { label: "Note",     values: noteFilter,     clear: () => { setNoteFilter([]);     setClientPage(1); } },
   ].filter(f => f.values.length > 0);
 
+  /* ── Export ── */
   const handleExportExcel = async () => {
     const { value: exportType } = await Swal.fire({
       title: "Export to Excel",
@@ -746,6 +862,15 @@ const DeliveredPage = () => {
     } catch { Swal.fire("Error", "Export failed", "error"); }
   };
 
+  /* ── Page numbers ── */
+  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
+    .filter(p => p === 1 || p === totalPages || Math.abs(p - clientPage) <= 2)
+    .reduce((acc, p, i, arr) => {
+      if (i > 0 && p - arr[i - 1] > 1) acc.push("...");
+      acc.push(p);
+      return acc;
+    }, []);
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-full mx-auto">
@@ -754,19 +879,22 @@ const DeliveredPage = () => {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
           <div>
             <h2 className="text-xl font-semibold text-gray-800">Delivered Orders</h2>
-            {pagination && <p className="text-xs text-gray-400 mt-0.5">{pagination.total} total trips</p>}
+            <p className="text-xs text-gray-400 mt-0.5">
+              {filteredRows.length} rows
+              {totalPages > 1 && ` — page ${clientPage} of ${totalPages}`}
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <select
               className="border border-gray-300 px-2.5 py-1.5 rounded text-sm bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400"
-              value={month} onChange={e => setMonth(parseInt(e.target.value))}>
+              value={month} onChange={e => { setMonth(parseInt(e.target.value)); setClientPage(1); }}>
               {[...Array(12)].map((_, i) => (
                 <option key={i} value={i + 1}>{new Date(0, i).toLocaleString("default", { month: "long" })}</option>
               ))}
             </select>
             <input type="number"
               className="border border-gray-300 px-2.5 py-1.5 rounded text-sm bg-white text-gray-700 w-20 focus:outline-none focus:ring-1 focus:ring-gray-400"
-              value={year} onChange={e => setYear(parseInt(e.target.value))} />
+              value={year} onChange={e => { setYear(parseInt(e.target.value)); setClientPage(1); }} />
             <button onClick={handleResetAll}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
@@ -803,7 +931,7 @@ const DeliveredPage = () => {
         ) : (
           <>
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)]">
+              <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-260px)]">
                 <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="bg-gray-800 text-white text-left sticky top-0 z-20">
@@ -812,58 +940,41 @@ const DeliveredPage = () => {
                       ))}
                     </tr>
                     <tr className="bg-gray-50 border-b-2 border-gray-200 sticky top-[41px] z-20">
-                      {/* Date */}
                       <th className="p-1 border-r border-gray-200">
                         <input type="date"
                           className="w-full px-1.5 py-1 border border-gray-300 rounded text-[10px] outline-none focus:border-gray-500 bg-white"
-                          value={dateFilter} onChange={e => setDateFilter(e.target.value)} />
+                          value={dateFilter} onChange={e => { setDateFilter(e.target.value); setClientPage(1); }} />
                       </th>
-                      {/* Type */}
                       <th className="p-1 border-r border-gray-200">
-                        <TypeSelect value={typeFilter} onChange={setTypeFilter} />
+                        <TypeSelect value={typeFilter} onChange={setFilter(setTypeFilter)} />
                       </th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("customerName")} selected={customerFilter} onChange={setCustomerFilter} placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("zone")} selected={zoneFilter} onChange={setZoneFilter} placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("address")} selected={addressFilter} onChange={setAddressFilter} placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("receiverNumber")} selected={receiverFilter} onChange={setReceiverFilter} placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("district")} selected={districtFilter} onChange={setDistrictFilter} placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("thana")} selected={thanaFilter} onChange={setThanaFilter} placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("productName")} selected={productFilter} onChange={setProductFilter} placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("model")} selected={modelFilter} onChange={setModelFilter} placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200 text-center text-sm font-semibold text-gray-700">{totalQty}</th>
-                      {/* D.Status, C.Status, Note — no filter */}
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("customerName")} selected={customerFilter} onChange={setFilter(setCustomerFilter)} placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("zone")}         selected={zoneFilter}     onChange={setFilter(setZoneFilter)}     placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("address")}      selected={addressFilter}  onChange={setFilter(setAddressFilter)}  placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("receiverNumber")} selected={receiverFilter} onChange={setFilter(setReceiverFilter)} placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("district")}     selected={districtFilter} onChange={setFilter(setDistrictFilter)} placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("thana")}        selected={thanaFilter}    onChange={setFilter(setThanaFilter)}    placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("productName")}  selected={productFilter}  onChange={setFilter(setProductFilter)}  placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("model")}        selected={modelFilter}    onChange={setFilter(setModelFilter)}    placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200 text-center text-sm font-semibold text-gray-700">{totalQtyAll}</th>
                       <th className="p-1">
-                        <MultiSelectFilter
-                          options={getNoteOptions()}
-                          selected={noteFilter}
-                          onChange={setNoteFilter}
-                          placeholder="All"
-                        />
+                        <MultiSelectFilter options={getNoteOptions()} selected={noteFilter} onChange={setFilter(setNoteFilter)} placeholder="All" />
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRows.map((row, idx) => {
+                    {paginatedRows.map((row, idx) => {
                       const { challan, product, date, isReturn, note, returnNote } = row;
                       const displayNote = isReturn ? returnNote : note;
-
                       return (
                         <tr key={idx} className={`border-b border-gray-100 transition-colors
-                          ${isReturn
-                            ? "bg-orange-50/60 hover:bg-orange-50"
-                            : "hover:bg-amber-50 even:bg-gray-50/50"
-                          }`}>
+                          ${isReturn ? "bg-orange-50/60 hover:bg-orange-50" : "hover:bg-amber-50 even:bg-gray-50/50"}`}>
                           <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{date.toLocaleDateString("en-GB")}</td>
-                          {/* Type badge */}
                           <td className="px-3 py-2">
                             {isReturn ? (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-orange-100 text-orange-700 border border-orange-200 rounded text-[10px] font-bold uppercase whitespace-nowrap">
-                                ↩ Return
-                              </span>
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-orange-100 text-orange-700 border border-orange-200 rounded text-[10px] font-bold uppercase whitespace-nowrap">↩ Return</span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[10px] font-bold uppercase whitespace-nowrap">
-                                ↗ Delivery
-                              </span>
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[10px] font-bold uppercase whitespace-nowrap">↗ Delivery</span>
                             )}
                           </td>
                           <td className="px-3 py-2 font-medium text-gray-800">{challan.customerName}</td>
@@ -875,14 +986,10 @@ const DeliveredPage = () => {
                           <td className="px-3 py-2 text-xs">{product.productName}</td>
                           <td className="px-3 py-2 text-gray-500 text-xs uppercase">{product.model}</td>
                           <td className="px-3 py-2 text-center font-semibold">{product.quantity}</td>
-
-
-                          {/* Note */}
                           <td className="px-3 py-2 max-w-[160px]">
                             {displayNote ? (
-                              <span className={`text-[10px] truncate block max-w-[150px] ${isReturn ? "text-orange-600" : "text-amber-600"}`}
-                                title={displayNote}>
-                                 {displayNote.length > 40 ? displayNote.slice(0, 40) + "…" : displayNote}
+                              <span className={`text-[10px] truncate block max-w-[150px] ${isReturn ? "text-orange-600" : "text-amber-600"}`} title={displayNote}>
+                                {displayNote.length > 40 ? displayNote.slice(0, 40) + "…" : displayNote}
                               </span>
                             ) : (
                               <span className="text-gray-300 text-xs">—</span>
@@ -895,7 +1002,46 @@ const DeliveredPage = () => {
                 </table>
               </div>
             </div>
-            <Pagination pagination={pagination} onPageChange={handlePageChange} />
+
+            {/* ── Client-side Pagination ── */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg mt-2 shadow-sm">
+                <p className="text-xs text-gray-500">
+                  Showing {(clientPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(clientPage * ITEMS_PER_PAGE, filteredRows.length)} of {filteredRows.length} rows
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setClientPage(p => Math.max(1, p - 1))}
+                    disabled={clientPage === 1}
+                    className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    ← Prev
+                  </button>
+                  {pageNumbers.map((p, i) =>
+                    p === "..." ? (
+                      <span key={i} className="px-2 text-gray-400 text-xs">…</span>
+                    ) : (
+                      <button key={i}
+                        onClick={() => setClientPage(p)}
+                        className={`px-3 py-1 text-xs border rounded transition-colors
+                          ${clientPage === p
+                            ? "bg-gray-800 text-white border-gray-800"
+                            : "border-gray-300 hover:bg-gray-100"}`}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+                  <button
+                    onClick={() => setClientPage(p => Math.min(totalPages, p + 1))}
+                    disabled={clientPage === totalPages}
+                    className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

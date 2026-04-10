@@ -597,6 +597,9 @@ const CarRentPage = () => {
         currentUser:  r.currentUser,
         challans:     r.challans,
         advance:       r.advance ?? null,
+        rentSavedBy:   r.rentSavedBy   ?? null,  // ← নতুন
+    lastUpdatedBy: r.lastUpdatedBy ?? null,  // ← নতুন
+    lastUpdatedAt: r.lastUpdatedAt ?? null,  // ← নতুন
     }));
 
     /* ── callback so modal edits sync back to parent ── */

@@ -1,5 +1,4 @@
 
-
 // import React, { useEffect, useState, useRef } from "react";
 // import useAxiosSecure from "../hooks/useAxiosSecure";
 // import { useSearch } from "../hooks/SearchContext";
@@ -193,7 +192,6 @@
 
 //   const totalQty = filteredRows.reduce((sum, { p }) => sum + (Number(p.quantity) || 0), 0);
 
-//   // Cascading options — exclude own filter so self-options stay visible
 //   const getOptionsFor = (field) => {
 //     const map = new Map();
 //     gatePasses.forEach(gp => {
@@ -248,7 +246,7 @@
 //         "Trip Do": gp.tripDo, "Trip Date": gp.tripDate ? new Date(gp.tripDate).toLocaleDateString() : "",
 //         Customer: gp.customerName, CSD: gp.csd, Unit: gp.unit || "",
 //         "Vehicle No": gp.vehicleNo, Zone: gp.zone,
-//         Product: p.productName, Model: p.model, Qty: p.quantity, User: gp.currentUser,
+//         Product: p.productName, Model: p.model, Qty: Number(p.quantity) || 0, User: gp.currentUser,
 //       });
 
 //       if (exportType === "filtered") {
@@ -347,11 +345,14 @@
 //         ) : (
 //           <>
 //             <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-//               <div className="overflow-x-auto">
+//               {/* ── KEY FIX: overflow-x-auto + overflow-y-auto with max-h ──
+//                   Both axes on the same container lets thead sticky work correctly.
+//                   Adjust max-h value to match your layout (navbar + page padding). */}
+//               <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)]">
 //                 <table className="w-full border-collapse text-sm">
-//                   <thead className="sticky top-0 z-20">
-//                     {/* Column headers */}
-//                     <tr className="bg-gray-800 text-white text-left">
+//                   <thead>
+//                     {/* Column headers — sticky to top of scroll container */}
+//                     <tr className="bg-gray-800 text-white text-left sticky top-0 z-20">
 //                       {["Trip DO", "Trip Date", "Customer", "CSD", "Unit", "Vehicle No", "Zone", "Product", "Model", "Qty", "Action"].map(h => (
 //                         <th key={h} className="px-3 py-2.5 font-normal text-xs uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0">
 //                           {h}
@@ -359,8 +360,8 @@
 //                       ))}
 //                     </tr>
 
-//                     {/* Filter row */}
-//                     <tr className="bg-gray-50 border-b-2 border-gray-200">
+//                     {/* Filter row — sticky just below header row */}
+//                     <tr className="bg-gray-50 border-b-2 border-gray-200 sticky top-[41px] z-20">
 //                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("tripDo")}      selected={tripDoFilter}   onChange={setTripDoFilter}   placeholder="All" /></th>
 //                       <th className="p-1 border-r border-gray-200">
 //                         <input
@@ -424,18 +425,17 @@
 
 
 
-
-
 import React, { useEffect, useState, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import { useSearch } from "../hooks/SearchContext";
 import ActionDropdown from "../Component/ActionDropdown";
-import Pagination from "../Component/Pagination";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import useRole from "../hooks/useRole";
 import Swal from "sweetalert2";
 import LoadingSpinner from "../Component/LoadingSpinner";
+
+const ITEMS_PER_PAGE = 100;
 
 /* ── Multi-select dropdown ── */
 const MultiSelectFilter = ({ options, selected, onChange, placeholder = "All" }) => {
@@ -540,52 +540,51 @@ const AllGatePass = () => {
   const axiosSecure = useAxiosSecure();
   const [gatePasses, setGatePasses] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [pagination, setPagination] = useState(null);
-  const [, setCurrentPage] = useState(1);
+  const [clientPage, setClientPage] = useState(1);
 
   const { searchText, setSearchText } = useSearch();
   const { role } = useRole();
 
-  const [tripDoFilter,    setTripDoFilter]    = useState([]);
-  const [customerFilter,  setCustomerFilter]  = useState([]);
-  const [csdFilter,       setCsdFilter]       = useState([]);
-  const [unitFilter,      setUnitFilter]      = useState([]);
-  const [vehicleFilter,   setVehicleFilter]   = useState([]);
-  const [zoneFilter,      setZoneFilter]      = useState([]);
-  const [productFilter,   setProductFilter]   = useState([]);
-  const [modelFilter,     setModelFilter]     = useState([]);
-  const [tripDateFilter,  setTripDateFilter]  = useState("");
+  const [tripDoFilter,   setTripDoFilter]   = useState([]);
+  const [customerFilter, setCustomerFilter] = useState([]);
+  const [csdFilter,      setCsdFilter]      = useState([]);
+  const [unitFilter,     setUnitFilter]     = useState([]);
+  const [vehicleFilter,  setVehicleFilter]  = useState([]);
+  const [zoneFilter,     setZoneFilter]     = useState([]);
+  const [productFilter,  setProductFilter]  = useState([]);
+  const [modelFilter,    setModelFilter]    = useState([]);
+  const [tripDateFilter, setTripDateFilter] = useState("");
 
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year,  setYear]  = useState(new Date().getFullYear());
 
-  const fetchGatePasses = async (m, y, search, page = 1) => {
+  /* ── filter setter wrapper — resets page ── */
+  const setFilter = (setter) => (val) => {
+    setter(val);
+    setClientPage(1);
+  };
+
+  const fetchGatePasses = async (m, y, search) => {
     setLoading(true);
     try {
-      let url = `/gate-pass?month=${m}&year=${y}&page=${page}&limit=50`;
-      if (search) url += `&search=${search}`;
+      const url = search
+        ? `/gate-pass?search=${encodeURIComponent(search)}&page=1&limit=5000`
+        : `/gate-pass?month=${m}&year=${y}&page=1&limit=5000`;
       const res = await axiosSecure.get(url);
       setGatePasses(res.data.data || []);
-      setPagination(res.data.pagination || null);
     } catch (err) { console.error(err); }
     setLoading(false);
   };
 
   useEffect(() => {
-    setCurrentPage(1);
-    fetchGatePasses(month, year, searchText, 1);
+    setClientPage(1);
+    fetchGatePasses(month, year, searchText);
   }, [month, year, searchText]);
-
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-    fetchGatePasses(month, year, searchText, page);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
 
   const handleResetAll = () => {
     setMonth(new Date().getMonth() + 1);
     setYear(new Date().getFullYear());
-    setCurrentPage(1);
+    setClientPage(1);
     if (setSearchText) setSearchText("");
     setTripDoFilter([]); setCustomerFilter([]); setCsdFilter([]);
     setUnitFilter([]); setVehicleFilter([]); setZoneFilter([]);
@@ -595,21 +594,23 @@ const AllGatePass = () => {
 
   const rowMatchesAll = (gp, p, excludeField = null) => {
     const s = searchText?.toLowerCase() || "";
-    const matchesSearch = !searchText || [gp.tripDo, gp.customerName, gp.csd, gp.unit, gp.vehicleNo, gp.zone, gp.currentUser, p.productName, p.model]
-      .some(v => v?.toLowerCase().includes(s));
+    const matchesSearch = !searchText || [
+      gp.tripDo, gp.customerName, gp.csd, gp.unit,
+      gp.vehicleNo, gp.zone, gp.currentUser, p.productName, p.model
+    ].some(v => v?.toLowerCase().includes(s));
 
     const check = (field, filter, val) =>
       field === excludeField || filter.length === 0 || filter.some(f => val?.toLowerCase() === f.toLowerCase());
 
     return matchesSearch &&
-      check("tripDo",      tripDoFilter,   gp.tripDo) &&
-      check("customerName",customerFilter, gp.customerName) &&
-      check("csd",         csdFilter,      gp.csd) &&
-      check("unit",        unitFilter,     gp.unit) &&
-      check("vehicleNo",   vehicleFilter,  gp.vehicleNo) &&
-      check("zone",        zoneFilter,     gp.zone) &&
-      check("productName", productFilter,  p.productName) &&
-      check("model",       modelFilter,    p.model) &&
+      check("tripDo",       tripDoFilter,   gp.tripDo) &&
+      check("customerName", customerFilter, gp.customerName) &&
+      check("csd",          csdFilter,      gp.csd) &&
+      check("unit",         unitFilter,     gp.unit) &&
+      check("vehicleNo",    vehicleFilter,  gp.vehicleNo) &&
+      check("zone",         zoneFilter,     gp.zone) &&
+      check("productName",  productFilter,  p.productName) &&
+      check("model",        modelFilter,    p.model) &&
       (excludeField === "date" || !tripDateFilter || gp.tripDate?.slice(0, 10) === tripDateFilter);
   };
 
@@ -617,7 +618,13 @@ const AllGatePass = () => {
     (gp.products || []).filter(p => rowMatchesAll(gp, p)).map(p => ({ gp, p }))
   );
 
-  const totalQty = filteredRows.reduce((sum, { p }) => sum + (Number(p.quantity) || 0), 0);
+  /* ── Client-side pagination ── */
+  const totalPages = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
+  const paginatedRows = filteredRows.slice(
+    (clientPage - 1) * ITEMS_PER_PAGE,
+    clientPage * ITEMS_PER_PAGE
+  );
+  const totalQtyAll = filteredRows.reduce((sum, { p }) => sum + (Number(p.quantity) || 0), 0);
 
   const getOptionsFor = (field) => {
     const map = new Map();
@@ -634,15 +641,15 @@ const AllGatePass = () => {
   };
 
   const activeFilterGroups = [
-    { label: "Trip DO",   values: tripDoFilter,   clear: () => setTripDoFilter([]) },
-    { label: "Customer",  values: customerFilter,  clear: () => setCustomerFilter([]) },
-    { label: "CSD",       values: csdFilter,       clear: () => setCsdFilter([]) },
-    { label: "Unit",      values: unitFilter,      clear: () => setUnitFilter([]) },
-    { label: "Vehicle",   values: vehicleFilter,   clear: () => setVehicleFilter([]) },
-    { label: "Zone",      values: zoneFilter,      clear: () => setZoneFilter([]) },
-    { label: "Product",   values: productFilter,   clear: () => setProductFilter([]) },
-    { label: "Model",     values: modelFilter,     clear: () => setModelFilter([]) },
-    ...(tripDateFilter ? [{ label: "Date", values: [tripDateFilter], clear: () => setTripDateFilter("") }] : []),
+    { label: "Trip DO",  values: tripDoFilter,   clear: () => { setTripDoFilter([]);   setClientPage(1); } },
+    { label: "Customer", values: customerFilter,  clear: () => { setCustomerFilter([]); setClientPage(1); } },
+    { label: "CSD",      values: csdFilter,       clear: () => { setCsdFilter([]);      setClientPage(1); } },
+    { label: "Unit",     values: unitFilter,      clear: () => { setUnitFilter([]);     setClientPage(1); } },
+    { label: "Vehicle",  values: vehicleFilter,   clear: () => { setVehicleFilter([]);  setClientPage(1); } },
+    { label: "Zone",     values: zoneFilter,      clear: () => { setZoneFilter([]);     setClientPage(1); } },
+    { label: "Product",  values: productFilter,   clear: () => { setProductFilter([]);  setClientPage(1); } },
+    { label: "Model",    values: modelFilter,     clear: () => { setModelFilter([]);    setClientPage(1); } },
+    ...(tripDateFilter ? [{ label: "Date", values: [tripDateFilter], clear: () => { setTripDateFilter(""); setClientPage(1); } }] : []),
   ].filter(f => f.values.length > 0);
 
   const handleExportExcel = async () => {
@@ -670,10 +677,12 @@ const AllGatePass = () => {
     try {
       let exportData = [];
       const toRow = (gp, p) => ({
-        "Trip Do": gp.tripDo, "Trip Date": gp.tripDate ? new Date(gp.tripDate).toLocaleDateString() : "",
+        "Trip Do": gp.tripDo,
+        "Trip Date": gp.tripDate ? new Date(gp.tripDate).toLocaleDateString() : "",
         Customer: gp.customerName, CSD: gp.csd, Unit: gp.unit || "",
         "Vehicle No": gp.vehicleNo, Zone: gp.zone,
-        Product: p.productName, Model: p.model, Qty: Number(p.quantity) || 0, User: gp.currentUser,
+        Product: p.productName, Model: p.model,
+        Qty: Number(p.quantity) || 0, User: gp.currentUser,
       });
 
       if (exportType === "filtered") {
@@ -696,6 +705,15 @@ const AllGatePass = () => {
     } catch { Swal.fire("Error", "Export failed", "error"); }
   };
 
+  /* ── Page numbers ── */
+  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
+    .filter(p => p === 1 || p === totalPages || Math.abs(p - clientPage) <= 2)
+    .reduce((acc, p, i, arr) => {
+      if (i > 0 && p - arr[i - 1] > 1) acc.push("...");
+      acc.push(p);
+      return acc;
+    }, []);
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-full mx-auto">
@@ -704,18 +722,17 @@ const AllGatePass = () => {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
           <div>
             <h2 className="text-xl font-semibold text-gray-800">Gate Pass Inventory</h2>
-            {pagination && (
-              <p className="text-xs text-gray-400 mt-0.5">
-                {pagination.total} total records
-              </p>
-            )}
+            <p className="text-xs text-gray-400 mt-0.5">
+              {filteredRows.length} rows
+              {totalPages > 1 && ` — page ${clientPage} of ${totalPages}`}
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <select
               className="border border-gray-300 px-2.5 py-1.5 rounded text-sm bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400"
               value={month}
-              onChange={e => setMonth(parseInt(e.target.value))}
+              onChange={e => { setMonth(parseInt(e.target.value)); setClientPage(1); }}
             >
               {[...Array(12)].map((_, i) => (
                 <option key={i} value={i + 1}>{new Date(0, i).toLocaleString("default", { month: "long" })}</option>
@@ -726,7 +743,7 @@ const AllGatePass = () => {
               type="number"
               className="border border-gray-300 px-2.5 py-1.5 rounded text-sm bg-white text-gray-700 w-20 focus:outline-none focus:ring-1 focus:ring-gray-400"
               value={year}
-              onChange={e => setYear(parseInt(e.target.value))}
+              onChange={e => { setYear(parseInt(e.target.value)); setClientPage(1); }}
             />
 
             <button
@@ -772,13 +789,9 @@ const AllGatePass = () => {
         ) : (
           <>
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              {/* ── KEY FIX: overflow-x-auto + overflow-y-auto with max-h ──
-                  Both axes on the same container lets thead sticky work correctly.
-                  Adjust max-h value to match your layout (navbar + page padding). */}
-              <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)]">
+              <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-260px)]">
                 <table className="w-full border-collapse text-sm">
                   <thead>
-                    {/* Column headers — sticky to top of scroll container */}
                     <tr className="bg-gray-800 text-white text-left sticky top-0 z-20">
                       {["Trip DO", "Trip Date", "Customer", "CSD", "Unit", "Vehicle No", "Zone", "Product", "Model", "Qty", "Action"].map(h => (
                         <th key={h} className="px-3 py-2.5 font-normal text-xs uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0">
@@ -786,32 +799,30 @@ const AllGatePass = () => {
                         </th>
                       ))}
                     </tr>
-
-                    {/* Filter row — sticky just below header row */}
                     <tr className="bg-gray-50 border-b-2 border-gray-200 sticky top-[41px] z-20">
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("tripDo")}      selected={tripDoFilter}   onChange={setTripDoFilter}   placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("tripDo")}      selected={tripDoFilter}   onChange={setFilter(setTripDoFilter)}   placeholder="All" /></th>
                       <th className="p-1 border-r border-gray-200">
                         <input
                           type="date"
                           className="w-full px-1.5 py-1 border border-gray-300 rounded text-[10px] outline-none focus:border-gray-500 bg-white"
                           value={tripDateFilter}
-                          onChange={e => setTripDateFilter(e.target.value)}
+                          onChange={e => { setTripDateFilter(e.target.value); setClientPage(1); }}
                         />
                       </th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("customerName")} selected={customerFilter}  onChange={setCustomerFilter}  placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("csd")}          selected={csdFilter}      onChange={setCsdFilter}      placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("unit")}         selected={unitFilter}     onChange={setUnitFilter}     placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("vehicleNo")}    selected={vehicleFilter}  onChange={setVehicleFilter}  placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("zone")}         selected={zoneFilter}     onChange={setZoneFilter}     placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("productName")}  selected={productFilter}  onChange={setProductFilter}  placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("model")}        selected={modelFilter}    onChange={setModelFilter}    placeholder="All" /></th>
-                      <th className="p-1 border-r border-gray-200 text-center text-sm font-semibold text-gray-700">{totalQty}</th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("customerName")} selected={customerFilter}  onChange={setFilter(setCustomerFilter)}  placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("csd")}          selected={csdFilter}      onChange={setFilter(setCsdFilter)}      placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("unit")}         selected={unitFilter}     onChange={setFilter(setUnitFilter)}     placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("vehicleNo")}    selected={vehicleFilter}  onChange={setFilter(setVehicleFilter)}  placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("zone")}         selected={zoneFilter}     onChange={setFilter(setZoneFilter)}     placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("productName")}  selected={productFilter}  onChange={setFilter(setProductFilter)}  placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("model")}        selected={modelFilter}    onChange={setFilter(setModelFilter)}    placeholder="All" /></th>
+                      <th className="p-1 border-r border-gray-200 text-center text-sm font-semibold text-gray-700">{totalQtyAll}</th>
                       <th className="p-1"></th>
                     </tr>
                   </thead>
 
                   <tbody>
-                    {filteredRows.map(({ gp, p }, idx) => (
+                    {paginatedRows.map(({ gp, p }, idx) => (
                       <tr
                         key={`${gp._id}-${p._id || idx}`}
                         className="border-b border-gray-100 hover:bg-amber-50 even:bg-gray-50/50 transition-colors"
@@ -840,7 +851,45 @@ const AllGatePass = () => {
               </div>
             </div>
 
-            <Pagination pagination={pagination} onPageChange={handlePageChange} />
+            {/* ── Client-side Pagination ── */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg mt-2 shadow-sm">
+                <p className="text-xs text-gray-500">
+                  Showing {(clientPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(clientPage * ITEMS_PER_PAGE, filteredRows.length)} of {filteredRows.length} rows
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setClientPage(p => Math.max(1, p - 1))}
+                    disabled={clientPage === 1}
+                    className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    ← Prev
+                  </button>
+                  {pageNumbers.map((p, i) =>
+                    p === "..." ? (
+                      <span key={i} className="px-2 text-gray-400 text-xs">…</span>
+                    ) : (
+                      <button key={i}
+                        onClick={() => setClientPage(p)}
+                        className={`px-3 py-1 text-xs border rounded transition-colors
+                          ${clientPage === p
+                            ? "bg-gray-800 text-white border-gray-800"
+                            : "border-gray-300 hover:bg-gray-100"}`}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+                  <button
+                    onClick={() => setClientPage(p => Math.min(totalPages, p + 1))}
+                    disabled={clientPage === totalPages}
+                    className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
