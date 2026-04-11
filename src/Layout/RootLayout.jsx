@@ -1,5 +1,3 @@
-
-
 // import React, { useState } from 'react'; // useState add kora hoyeche
 // import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 // import useAuth from '../hooks/useAuth';
@@ -276,6 +274,12 @@ const NAV_SECTIONS = [
     label: 'Bill',
     items: [
       { to: '/car-rent', icon: <MdOutlineLocalShipping size={18} />, label: 'Car Rent', color: 'text-orange-400' },
+    ],
+  },
+  {
+    label: 'Accounts',
+    items: [
+      { to: '/accounts', icon: <FiPackage size={17} />, label: 'Accounts Dashboard', color: 'text-emerald-400' },
     ],
   },
 ];
