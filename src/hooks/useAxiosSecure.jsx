@@ -1,21 +1,4 @@
-// import axios from 'axios';
-// import React, {} from 'react';
 
-// //     https://lbts-os-server.vercel.app
-// const axiosSecure = axios.create({
-//     baseURL: 'http://localhost:3000'
-// })
-// const useAxiosSecure = () => {
-
-//     return axiosSecure;
-// };
-
-// export default useAxiosSecure;
-
-
-
-
-// useAxiosSecure.jsx — পুরো file replace করো
 import axios from 'axios';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
