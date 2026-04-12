@@ -48,7 +48,7 @@ export const router = createBrowserRouter([
         path: "/all-gate-pass",
         element: <PrivateRoute><RoleRoute roles={["admin", "manager", "operator"]}><S><AllGatePass /></S></RoleRoute></PrivateRoute>,
       },
-      { path: "/add-challan", element: <S><AddChallan /></S> },
+      { path: "/add-challan", element: <PrivateRoute><S><AddChallan /></S></PrivateRoute> },
       { path: "/all-challan", element: <S><AllChallan /></S> },
       { path: "/add-vendor", element: <S><AddVendor /></S> },
       { path: "/all-vendor", element: <S><AllVendor /></S> },
@@ -58,7 +58,7 @@ export const router = createBrowserRouter([
       { path: "/deliverd", element: <S><DeliveredPage /></S> },
       { path: "/trip-inventory", element: <S><TripInventory /></S> },
       { path: "/car-rent", element: <S><CarRentPage></CarRentPage></S> },
-      { path: "/accounts", element: <S><AccountsDashboard></AccountsDashboard></S> },
+      { path: "/accounts", element:  <PrivateRoute><RoleRoute roles={["admin", "manager", "ceo"]}><S><AccountsDashboard></AccountsDashboard></S></RoleRoute></PrivateRoute> },
     ],
   },
 ]);

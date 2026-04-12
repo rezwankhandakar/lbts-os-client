@@ -293,12 +293,12 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                         )}
                         <p className="text-[11px] text-slate-600 font-semibold">Receiver: {c.receiverNumber}</p>
                         {!isReturnCard && c.note?.trim() && (
-                          <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1 italic">
+                          <p className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
                             📝 {c.note.length > 60 ? c.note.slice(0, 60) + "…" : c.note}
                           </p>
                         )}
                         {isReturnCard && c.returnNote && (
-                          <p className="text-[10px] text-orange-700 bg-orange-100 border border-orange-200 rounded px-2 py-1 mt-1 italic">
+                          <p className="text-[12px] text-orange-700 bg-orange-100 border border-orange-200 rounded px-2 py-1 mt-1">
                             📝 {c.returnNote}
                           </p>
                         )}

@@ -780,7 +780,7 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                         <p className="text-[11px] text-slate-500 leading-snug"><span className="font-semibold text-slate-600">District :</span> {c.district} <span className="font-semibold text-slate-600">Thana :</span> {c.thana}</p>
                         <p className="text-[11px] text-slate-600 font-semibold">Receiver : {c.receiverNumber}</p>
                         {!isReturnCard && hasNote && (
-                          <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1 italic">
+                          <p className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
                             📝 {c.note.length > 60 ? c.note.slice(0, 60) + "…" : c.note}
                           </p>
                         )}
@@ -900,7 +900,7 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                         </tbody>
                       </table>
                       {!isReturnCard && hasReturn && c.returnNote && (
-                        <div className="px-3 py-2 bg-orange-50 border-t border-orange-100 text-[10px] text-orange-700 italic">
+                        <div className="px-3 py-2 bg-orange-50 border-t border-orange-100 text-[12px] text-orange-700">
                           Return Note: {c.returnNote}
                         </div>
                       )}

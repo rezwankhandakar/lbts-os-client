@@ -55,12 +55,7 @@ const NAV_SECTIONS = [
       { to: '/car-rent', icon: <MdOutlineLocalShipping size={18} />, label: 'Car Rent', color: 'text-orange-400' },
     ],
   },
-  {
-    label: 'Accounts',
-    items: [
-      { to: '/accounts', icon: <FiPackage size={17} />, label: 'Accounts Dashboard', color: 'text-emerald-400' },
-    ],
-  },
+ 
 ];
 
 const RootLayout = () => {
@@ -129,9 +124,22 @@ const RootLayout = () => {
                   <FiUsers size={17} className="flex-shrink-0" /> User Control
                 </NavLink>
               </li>
+              <li>
+                <NavLink to="/accounts" className={linkClass}>
+                  {({ isActive }) => (
+                    <>
+                      <span className={`flex-shrink-0 ${isActive ? 'text-white' : 'text-emerald-400'}`}>
+                        <FiPackage size={17} />
+                      </span>
+                      Accounts Dashboard
+                    </>
+                  )}
+                </NavLink>
+              </li>
             </ul>
           </div>
         )}
+
 
         {NAV_SECTIONS.map((section) => (
           <div key={section.label}>
