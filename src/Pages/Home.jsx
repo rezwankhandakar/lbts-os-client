@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import useAxiosSecure from '../hooks/useAxiosSecure';
@@ -6,42 +7,24 @@ import useAuth from '../hooks/useAuth';
 import {
   FiFileText, FiTruck, FiArrowRight, FiActivity,
   FiCheckCircle, FiTrendingUp, FiTrendingDown, FiPackage,
+  FiHome, FiPlusCircle, FiUsers, FiBox, FiCalendar
 } from 'react-icons/fi';
-import { FaFileInvoice } from 'react-icons/fa';
+import { FaFileInvoice, FaPlusCircle, FaWarehouse } from 'react-icons/fa';
 import { MdOutlineLocalShipping, MdInventory2 } from 'react-icons/md';
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const fmt = (n) => '৳ ' + Number(n || 0).toLocaleString('en-IN');
 
-const Sk = ({ className = '' }) => (
-  <div className={`animate-pulse bg-gray-100 rounded-lg ${className}`} />
-);
-
-const BarRow = ({ name, value, label, max, color, sub }) => {
-  const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
-  return (
-    <div className="py-1.5">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-semibold text-gray-700 truncate flex-1 mr-2" title={name}>{name}</span>
-        <span className="text-xs font-black text-gray-800 shrink-0">{label ?? value}</span>
-      </div>
-      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
-      </div>
-      {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
-    </div>
-  );
-};
-
+// --- Quick Action Link Component ---
 const QL = ({ to, icon, label, color, iconBg }) => (
   <Link
     to={to}
-    className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm hover:-translate-y-0.5 transition-all group text-center"
+    className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border border-gray-50 bg-white hover:border-orange-200 hover:shadow-xl hover:shadow-orange-500/5 hover:-translate-y-1 transition-all duration-300 group text-center"
   >
-    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${iconBg} group-hover:scale-110 transition-transform`}>
-      <span className={color} style={{ fontSize: 17 }}>{icon}</span>
+    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconBg} group-hover:scale-110 transition-transform shadow-sm`}>
+      <span className={color} style={{ fontSize: 18 }}>{icon}</span>
     </div>
-    <span className="text-[11px] font-semibold text-gray-600 leading-tight">{label}</span>
+    <span className="text-[11px] font-bold text-gray-600 leading-tight group-hover:text-orange-600 transition-colors">{label}</span>
   </Link>
 );
 
@@ -55,7 +38,7 @@ const Home = () => {
   const isAdminOrCeo = (role === 'admin' || role === 'ceo') && status === 'approved';
   const now = new Date();
   const monthName = MONTHS[now.getMonth()];
-  const greeting = now.getHours() < 12 ? 'Good morning' : now.getHours() < 17 ? 'Good afternoon' : 'Good evening';
+  const currentYear = now.getFullYear();
 
   useEffect(() => {
     axiosSecure.get('/dashboard-stats')
@@ -64,212 +47,157 @@ const Home = () => {
       .finally(() => setLoading(false));
   }, [axiosSecure]);
 
-  const gpMax = Math.max(...(stats?.gatePass?.unitBreakdown?.map(x => x.qty) || [1]), 1);
-
   return (
-    <div className="space-y-5">
+    <div className="space-y-6 pb-10">
+      
+      {/* ── POINT 1: COMPACT & GRAPHIC BANNER (NO BUTTON) ── */}
+      <div className="relative h-40 rounded-[2.5rem] overflow-hidden shadow-lg bg-slate-900 border border-white/5">
+        {/* Abstract Graphic Background */}
+        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #fff 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+        <div className="absolute -right-10 -top-10 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl" />
+        <div className="absolute -left-10 -bottom-10 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl" />
 
-      {/* ── Hero Banner ── */}
-      <div className="relative rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 45%, #0c1a3a 100%)', minHeight: 148 }}>
-
-        {/* Grid overlay */}
-        <div className="absolute inset-0 opacity-[0.035]" style={{ backgroundImage: 'linear-gradient(#94a3b8 1px, transparent 1px), linear-gradient(90deg, #94a3b8 1px, transparent 1px)', backgroundSize: '36px 36px' }} />
-
-        {/* Glows */}
-        <div className="absolute -top-12 -right-12 w-60 h-60 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.22), transparent)' }} />
-        <div className="absolute -bottom-10 left-0 w-48 h-48 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.18), transparent)' }} />
-
-        {/* Road dashes */}
-        <div className="absolute bottom-0 left-0 right-0 h-6 opacity-[0.12]" style={{ background: 'linear-gradient(90deg, transparent, #64748b 20%, #64748b 80%, transparent)' }} />
-        <div className="absolute bottom-2.5 left-0 right-0 flex justify-center gap-4 px-12 pointer-events-none">
-          {[...Array(14)].map((_, i) => (
-            <div key={i} className="h-px flex-1 rounded-full opacity-20" style={{ background: '#f59e0b' }} />
-          ))}
-        </div>
-
-        {/* Truck SVG — decorative */}
-        <div className="absolute right-5 bottom-5 pointer-events-none opacity-[0.08] hidden sm:block">
-          <svg width="130" height="64" viewBox="0 0 130 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="2" y="12" width="76" height="36" rx="3" fill="white"/>
-            <line x1="20" y1="12" x2="20" y2="48" stroke="#cbd5e1" strokeWidth="1.2"/>
-            <line x1="40" y1="12" x2="40" y2="48" stroke="#cbd5e1" strokeWidth="1.2"/>
-            <line x1="60" y1="12" x2="60" y2="48" stroke="#cbd5e1" strokeWidth="1.2"/>
-            <rect x="78" y="20" width="38" height="28" rx="3" fill="white"/>
-            <rect x="88" y="22" width="22" height="13" rx="2" fill="#1e3a8a" opacity="0.5"/>
-            <circle cx="20" cy="54" r="6" fill="#475569"/><circle cx="20" cy="54" r="2.5" fill="#0f172a"/>
-            <circle cx="58" cy="54" r="6" fill="#475569"/><circle cx="58" cy="54" r="2.5" fill="#0f172a"/>
-            <circle cx="102" cy="54" r="6" fill="#475569"/><circle cx="102" cy="54" r="2.5" fill="#0f172a"/>
-            <rect x="112" y="10" width="3" height="12" rx="1.5" fill="white" opacity="0.4"/>
-            <ellipse cx="113.5" cy="9" rx="4" ry="2" fill="white" opacity="0.15"/>
-          </svg>
-        </div>
-
-        {/* Floating labels — right */}
-        <div className="absolute top-5 right-5 flex flex-col gap-1.5 pointer-events-none hidden lg:flex">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg" style={{ background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.2)' }}>
-            <div className="w-1.5 h-1.5 rounded-full bg-orange-500 opacity-70" />
-            <span className="text-[9px] font-bold tracking-widest text-orange-400 opacity-70">LOGISTICS</span>
+        <div className="relative h-full px-8 flex items-center justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-orange-400 mb-1">
+              <FiBox className="animate-bounce" />
+              <span className="text-[10px] font-black uppercase tracking-[0.3em]">System Overview</span>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-black text-white leading-none">
+              Welcome, <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-200">{user?.displayName?.split(' ')[0] || 'User'}</span> 👋
+            </h1>
+            <p className="text-slate-400 text-xs font-medium max-w-xs">
+              Monitor your logistics flow and financial performance for <span className="text-slate-200">{monthName}</span>.
+            </p>
           </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg" style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)' }}>
-            <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 opacity-70" />
-            <span className="text-[9px] font-bold tracking-widest text-indigo-400 opacity-70">TRANSPORT</span>
-          </div>
-        </div>
 
-        {/* Text */}
-        <div className="relative px-6 py-6">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-0.5 h-5 rounded-full" style={{ background: 'linear-gradient(180deg, #f97316, #6366f1)' }} />
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">LBTS-OS · Management System</span>
+          {/* Decorative Visual */}
+          <div className="hidden md:flex items-center gap-4">
+             <div className="text-right border-r border-white/10 pr-4">
+                <p className="text-[10px] font-bold text-slate-500 uppercase">Live Operations</p>
+                <p className="text-lg font-black text-white">LBTS-OS v3.2</p>
+             </div>
+             <div className="w-12 h-12 bg-white/5 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/10">
+                <MdOutlineLocalShipping size={24} className="text-orange-400" />
+             </div>
           </div>
-          <h1 className="text-[22px] font-black text-white leading-snug">
-            {greeting}, {user?.displayName?.split(' ')[0] || 'Welcome'} 👋
-          </h1>
-          <p className="text-slate-500 text-xs font-medium mt-1">{monthName} {now.getFullYear()}</p>
         </div>
       </div>
 
-      {/* ── Main content grid ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        {/* ── LEFT: Gate Pass Card ── */}
-        <Link
-          to="/all-gate-pass"
-          className="group bg-white rounded-2xl border shadow-sm overflow-hidden flex flex-col hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
-          style={{ borderColor: '#3b82f640' }}
-        >
-          <div className="h-0.5" style={{ background: '#3b82f6' }} />
-          <div className="p-5 flex flex-col flex-1">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: '#3b82f615' }}>
-                  <FaFileInvoice style={{ color: '#3b82f6', fontSize: 17 }} />
+        {/* ── POINT 2: WAREHOUSE RECEIVING SUMMARY (GRID STYLE) ── */}
+        <div className="lg:col-span-12">
+          <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm p-6 overflow-hidden relative">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-500 shadow-inner">
+                  <FaWarehouse size={20} />
                 </div>
                 <div>
-                  <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest leading-none">Gate Pass</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">{monthName} · Unit-wise dispatch</p>
+                  <h3 className="text-lg font-black text-slate-800 tracking-tight">Warehouse Receiving Summary</h3>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                    <FiCalendar size={12} />
+                    <span>Report for {monthName}, {currentYear}</span>
+                  </div>
                 </div>
               </div>
-              <FiArrowRight size={13} className="text-gray-300 group-hover:text-gray-500 transition-colors" />
+              <div className="px-4 py-1.5 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                Source: Walton Factory
+              </div>
             </div>
 
-            {/* Unit breakdown */}
             {loading ? (
-              <div className="space-y-3 flex-1">
-                {[1,2,3,4,5].map(i => <Sk key={i} className="h-8 w-full" />)}
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-4 animate-pulse">
+                {[1,2,3,4,5,6].map(i => <div key={i} className="h-24 bg-gray-100 rounded-2xl" />)}
               </div>
             ) : !stats?.gatePass?.unitBreakdown?.length ? (
-              <div className="flex flex-col items-center justify-center py-10 gap-2 text-gray-300 flex-1">
-                <FaFileInvoice size={30} />
-                <p className="text-xs">No data this month</p>
+              <div className="flex flex-col items-center justify-center py-10 text-gray-300">
+                <FiBox size={40} className="mb-2" />
+                <p className="text-sm">No products received yet this month</p>
               </div>
             ) : (
-              <div className="flex-1 divide-y divide-gray-50">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
                 {stats.gatePass.unitBreakdown.map((item, i) => (
-                  <BarRow
-                    key={i}
-                    name={item._id || 'Unknown'}
-                    value={item.qty}
-                    label={`${item.qty.toLocaleString()} pcs`}
-                    sub={`${item.passCount} pass${item.passCount !== 1 ? 'es' : ''}`}
-                    max={gpMax}
-                    color="#3b82f6"
-                  />
+                  <div key={i} className="bg-slate-50 hover:bg-white hover:shadow-xl hover:shadow-orange-500/5 hover:-translate-y-1 border border-slate-100 rounded-2xl p-4 transition-all duration-300 group">
+                    <p className="text-[10px] font-black text-slate-400 uppercase mb-2 truncate">{item._id || 'Unknown'}</p>
+                    <div className="flex items-end justify-between">
+                      <p className="text-xl font-black text-slate-800 group-hover:text-orange-600 transition-colors">
+                        {item.qty.toLocaleString()}
+                      </p>
+                      <span className="text-[9px] font-bold text-slate-500 bg-white border border-slate-200 px-1.5 py-0.5 rounded-lg shadow-sm">PCS</span>
+                    </div>
+                    <div className="mt-3 h-1 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-orange-500 rounded-full" style={{ width: '60%' }} />
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
           </div>
-        </Link>
+        </div>
 
-        {/* ── RIGHT COLUMN ── */}
-        <div className="lg:col-span-2 flex flex-col gap-5">
-
-          {/* Accounts Card (admin/ceo only) */}
-          {isAdminOrCeo && (
-            <Link
-              to="/accounts"
-              className="group bg-white rounded-2xl border shadow-sm overflow-hidden hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
-              style={{ borderColor: '#6366f140' }}
-            >
-              <div className="h-0.5" style={{ background: '#6366f1' }} />
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: '#6366f115' }}>
-                      <FiActivity style={{ color: '#6366f1', fontSize: 17 }} />
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest leading-none">Accounts</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">{monthName} · Cash Flow</p>
-                    </div>
+        {/* ── LEFT: FINANCIALS (If Admin) ── */}
+        {isAdminOrCeo && (
+          <div className="lg:col-span-4">
+             <div className="bg-slate-900 rounded-[2rem] p-6 text-white h-full relative overflow-hidden group">
+               <div className="absolute top-0 right-0 p-8 opacity-[0.05] group-hover:scale-125 transition-transform duration-700">
+                  <FiActivity size={100} />
+               </div>
+               <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6">Net Balance</h3>
+               <div className="mb-8">
+                  <h2 className={`text-4xl font-black ${stats?.accounts?.netBalance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {fmt(stats?.accounts?.netBalance)}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1 font-bold">Updated {now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+               </div>
+               <div className="space-y-4">
+                  <div className="flex justify-between items-center bg-white/5 p-3 rounded-xl border border-white/5">
+                    <span className="text-xs text-slate-400 font-bold">Deposit</span>
+                    <span className="text-sm font-black text-emerald-400">{fmt(stats?.accounts?.income)}</span>
                   </div>
-                  <FiArrowRight size={13} className="text-gray-300 group-hover:text-gray-500 transition-colors" />
-                </div>
-
-                {loading ? (
-                  <div className="space-y-3">
-                    <Sk className="h-16 w-full rounded-xl" />
-                    <div className="grid grid-cols-2 gap-3">
-                      {[1,2,3,4].map(i => <Sk key={i} className="h-14 rounded-xl" />)}
-                    </div>
+                  <div className="flex justify-between items-center bg-white/5 p-3 rounded-xl border border-white/5">
+                    <span className="text-xs text-slate-400 font-bold">Expense</span>
+                    <span className="text-sm font-black text-rose-400">{fmt(stats?.accounts?.totalExpense)}</span>
                   </div>
-                ) : (
-                  <div>
-                    {/* Net Balance */}
-                    <div className={`rounded-xl px-5 py-4 mb-4 flex items-center justify-between ${(stats?.accounts?.netBalance ?? 0) >= 0 ? 'bg-emerald-50 border border-emerald-100' : 'bg-red-50 border border-red-100'}`}>
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Net Balance</p>
-                        <p className={`text-2xl font-black ${(stats?.accounts?.netBalance ?? 0) >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
-                          {fmt(stats?.accounts?.netBalance)}
-                        </p>
-                      </div>
-                      {(stats?.accounts?.netBalance ?? 0) >= 0
-                        ? <FiTrendingUp size={28} className="text-emerald-400" />
-                        : <FiTrendingDown size={28} className="text-red-400" />}
-                    </div>
+               </div>
+             </div>
+          </div>
+        )}
 
-                    {/* 4 metric boxes */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {[
-                        { label: 'Income',        value: stats?.accounts?.income,        bg: 'bg-emerald-50 border-emerald-100', txt: 'text-emerald-700', sub: 'text-emerald-500' },
-                        { label: 'Expense',       value: stats?.accounts?.totalExpense,  bg: 'bg-red-50 border-red-100',         txt: 'text-red-600',     sub: 'text-red-400' },
-                        { label: 'Vendor Pay',    value: stats?.accounts?.vendorPayment, bg: 'bg-indigo-50 border-indigo-100',   txt: 'text-indigo-700',  sub: 'text-indigo-400' },
-                        { label: 'Advance',       value: (stats?.accounts?.autoAdv || 0) + (stats?.accounts?.manualAdv || 0),       bg: 'bg-amber-50 border-amber-100',     txt: 'text-amber-700',   sub: 'text-amber-500' },
-                      ].map((r, i) => (
-                        <div key={i} className={`rounded-xl border px-3 py-3 ${r.bg}`}>
-                          <p className={`text-[10px] font-semibold uppercase tracking-wide mb-1 ${r.sub}`}>{r.label}</p>
-                          <p className={`text-sm font-black leading-tight ${r.txt}`}>{fmt(r.value)}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </Link>
-          )}
-
-          {/* Quick Actions */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-4">Quick Actions</p>
-            <div className="grid grid-cols-4 sm:grid-cols-4 gap-2.5">
-              <QL to="/add-gate-pass"   icon={<FaFileInvoice />}         label="New Gate Pass"   color="text-blue-500"    iconBg="bg-blue-50" />
-              <QL to="/add-challan"     icon={<FiFileText />}             label="New Challan"     color="text-green-500"   iconBg="bg-green-50" />
-              <QL to="/create-delivery" icon={<MdOutlineLocalShipping />} label="Create Delivery" color="text-orange-500"  iconBg="bg-orange-50" />
-              <QL to="/add-vendor"      icon={<FiTruck />}                label="Add Vendor"      color="text-purple-500"  iconBg="bg-purple-50" />
-              <QL to="/deliverd"        icon={<FiCheckCircle />}          label="Delivered"       color="text-emerald-500" iconBg="bg-emerald-50" />
-              <QL to="/trip-inventory"  icon={<MdInventory2 />}           label="Trip Inventory"  color="text-amber-500"   iconBg="bg-amber-50" />
-              <QL to="/car-rent"        icon={<FiPackage />}              label="Car Rent Bill"   color="text-rose-500"    iconBg="bg-rose-50" />
+        {/* ── POINT 3: FULL QUICK ACTIONS (All NavLinks) ── */}
+        <div className={`${isAdminOrCeo ? 'lg:col-span-8' : 'lg:col-span-12'}`}>
+          <div className="bg-white rounded-[2rem] border border-gray-100 p-6 h-full shadow-sm">
+            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-orange-500" /> System Shortcuts
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-4 gap-4">
+              <QL to="/" icon={<FiHome />} label="Home" color="text-slate-600" iconBg="bg-slate-50" />
+              <QL to="/add-gate-pass" icon={<FaPlusCircle />} label="Add Gate Pass" color="text-blue-500" iconBg="bg-blue-50" />
+              <QL to="/all-gate-pass" icon={<FaFileInvoice />} label="GP Inventory" color="text-blue-500" iconBg="bg-blue-50" />
+              <QL to="/add-challan" icon={<FiPlusCircle />} label="Add Challan" color="text-green-500" iconBg="bg-green-50" />
+              <QL to="/all-challan" icon={<FiFileText />} label="Challan Inventory" color="text-green-500" iconBg="bg-green-50" />
+              <QL to="/add-vendor" icon={<FiTruck />} label="Add Vendor" color="text-purple-500" iconBg="bg-purple-50" />
+              <QL to="/all-vendor" icon={<FiUsers />} label="Vendor DB" color="text-purple-500" iconBg="bg-purple-50" />
+              <QL to="/create-delivery" icon={<MdOutlineLocalShipping />} label="Create Delivery" color="text-orange-500" iconBg="bg-orange-50" />
+              <QL to="/deliverd" icon={<FiCheckCircle />} label="Delivered" color="text-orange-500" iconBg="bg-orange-50" />
+              <QL to="/trip-inventory" icon={<MdInventory2 />} label="Trip Inventory" color="text-orange-500" iconBg="bg-orange-50" />
+              <QL to="/car-rent" icon={<MdOutlineLocalShipping />} label="Car Rent" color="text-rose-500" iconBg="bg-rose-50" />
               {isAdminOrCeo && (
-                <QL to="/accounts"      icon={<FiActivity />}             label="Accounts"        color="text-indigo-500"  iconBg="bg-indigo-50" />
+                <>
+                  <QL to="/user-management" icon={<FiUsers />} label="Users" color="text-indigo-500" iconBg="bg-indigo-50" />
+                  <QL to="/accounts" icon={<FiActivity />} label="Accounts" color="text-emerald-500" iconBg="bg-emerald-50" />
+                </>
               )}
             </div>
           </div>
-
         </div>
+
       </div>
 
-      <p className="text-center text-xs text-gray-300 pb-2">LBTS-OS · Logistics & Transport Management System</p>
+      <p className="text-center text-[10px] font-black text-gray-300 uppercase tracking-[0.5em] pt-4">
+        LBTS-OS · Intelligent Logistics Management
+      </p>
     </div>
   );
 };

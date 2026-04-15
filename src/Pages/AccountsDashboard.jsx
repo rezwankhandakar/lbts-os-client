@@ -1054,13 +1054,13 @@
 
 
 
-
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import Swal from "sweetalert2";
 import LoadingSpinner from "../Component/LoadingSpinner";
+import { FiTrendingUp, FiTrendingDown } from "react-icons/fi"; // ← FIX
 
 const fmt  = (n) => n == null ? "—" : "৳ " + Number(n).toLocaleString("en-IN");
 const num  = (n) => (n != null ? Number(n) : 0);
@@ -1368,11 +1368,11 @@ const AccountsDashboard = () => {
   const [tab,           setTab]           = useState("overview");
   const [payVendorName, setPayVendorName] = useState(null);
   const [advSearch,     setAdvSearch]     = useState("");
+  const [advTypeFilter, setAdvTypeFilter] = useState("all");
   const [manualModal,   setManualModal]   = useState(false);
   const [typeFilter,    setTypeFilter]    = useState("all");
   const [searchTx,      setSearchTx]      = useState("");
 
-  // Audit log state
   const [auditLogs,    setAuditLogs]    = useState([]);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditTotal,   setAuditTotal]   = useState(0);
@@ -1380,11 +1380,9 @@ const AccountsDashboard = () => {
   const [auditSearch,  setAuditSearch]  = useState("");
   const [restoring,    setRestoring]    = useState(null);
 
-  // FIX: prevMonthBalance এখন number — positive হলে income এ যোগ, negative হলে expense এ যোগ
-  const [prevMonthBalance,  setPrevMonthBalance]  = useState(null); // null = loading, 0 = no prev data
-  const [carryForwardTxs,   setCarryForwardTxs]   = useState([]);   // unpaid manual advances from prev months
+  const [prevMonthBalance,  setPrevMonthBalance]  = useState(null);
+  const [carryForwardTxs,   setCarryForwardTxs]   = useState([]);
 
-  // FIX: API response cache — বারবার same month fetch বন্ধ করতে
   const apiCache = useRef({});
   const fetchWithCache = useCallback(async (url) => {
     if (apiCache.current[url]) return apiCache.current[url];
@@ -1393,10 +1391,8 @@ const AccountsDashboard = () => {
     return res.data;
   }, [axiosSecure]);
 
-  // Cache clear on month/year change
   useEffect(() => { apiCache.current = {}; }, [month, year]);
 
-  /* ── Fetch trips ── */
   const fetchTrips = useCallback(async (m, y) => {
     setLoading(true);
     try {
@@ -1406,7 +1402,6 @@ const AccountsDashboard = () => {
     setLoading(false);
   }, [fetchWithCache]);
 
-  /* ── Fetch account transactions ── */
   const fetchAccountTxs = useCallback(async (m, y) => {
     setTxLoading(true);
     try {
@@ -1416,21 +1411,15 @@ const AccountsDashboard = () => {
     setTxLoading(false);
   }, [fetchWithCache]);
 
-  /* ── Calc net balance for any month (iterative, uses cache) ── */
-  // FIX: Iterative chain — January থেকে target month পর্যন্ত forward calculate
-  // এতে recursion নেই, API call সর্বোচ্চ target month সংখ্যক
-  // targetM/targetY মাসের net balance calculate করে (সেই মাস সহ, chain আকারে)
   const calcNetBalanceChain = useCallback(async (targetM, targetY) => {
-    // LOOKBACK months আগে থেকে শুরু করে targetM পর্যন্ত iterate — targetM নিজেও include
     const LOOKBACK = 6;
     const months = [];
-    for (let i = LOOKBACK; i >= 0; i--) {   // i=0 মানে targetM নিজে
+    for (let i = LOOKBACK; i >= 0; i--) {
       let m = targetM - i;
       let y = targetY;
       while (m <= 0) { m += 12; y -= 1; }
       months.push({ m, y });
     }
-
     let runningBalance = 0;
     for (const { m, y } of months) {
       try {
@@ -1440,18 +1429,15 @@ const AccountsDashboard = () => {
         ]);
         const txs  = accData.data  || [];
         const trps = tripData.data || [];
-
         const inc  = txs.filter(t=>t.type==="income").reduce((s,t)=>s+num(t.amount),0);
         const exp  = txs.filter(t=>t.type==="expense").reduce((s,t)=>s+num(t.amount),0);
         const vadv = txs.filter(t=>t.type==="manual_advance").reduce((s,t)=>s+num(t.amount),0);
         const vpay = txs.filter(t=>t.type==="vendor_payment").reduce((s,t)=>s+num(t.amount),0);
         const aadv = trps.reduce((s,t)=>s+num(t.advance),0);
-
-        // Opening balance chain: positive → income এ যোগ, negative → expense এ যোগ
         const totalInc = inc + (runningBalance > 0 ? runningBalance : 0);
         const totalExp = exp + vadv + vpay + aadv + (runningBalance < 0 ? Math.abs(runningBalance) : 0);
         runningBalance = totalInc - totalExp;
-      } catch { /* এই month এ data নেই, runningBalance অপরিবর্তিত */ }
+      } catch { /* no data */ }
     }
     return runningBalance;
   }, [fetchWithCache]);
@@ -1459,16 +1445,13 @@ const AccountsDashboard = () => {
   useEffect(() => {
     fetchTrips(month, year);
     fetchAccountTxs(month, year);
-
     const loadPrevData = async () => {
-      setPrevMonthBalance(null); // loading
+      setPrevMonthBalance(null);
       try {
         const prevM = month === 1 ? 12 : month - 1;
         const prevY = month === 1 ? year - 1 : year;
         const balance = await calcNetBalanceChain(prevM, prevY);
         setPrevMonthBalance(balance);
-
-        // Unpaid manual advances from last 3 months (carried forward)
         const recentMonths = [];
         for (let i = 1; i <= 3; i++) {
           const m2 = month - i <= 0 ? month - i + 12 : month - i;
@@ -1478,7 +1461,6 @@ const AccountsDashboard = () => {
         const results = await Promise.all(
           recentMonths.map(({ m2, y2 }) => fetchWithCache(`/accounts?month=${m2}&year=${y2}`))
         );
-        // FIX: carried advances — শুধু যেগুলো current month এর accountTxs এ নেই
         const unpaid = results.flatMap(r =>
           (r.data || []).filter(t => t.type === "manual_advance" && t.status !== "paid")
         );
@@ -1509,25 +1491,21 @@ const AccountsDashboard = () => {
   const totalVendorBill = Object.values(vendorMap).reduce((s,v)=>s+v.totalBill, 0);
   const totalAdvance    = Object.values(vendorMap).reduce((s,v)=>s+v.totalAdvance, 0);
   const totalVendorPaid = accountTxs.filter(t=>t.type==="vendor_payment").reduce((s,t)=>s+num(t.amount), 0);
-  // FIX: per-vendor due — overclear একটা vendor অন্যটার due কমাবে না
   const totalVendorDue  = Object.values(vendorMap).reduce((s,v)=>s+Math.max(0,v.totalBill-v.totalAdvance-v.totalPaid), 0);
   const pendingVendors  = Object.values(vendorMap).filter(v=>Math.max(0,v.totalBill-v.totalAdvance-v.totalPaid)>0).length;
 
   const manualIncome       = accountTxs.filter(t=>t.type==="income").reduce((s,t)=>s+num(t.amount), 0);
   const manualExpense      = accountTxs.filter(t=>t.type==="expense").reduce((s,t)=>s+num(t.amount), 0);
   const manualAdvanceTotal = accountTxs.filter(t=>t.type==="manual_advance").reduce((s,t)=>s+num(t.amount), 0);
-  const carryForwardFromPrev = carryForwardTxs.reduce((s,t)=>s+num(t.amount), 0);
 
-  // FIX: prevMonthBalance — positive হলে income এ, negative হলে সেটা additional expense
   const prevBalancePositive = prevMonthBalance != null && prevMonthBalance > 0 ? prevMonthBalance : 0;
   const prevBalanceNegative = prevMonthBalance != null && prevMonthBalance < 0 ? Math.abs(prevMonthBalance) : 0;
 
   const totalIncome  = manualIncome + prevBalancePositive;
-  // carry forward advances already counted in prev month — NOT added here again
   const totalExpense = manualExpense + totalVendorPaid + totalAdvance + manualAdvanceTotal + prevBalanceNegative;
   const netBalance   = totalIncome - totalExpense;
 
-  const prevMonthName = MONTHS[month === 1 ? 11 : month - 2];
+  const prevMonthName    = MONTHS[month === 1 ? 11 : month - 2];
   const prevMonthLoading = prevMonthBalance === null;
 
   /* ── Handlers ── */
@@ -1573,7 +1551,6 @@ const AccountsDashboard = () => {
   }, [axiosSecure]);
 
   const handleDeleteTx = async (id) => {
-    // Step 1: reason input
     const { value: reason, isConfirmed } = await Swal.fire({
       title: "Transaction Delete করবেন?",
       html: `
@@ -1594,7 +1571,6 @@ const AccountsDashboard = () => {
       setAccountTxs(prev => prev.filter(t => t._id !== id));
       setCarryForwardTxs(prev => prev.filter(t => t._id !== id));
       Swal.fire({ icon: "success", title: "Deleted!", toast: true, position: "top-end", timer: 1800, showConfirmButton: false });
-      // audit tab open থাকলে refresh করো
       if (tab === "audit") fetchAuditLogs(auditPage, auditSearch);
     } catch (err) { Swal.fire({ icon: "error", title: err?.response?.data?.message || "Failed" }); }
   };
@@ -1606,8 +1582,6 @@ const AccountsDashboard = () => {
     }
     const doc = log.deletedDocument;
     if (!doc) return;
-
-    // Confirmation alert
     const { isConfirmed } = await Swal.fire({
       title: "Restore করবেন?",
       html: `
@@ -1627,16 +1601,12 @@ const AccountsDashboard = () => {
     });
     if (!isConfirmed) return;
     try {
-      // _id বাদ দিয়ে নতুন করে insert করো
       const { _id, ...rest } = doc;
       const res = await axiosSecure.post("/accounts", rest);
       if (res.data.success) {
         const newId = res.data.data?._id || res.data.insertedId;
-        // audit log এ isRestored mark করো — বারবার restore বন্ধ করতে
         await axiosSecure.patch(`/audit-logs/${log._id}/restored`, { restoredDocumentId: newId });
-        // local state আপডেট করো — বাটন সাথে সাথে disable হবে
         setAuditLogs(prev => prev.map(l => l._id === log._id ? { ...l, isRestored: true, restoredAt: new Date() } : l));
-        // যদি current month এর data হয় তাহলে transactions এ add করো
         if (rest.month === month && rest.year === year) {
           setAccountTxs(prev => [res.data.data, ...prev]);
         }
@@ -1650,7 +1620,6 @@ const AccountsDashboard = () => {
 
   const handleMarkPaid = async (id, currentStatus) => {
     const newStatus = currentStatus === "paid" ? "unpaid" : "paid";
-
     const { isConfirmed } = await Swal.fire({
       title: newStatus === "paid" ? "Paid হিসেবে Mark করবেন?" : "Unpaid করবেন?",
       text: newStatus === "paid"
@@ -1663,7 +1632,6 @@ const AccountsDashboard = () => {
       cancelButtonText: "Cancel",
     });
     if (!isConfirmed) return;
-
     try {
       const res = await axiosSecure.patch(`/accounts/${id}/status`, { status: newStatus });
       if (res.data.success) {
@@ -1710,12 +1678,10 @@ const AccountsDashboard = () => {
     return true;
   });
 
-  // FIX: footer total — income filter হলে income total, expense হলে expense total
   const footerTotal = (() => {
     if (typeFilter === "income") return filteredTxs.reduce((s,t)=>s+num(t.amount),0);
     if (["expense","vendor_payment","manual_advance","auto_advance","all_expense"].includes(typeFilter))
       return filteredTxs.reduce((s,t)=>s+num(t.amount),0);
-    // "all" — income ও expense মিশিয়ে total দেখানো misleading, তাই hide
     return null;
   })();
 
@@ -1779,7 +1745,7 @@ const AccountsDashboard = () => {
 
         {/* Stat Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
-          <StatCard label="Total Income" value={prevMonthLoading ? "…" : fmt(totalIncome)}
+          <StatCard label="Total Deposit" value={prevMonthLoading ? "…" : fmt(totalIncome)}
             sub={prevBalancePositive > 0
               ? `Manual: ${fmt(manualIncome)} + ${prevMonthName}: ${fmt(prevBalancePositive)}`
               : `${accountTxs.filter(t=>t.type==="income").length} entries`}
@@ -1816,7 +1782,7 @@ const AccountsDashboard = () => {
             onClick={() => setTab("vendors")} />
         </div>
 
-        {/* FIX: Tabs — advances tab add করা হয়েছে */}
+        {/* Tabs */}
         <div className="flex gap-1 mb-4 bg-white border border-gray-200 rounded-lg p-1 w-fit shadow-sm">
           {[
             { id:"overview",     label:"Overview" },
@@ -1837,81 +1803,124 @@ const AccountsDashboard = () => {
 
         {/* ══ OVERVIEW ══ */}
         {tab === "overview" && (
+          // FIX: flat grid — 3 direct children, no nested grid wrapper
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
-              <h3 className="text-sm font-bold text-gray-800 mb-0.5">Vendor Bill Breakdown</h3>
-              <p className="text-xs text-gray-400 mb-4">Bill issued ≠ paid. Pay from "Vendors" tab per vendor.</p>
-              <div className="space-y-3">
-                {[
-                  { label:"Bill Issued (Rent + Labour)", value:totalVendorBill,  color:"bg-rose-300",   max:totalVendorBill||1 },
-                  { label:"Advance Paid (auto)",         value:totalAdvance,     color:"bg-amber-400",  max:totalVendorBill||1 },
-                  { label:"Paid from Accounts",          value:totalVendorPaid,  color:"bg-indigo-400", max:totalVendorBill||1 },
-                  { label:"Still Due",                   value:totalVendorDue,   color:"bg-red-500",    max:totalVendorBill||1 },
-                ].map((item,i) => (
-                  <div key={i}>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs text-gray-500">{item.label}</span>
-                      <span className="text-xs font-bold text-gray-800">{fmt(item.value)}</span>
+
+            {/* ── CARD 1: VENDOR BILL BREAKDOWN ── */}
+            <div className="bg-white border border-slate-100 rounded-[2rem] shadow-xl shadow-slate-200/40 p-7 relative overflow-hidden group">
+              <div className="absolute -top-10 -right-10 w-28 h-28 bg-rose-50 rounded-full blur-3xl group-hover:bg-rose-100 transition-colors duration-500" />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-1.5">
+                  <h3 className="text-base font-black text-slate-800 tracking-tight">Vendor Bill Breakdown</h3>
+                  <div className="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-rose-100">
+                    Liability
+                  </div>
+                </div>
+                <p className="text-xs text-slate-400 mb-6 font-medium">
+                  Bill issued ≠ paid. <span className="text-rose-400 font-bold">Pay from Vendors tab.</span>
+                </p>
+                <div className="space-y-5">
+                  {[
+                    { label:"Bill Issued (Rent + Labour)", value:totalVendorBill,  color:"from-rose-400 to-pink-500",    icon:"🧾" },
+                    { label:"Vendor Advance",          value:totalAdvance,     color:"from-amber-400 to-orange-500", icon:"💸" },
+                    { label:"Vendor Payments",      value:totalVendorPaid,  color:"from-indigo-400 to-blue-600",  icon:"🏦" },
+                    { label:"Total Outstanding Due",        value:totalVendorDue,   color:"from-red-500 to-red-700",      icon:"⚠️" },
+                  ].map((item,i) => (
+                    <div key={i}>
+                      <div className="flex justify-between items-end mb-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-base opacity-80">{item.icon}</span>
+                          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{item.label}</span>
+                        </div>
+                        <span className="text-sm font-black text-slate-800">{fmt(item.value)}</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-2.5 p-0.5 shadow-inner">
+                        <div className={`h-full bg-gradient-to-r ${item.color} rounded-full transition-all duration-700`}
+                          style={{ width:`${Math.min(100,(item.value/(totalVendorBill||1))*100)}%` }} />
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                      <div className={`h-full ${item.color} rounded-full`}
-                        style={{ width:`${Math.min(100,(item.value/item.max)*100)}%` }} />
+                  ))}
+                </div>
+                <div className="mt-8 pt-5 border-t border-slate-50 grid grid-cols-3 gap-3 text-center">
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 hover:scale-105 transition-transform">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mb-0.5">Trips</p>
+                    <p className="text-xl font-black text-slate-800">{trips.length}</p>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-amber-50 border border-amber-100 hover:scale-105 transition-transform">
+                    <p className="text-[10px] font-bold text-amber-600 uppercase tracking-tighter mb-0.5">Vendors</p>
+                    <p className="text-xl font-black text-amber-700">{Object.keys(vendorMap).length}</p>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-red-50 border border-red-100 hover:scale-105 transition-transform">
+                    <p className="text-[10px] font-bold text-red-500 uppercase tracking-tighter mb-0.5">Pending</p>
+                    <p className="text-xl font-black text-red-700">{pendingVendors}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── CARD 2: CASH FLOW (DARK) ── */}
+            <div className="bg-slate-900 rounded-[2rem] shadow-2xl p-7 relative overflow-hidden group border border-slate-800">
+              <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-500/10 rounded-full blur-[70px]" />
+              <div className="absolute bottom-0 left-0 w-28 h-28 bg-indigo-500/10 rounded-full blur-[55px]" />
+              <div className="relative z-10 flex flex-col h-full">
+                <div className="flex items-center justify-between mb-7">
+                  <h3 className="text-sm font-black text-emerald-400 uppercase tracking-[0.2em]">Live Cash Flow</h3>
+                  <div className="flex gap-1 items-center">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/40" />
+                  </div>
+                </div>
+                <div className="space-y-4 flex-1">
+                  {(() => {
+                    const maxVal = Math.max(totalIncome, totalExpense, 1);
+                    const rows = [
+                      ...(prevBalancePositive > 0 ? [{ label:`Opening Balance (${prevMonthName})`, value:prevBalancePositive, color:"bg-teal-400",    sign:"+" }] : []),
+                      { label:"Deposit Money",        value:manualIncome,                    color:"bg-emerald-400",  sign:"+" },
+                      ...(prevBalanceNegative > 0 ? [{ label:"Previous Month Deficit",               value:prevBalanceNegative, color:"bg-rose-500",  sign:"−" }] : []),
+                      { label:"Manual Operational Expense",    value:manualExpense,                    color:"bg-rose-400",    sign:"−" },
+                      { label:"Vendor Payout Settlements",     value:totalVendorPaid,                  color:"bg-indigo-400",  sign:"−" },
+                      { label:"Total Advance",          value:manualAdvanceTotal + totalAdvance, color:"bg-amber-400",  sign:"−" },
+                    ];
+                    return rows.map((item,i) => (
+                      <div key={i}>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{item.label}</span>
+                          <span className={`text-xs font-black ${item.sign==="+"?"text-emerald-400":"text-rose-400"}`}>
+                            {item.sign} {fmt(item.value)}
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-800/50 rounded-full h-1.5 overflow-hidden border border-slate-700/50">
+                          <div className={`h-full ${item.color} rounded-full transition-all duration-700`}
+                            style={{ width:`${Math.min(100,(item.value/maxVal)*100)}%` }} />
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+                {/* Net Balance box */}
+                <div className={`mt-8 rounded-[1.5rem] p-5 transition-all duration-500 ${
+                  netBalance >= 0
+                    ? "bg-gradient-to-br from-emerald-500/20 to-teal-500/5 border border-emerald-500/20"
+                    : "bg-gradient-to-br from-rose-500/20 to-red-500/5 border border-rose-500/20"
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Net Disposable Balance</p>
+                      <h2 className={`text-3xl font-black tracking-tighter ${netBalance>=0?"text-emerald-400":"text-rose-400"}`}>
+                        {netBalance>=0?"+":""}{prevMonthLoading?"…":fmt(netBalance)}
+                      </h2>
+                    </div>
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                      netBalance>=0?"bg-emerald-500/20 text-emerald-400":"bg-rose-500/20 text-rose-400"
+                    }`}>
+                      {netBalance>=0 ? <FiTrendingUp size={24}/> : <FiTrendingDown size={24}/>}
                     </div>
                   </div>
-                ))}
-              </div>
-              <div className="mt-5 pt-4 border-t border-gray-100 grid grid-cols-3 gap-2 text-center">
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-400">Trips</p>
-                  <p className="text-xl font-black text-gray-800">{trips.length}</p>
-                </div>
-                <div className="bg-amber-50 rounded-lg p-3">
-                  <p className="text-xs text-amber-600">Vendors</p>
-                  <p className="text-lg font-black text-amber-700">{Object.keys(vendorMap).length}</p>
-                </div>
-                <div className="bg-red-50 rounded-lg p-3">
-                  <p className="text-xs text-red-500">Due</p>
-                  <p className="text-lg font-black text-red-700">{pendingVendors}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
-              <h3 className="text-sm font-bold text-gray-800 mb-4">Accounts Cash Flow</h3>
-              <div className="space-y-3 mb-5">
-                {(() => {
-                  const maxVal = Math.max(totalIncome, totalExpense, 1);
-                  const rows = [
-                    ...(prevBalancePositive > 0 ? [{ label:`Opening Balance (${prevMonthName})`, value:prevBalancePositive, color:"bg-teal-400", sign:"+" }] : []),
-                    { label:"Income (this month)",    value:manualIncome,        color:"bg-emerald-400", sign:"+" },
-                    ...(prevBalanceNegative > 0 ? [{ label:`Deficit from ${prevMonthName}`, value:prevBalanceNegative, color:"bg-rose-500", sign:"−" }] : []),
-                    { label:"Manual Expense",         value:manualExpense,       color:"bg-red-400",     sign:"−" },
-                    { label:"Vendor Payments",        value:totalVendorPaid,     color:"bg-indigo-400",  sign:"−" },
-                    { label:"Advance — Manual",       value:manualAdvanceTotal,  color:"bg-orange-400",  sign:"−" },
-                    { label:"Advance — Auto (trips)", value:totalAdvance,        color:"bg-amber-400",   sign:"−" },
-                  ];
-                  return rows.map((item,i) => (
-                    <div key={i}>
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs text-gray-500">{item.label}</span>
-                        <span className="text-xs font-bold text-gray-800">{item.sign} {fmt(item.value)}</span>
-                      </div>
-                      <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                        <div className={`h-full ${item.color} rounded-full`}
-                          style={{ width:`${Math.min(100,(item.value/maxVal)*100)}%` }} />
-                      </div>
-                    </div>
-                  ));
-                })()}
-              </div>
-              <div className={`rounded-xl p-4 flex items-center justify-between ${netBalance>=0?"bg-emerald-50 border border-emerald-200":"bg-red-50 border border-red-200"}`}>
-                <span className="text-sm font-semibold text-gray-700">Net Balance</span>
-                <span className={`text-2xl font-black ${netBalance>=0?"text-emerald-700":"text-red-700"}`}>
-                  {netBalance>=0?"+":""}{prevMonthLoading?"…":fmt(netBalance)}
-                </span>
-              </div>
-            </div>
-
+            {/* ── CARD 3: PENDING VENDORS QUICK VIEW (col-span-2) ── */}
             <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 lg:col-span-2">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-bold text-gray-800">Pending Vendors — Quick View</h3>
@@ -1943,6 +1952,7 @@ const AccountsDashboard = () => {
                 </div>
               )}
             </div>
+
           </div>
         )}
 
@@ -1968,25 +1978,27 @@ const AccountsDashboard = () => {
           const paidCurrent    = manualAdvances.filter(a => a.status === "paid");
           const unpaidTotal    = unpaidCurrent.reduce((s,a) => s+num(a.amount), 0);
 
-          // FIX: carried rows — exclude যেগুলো current month এও আছে (duplicate prevention)
-          const currentIds = new Set(manualAdvances.map(a => String(a._id)));
+          const currentIds    = new Set(manualAdvances.map(a => String(a._id)));
           const uniqueCarried = carryForwardTxs.filter(a => !currentIds.has(String(a._id)));
 
           const filteredManual = manualAdvances.filter(a =>
-            !advSearch ||
-            (a.recipientName||"").toLowerCase().includes(advSearch.toLowerCase()) ||
-            (a.note||"").toLowerCase().includes(advSearch.toLowerCase())
+            (advTypeFilter === "all" || advTypeFilter === "manual") &&
+            (!advSearch ||
+              (a.recipientName||"").toLowerCase().includes(advSearch.toLowerCase()) ||
+              (a.note||"").toLowerCase().includes(advSearch.toLowerCase()))
           );
           const filteredTrip = tripAdvances.filter(t =>
-            !advSearch ||
-            (t.vendorName||"").toLowerCase().includes(advSearch.toLowerCase()) ||
-            (t.tripNumber||"").toLowerCase().includes(advSearch.toLowerCase()) ||
-            (t.driverName||"").toLowerCase().includes(advSearch.toLowerCase())
+            (advTypeFilter === "all" || advTypeFilter === "auto") &&
+            (!advSearch ||
+              (t.vendorName||"").toLowerCase().includes(advSearch.toLowerCase()) ||
+              (t.tripNumber||"").toLowerCase().includes(advSearch.toLowerCase()) ||
+              (t.driverName||"").toLowerCase().includes(advSearch.toLowerCase()))
           );
           const filteredCarried = uniqueCarried.filter(a =>
-            !advSearch ||
-            (a.recipientName||"").toLowerCase().includes(advSearch.toLowerCase()) ||
-            (a.note||"").toLowerCase().includes(advSearch.toLowerCase())
+            (advTypeFilter === "all" || advTypeFilter === "carry") &&
+            (!advSearch ||
+              (a.recipientName||"").toLowerCase().includes(advSearch.toLowerCase()) ||
+              (a.note||"").toLowerCase().includes(advSearch.toLowerCase()))
           );
 
           const allRows = [
@@ -2053,11 +2065,19 @@ const AccountsDashboard = () => {
               <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
                 <div className="px-5 py-3.5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center gap-3">
                   <h3 className="text-sm font-bold text-gray-800">Advance History</h3>
-                  <div className="sm:ml-auto flex items-center gap-2">
+                  <div className="sm:ml-auto flex flex-wrap items-center gap-2">
                     <input
-                      className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-gray-400 w-52 bg-white"
+                      className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-gray-400 w-48 bg-white"
                       placeholder="Search name / trip / note…"
                       value={advSearch} onChange={e => setAdvSearch(e.target.value)} />
+                    <select
+                      className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none bg-white text-gray-600 focus:border-gray-400"
+                      value={advTypeFilter} onChange={e => setAdvTypeFilter(e.target.value)}>
+                      <option value="all">All Types</option>
+                      <option value="manual">Manual</option>
+                      <option value="auto">Auto (Trips)</option>
+                      <option value="carry">Carried Forward</option>
+                    </select>
                     <span className="text-xs text-gray-400 shrink-0">{allRows.length} entries</span>
                   </div>
                 </div>
@@ -2183,7 +2203,6 @@ const AccountsDashboard = () => {
                       </tr>
                     ))}
                   </tbody>
-                  {/* FIX: footer total — "all" filter এ hide */}
                   {footerTotal !== null && (
                     <tfoot>
                       <tr className="bg-gray-50 border-t-2 border-gray-200">
@@ -2232,7 +2251,6 @@ const AccountsDashboard = () => {
                   </button>
                 </div>
               </div>
-
               <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
                 {auditLoading ? (
                   <div className="py-16 text-center text-gray-400 text-sm animate-pulse">লোড হচ্ছে…</div>
