@@ -6,9 +6,11 @@
 // import { useNavigate } from "react-router";
 // import { Edit3, Trash2, Eye, Phone, MapPin, X, Loader2, User, ReceiptText } from "lucide-react";
 // import LoadingSpinner from "../Component/LoadingSpinner";
+// import useAuth from "../hooks/useAuth";
 
 // const AllVendor = () => {
 //   const axiosSecure = useAxiosSecure();
+//   const { user } = useAuth();
 //   const [vendors, setVendors] = useState([]);
 //   const [loading, setLoading] = useState(true);
 //   const navigate = useNavigate();
@@ -16,6 +18,24 @@
 //   const [editVendor, setEditVendor] = useState(null);
 //   const [uploading, setUploading] = useState(false);
 //   const [updatedImg, setUpdatedImg] = useState("");
+
+//   // current logged in user এর role এবং vendorName
+//   const [currentUserData, setCurrentUserData] = useState(null);
+
+//   useEffect(() => {
+//     // user এর role fetch করো
+//     const fetchCurrentUser = async () => {
+//       try {
+//         const res = await axiosSecure.get(`/users/${user?.email}/role`);
+//         setCurrentUserData(res.data);
+//       } catch {
+//         setCurrentUserData(null);
+//       }
+//     };
+//     if (user?.email) fetchCurrentUser();
+//   }, [user]);
+
+//   const isVendorRole = currentUserData?.role === 'vendor';
 
 //   useEffect(() => {
 //     fetchVendors();
@@ -100,95 +120,128 @@
 //       {/* Header Section */}
 //       <div className="max-w-7xl mx-auto mb-8 text-center md:text-left flex justify-between items-center">
 //         <div>
-//           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight uppercase">Vendor Directory</h1>
-//           <p className="text-slate-600 text-[13px] mt-1">Manage partner profiles and logistics contact info.</p>
+//           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight uppercase">
+//             {isVendorRole ? "My Vendor Profile" : "Vendor Directory"}
+//           </h1>
+//           <p className="text-slate-600 text-[13px] mt-1">
+//             {isVendorRole
+//               ? "আপনার vendor profile এবং trip summary দেখুন।"
+//               : "Manage partner profiles and logistics contact info."}
+//           </p>
 //         </div>
-//         <div className="bg-slate-900 px-5 py-2.5 rounded-lg shadow-lg flex items-center gap-3 border border-slate-800">
-//           <span className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.15em]">Total</span>
-//           <span className="text-white font-black text-lg border-l pl-3 border-slate-700">{vendors.length}</span>
-//         </div>
+//         {!isVendorRole && (
+//           <div className="bg-slate-900 px-5 py-2.5 rounded-lg shadow-lg flex items-center gap-3 border border-slate-800">
+//             <span className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.15em]">Total</span>
+//             <span className="text-white font-black text-lg border-l pl-3 border-slate-700">{vendors.length}</span>
+//           </div>
+//         )}
 //       </div>
 
-//       {/* Table Section */}
-//       <div className="max-w-7xl mx-auto bg-white rounded-xl border border-slate-300 shadow-xl overflow-hidden">
-//         <div className="overflow-x-auto">
-//           <table className="w-full text-left border-collapse">
-//             <thead className="bg-slate-50 border-b-2 border-slate-200">
-//               <tr>
-//                 <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-widest text-center">#</th>
-//                 <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-widest">Vendor Profile</th>
-//                 <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-widest">Contact</th>
-//                 <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-widest">Location</th>
-//                 <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-widest text-center">Action</th>
-//               </tr>
-//             </thead>
-//             <tbody className="divide-y divide-slate-200">
-//               {vendors.map((vendor, index) => (
-//                 <tr key={vendor._id} className="hover:bg-slate-50 transition-all">
-//                   <td className="px-6 py-4 text-center text-[12px] font-bold text-slate-400">{index + 1}</td>
-//                   <td className="px-6 py-4">
-//                     <div className="flex items-center gap-4">
-//                       <div className="w-11 h-11 rounded-lg bg-slate-100 border overflow-hidden">
-//                         {vendor.vendorImg
-//                           ? <img src={vendor.vendorImg} className="w-full h-full object-cover" />
-//                           : <User size={20} className="m-auto mt-2 text-slate-300" />
-//                         }
-//                       </div>
-//                       <div>
-//                         <p className="font-bold text-slate-900 text-[15px]">{vendor.vendorName}</p>
-//                         <p className="text-[10px] text-slate-500 font-mono">ID: {vendor._id.slice(-8).toUpperCase()}</p>
-//                       </div>
-//                     </div>
-//                   </td>
-//                   <td className="px-6 py-4">
-//                     <div className="flex items-center gap-2 text-slate-700 font-bold text-[13px]">
-//                       <Phone size={12} className="text-emerald-500" /> {vendor.vendorPhone}
-//                     </div>
-//                   </td>
-//                   <td className="px-6 py-4 text-[13px] text-slate-600 font-medium">
-//                     <MapPin size={14} className="inline mr-1 text-slate-400" /> {vendor.vendorAddress}
-//                   </td>
-//                   <td className="px-6 py-4 text-center">
-//                     <div className="flex justify-center gap-2">
-//                       <button
-//                         onClick={() => navigate(`/vendor-details/${vendor._id}`)}
-//                         title="View Details"
-//                         className="p-2 border rounded-lg hover:bg-slate-900 hover:text-white transition-all"
-//                       >
-//                         <Eye size={16} />
-//                       </button>
-//                       <button
-//                         onClick={() => navigate(`/vendor-trip-summary/${vendor._id}`)}
-//                         title="Trip Summary"
-//                         className="p-2 border rounded-lg hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all text-indigo-500"
-//                       >
-//                         <ReceiptText size={16} />
-//                       </button>
-//                       <button
-//                         onClick={() => setEditVendor(vendor)}
-//                         title="Edit Vendor"
-//                         className="p-2 border rounded-lg hover:bg-amber-500 hover:text-white transition-all"
-//                       >
-//                         <Edit3 size={16} />
-//                       </button>
-//                       <button
-//                         onClick={() => handleDelete(vendor._id)}
-//                         title="Delete Vendor"
-//                         className="p-2 border rounded-lg hover:bg-red-600 hover:text-white transition-all"
-//                       >
-//                         <Trash2 size={16} />
-//                       </button>
-//                     </div>
-//                   </td>
+//       {vendors.length === 0 ? (
+//         <div className="max-w-7xl mx-auto">
+//           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-16 text-center">
+//             <p className="text-slate-400 italic text-sm">No vendor data found.</p>
+//             {isVendorRole && (
+//               <p className="text-slate-400 text-xs mt-2">Admin আপনাকে কোনো vendor এর সাথে link করেনি।</p>
+//             )}
+//           </div>
+//         </div>
+//       ) : (
+//         <div className="max-w-7xl mx-auto bg-white rounded-xl border border-slate-300 shadow-xl overflow-hidden">
+//           <div className="overflow-x-auto">
+//             <table className="w-full text-left border-collapse">
+//               <thead className="bg-slate-50 border-b-2 border-slate-200">
+//                 <tr>
+//                   {!isVendorRole && (
+//                     <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-widest text-center">#</th>
+//                   )}
+//                   <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-widest">Vendor Profile</th>
+//                   <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-widest">Contact</th>
+//                   <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-widest">Location</th>
+//                   <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-widest text-center">Action</th>
 //                 </tr>
-//               ))}
-//             </tbody>
-//           </table>
-//         </div>
-//       </div>
+//               </thead>
+//               <tbody className="divide-y divide-slate-200">
+//                 {vendors.map((vendor, index) => (
+//                   <tr key={vendor._id} className="hover:bg-slate-50 transition-all">
+//                     {!isVendorRole && (
+//                       <td className="px-6 py-4 text-center text-[12px] font-bold text-slate-400">{index + 1}</td>
+//                     )}
+//                     <td className="px-6 py-4">
+//                       <div className="flex items-center gap-4">
+//                         <div className="w-11 h-11 rounded-lg bg-slate-100 border overflow-hidden">
+//                           {vendor.vendorImg
+//                             ? <img src={vendor.vendorImg} className="w-full h-full object-cover" alt="" />
+//                             : <User size={20} className="m-auto mt-2 text-slate-300" />
+//                           }
+//                         </div>
+//                         <div>
+//                           <p className="font-bold text-slate-900 text-[15px]">{vendor.vendorName}</p>
+//                           {!isVendorRole && (
+//                             <p className="text-[10px] text-slate-500 font-mono">ID: {vendor._id.slice(-8).toUpperCase()}</p>
+//                           )}
+//                         </div>
+//                       </div>
+//                     </td>
+//                     <td className="px-6 py-4">
+//                       <div className="flex items-center gap-2 text-slate-700 font-bold text-[13px]">
+//                         <Phone size={12} className="text-emerald-500" /> {vendor.vendorPhone}
+//                       </div>
+//                     </td>
+//                     <td className="px-6 py-4 text-[13px] text-slate-600 font-medium">
+//                       <MapPin size={14} className="inline mr-1 text-slate-400" /> {vendor.vendorAddress}
+//                     </td>
+//                     <td className="px-6 py-4 text-center">
+//                       <div className="flex justify-center gap-2">
+//                         {/* Details — সবাই দেখতে পারবে */}
+//                         <button
+//                           onClick={() => navigate(`/vendor-details/${vendor._id}`)}
+//                           title="View Details"
+//                           className="p-2 border rounded-lg hover:bg-slate-900 hover:text-white transition-all"
+//                         >
+//                           <Eye size={16} />
+//                         </button>
 
-//       {/* Edit Modal */}
-//       {editVendor && (
+//                         {/* Trip Summary — সবাই দেখতে পারবে */}
+//                         <button
+//                           onClick={() => navigate(`/vendor-trip-summary/${vendor._id}`)}
+//                           title="Trip Summary"
+//                           className="p-2 border rounded-lg hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all text-indigo-500"
+//                         >
+//                           <ReceiptText size={16} />
+//                         </button>
+
+//                         {/* Edit ও Delete — শুধু non-vendor দেখতে পারবে */}
+//                         {!isVendorRole && (
+//                           <>
+//                             <button
+//                               onClick={() => setEditVendor(vendor)}
+//                               title="Edit Vendor"
+//                               className="p-2 border rounded-lg hover:bg-amber-500 hover:text-white transition-all"
+//                             >
+//                               <Edit3 size={16} />
+//                             </button>
+//                             <button
+//                               onClick={() => handleDelete(vendor._id)}
+//                               title="Delete Vendor"
+//                               className="p-2 border rounded-lg hover:bg-red-600 hover:text-white transition-all"
+//                             >
+//                               <Trash2 size={16} />
+//                             </button>
+//                           </>
+//                         )}
+//                       </div>
+//                     </td>
+//                   </tr>
+//                 ))}
+//               </tbody>
+//             </table>
+//           </div>
+//         </div>
+//       )}
+
+//       {/* Edit Modal — শুধু non-vendor দেখতে পারবে */}
+//       {editVendor && !isVendorRole && (
 //         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
 //           <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border overflow-hidden">
 //             <div className="flex justify-between items-center px-6 py-4 border-b bg-slate-50">
@@ -252,233 +305,174 @@
 
 
 
+
+
 import React, { useEffect, useState } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router";
 import { Edit3, Trash2, Eye, Phone, MapPin, X, Loader2, User, ReceiptText } from "lucide-react";
 import LoadingSpinner from "../Component/LoadingSpinner";
-import useAuth from "../hooks/useAuth";
+import useRole from "../hooks/useRole";
 
 const AllVendor = () => {
   const axiosSecure = useAxiosSecure();
-  const { user } = useAuth();
+  const { role } = useRole();
+  const isVendorRole = role === "vendor";
+  const roleReady = role !== undefined;
+
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-
   const [editVendor, setEditVendor] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [updatedImg, setUpdatedImg] = useState("");
 
-  // current logged in user এর role এবং vendorName
-  const [currentUserData, setCurrentUserData] = useState(null);
-
   useEffect(() => {
-    // user এর role fetch করো
-    const fetchCurrentUser = async () => {
-      try {
-        const res = await axiosSecure.get(`/users/${user?.email}/role`);
-        setCurrentUserData(res.data);
-      } catch {
-        setCurrentUserData(null);
-      }
-    };
-    if (user?.email) fetchCurrentUser();
-  }, [user]);
-
-  const isVendorRole = currentUserData?.role === 'vendor';
-
-  useEffect(() => {
-    fetchVendors();
-  }, []);
-
-  const fetchVendors = async () => {
-    try {
-      const res = await axiosSecure.get("/vendors");
-      setVendors(res.data);
-    } catch (error) {
-      console.error("Error fetching vendors:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (!roleReady) return;
+    axiosSecure.get("/vendors")
+      .then(res => setVendors(res.data))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [roleReady]);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
     try {
-      const imgFormData = new FormData();
-      imgFormData.append("image", file);
-      const res = await axiosSecure.post("/upload-image", imgFormData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const fd = new FormData();
+      fd.append("image", file);
+      const res = await axiosSecure.post("/upload-image", fd, { headers: { "Content-Type": "multipart/form-data" } });
       if (res.data.success) {
         setUpdatedImg(res.data.url);
-        Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Photo uploaded successfully", showConfirmButton: false, timer: 1500 });
+        Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Photo uploaded", showConfirmButton: false, timer: 1500 });
       }
-    } catch (error) {
-      console.error("Upload failed", error);
-      Swal.fire("Error", "Image upload failed", "error");
-    } finally {
-      setUploading(false);
-    }
+    } catch { Swal.fire("Error", "Image upload failed", "error"); }
+    finally { setUploading(false); }
   };
 
   const handleDelete = (id) => {
-    Swal.fire({
-      title: "Confirm Deletion",
-      text: "This record will be permanently removed.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#1e293b",
-      cancelButtonColor: "#94a3b8",
-      confirmButtonText: "Yes, Delete",
-      customClass: { popup: "rounded-xl" },
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        const res = await axiosSecure.delete(`/vendors/${id}`);
-        if (res.data.deletedCount > 0) {
-          Swal.fire("Deleted", "Vendor has been removed.", "success");
-          setVendors(vendors.filter((v) => v._id !== id));
+    Swal.fire({ title: "Confirm Deletion", text: "This record will be permanently removed.", icon: "warning",
+      showCancelButton: true, confirmButtonColor: "#1e293b", cancelButtonColor: "#94a3b8", confirmButtonText: "Yes, Delete" })
+      .then(async (r) => {
+        if (r.isConfirmed) {
+          const res = await axiosSecure.delete(`/vendors/${id}`);
+          if (res.data.deletedCount > 0) {
+            Swal.fire("Deleted", "Vendor has been removed.", "success");
+            setVendors(prev => prev.filter(v => v._id !== id));
+          }
         }
-      }
-    });
+      });
   };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
     const form = e.target;
-    const updatedData = {
-      vendorName: form.vendorName.value,
-      vendorPhone: form.vendorPhone.value,
-      vendorAddress: form.vendorAddress.value,
-      vendorImg: updatedImg || editVendor.vendorImg,
-    };
-    const res = await axiosSecure.patch(`/vendors/${editVendor._id}`, updatedData);
+    const data = { vendorName: form.vendorName.value, vendorPhone: form.vendorPhone.value, vendorAddress: form.vendorAddress.value, vendorImg: updatedImg || editVendor.vendorImg };
+    const res = await axiosSecure.patch(`/vendors/${editVendor._id}`, data);
     if (res.data.modifiedCount > 0) {
       Swal.fire({ icon: "success", title: "Updated!", timer: 1500, showConfirmButton: false });
+      setVendors(prev => prev.map(v => v._id === editVendor._id ? { ...v, ...data } : v));
       setEditVendor(null);
       setUpdatedImg("");
-      fetchVendors();
     }
   };
 
-  if (loading) return <LoadingSpinner text="Fetching Records..." />;
+  if (!roleReady || loading) return <LoadingSpinner text="Fetching Records..." />;
 
   return (
-    <div className="p-6 md:p-10 bg-[#F1F5F9] min-h-screen font-sans">
-      {/* Header Section */}
-      <div className="max-w-7xl mx-auto mb-8 text-center md:text-left flex justify-between items-center">
+    <div className="flex flex-col h-full">
+      {/* ── Header ── */}
+      <div className="flex-shrink-0 flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight uppercase">
+          <h1 className="text-lg font-extrabold text-slate-900 tracking-tight uppercase leading-tight">
             {isVendorRole ? "My Vendor Profile" : "Vendor Directory"}
           </h1>
-          <p className="text-slate-600 text-[13px] mt-1">
-            {isVendorRole
-              ? "আপনার vendor profile এবং trip summary দেখুন।"
-              : "Manage partner profiles and logistics contact info."}
+          <p className="text-slate-500 text-xs mt-0.5">
+            {isVendorRole ? "আপনার vendor profile এবং trip summary।" : "Manage partner profiles and logistics."}
           </p>
         </div>
         {!isVendorRole && (
-          <div className="bg-slate-900 px-5 py-2.5 rounded-lg shadow-lg flex items-center gap-3 border border-slate-800">
-            <span className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.15em]">Total</span>
-            <span className="text-white font-black text-lg border-l pl-3 border-slate-700">{vendors.length}</span>
+          <div className="bg-slate-900 px-4 py-2 rounded-lg flex items-center gap-2.5 border border-slate-800">
+            <span className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Total</span>
+            <span className="text-white font-black text-base border-l pl-2.5 border-slate-700">{vendors.length}</span>
           </div>
         )}
       </div>
 
+      {/* ── Table ── */}
       {vendors.length === 0 ? (
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-16 text-center">
-            <p className="text-slate-400 italic text-sm">No vendor data found.</p>
-            {isVendorRole && (
-              <p className="text-slate-400 text-xs mt-2">Admin আপনাকে কোনো vendor এর সাথে link করেনি।</p>
-            )}
-          </div>
+        <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center">
+          <p className="text-slate-400 italic text-sm">No vendor data found.</p>
+          {isVendorRole && <p className="text-slate-400 text-xs mt-1">Admin আপনাকে কোনো vendor এর সাথে link করেনি।</p>}
         </div>
       ) : (
-        <div className="max-w-7xl mx-auto bg-white rounded-xl border border-slate-300 shadow-xl overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="flex-1 min-h-0 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+          <div className="flex-1 min-h-0 overflow-auto">
             <table className="w-full text-left border-collapse">
-              <thead className="bg-slate-50 border-b-2 border-slate-200">
-                <tr>
-                  {!isVendorRole && (
-                    <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-widest text-center">#</th>
-                  )}
-                  <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-widest">Vendor Profile</th>
-                  <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-widest">Contact</th>
-                  <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-widest">Location</th>
-                  <th className="px-6 py-4 text-[11px] font-black text-slate-700 uppercase tracking-widest text-center">Action</th>
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-slate-50 border-b-2 border-slate-200">
+                  {!isVendorRole && <th className="px-4 py-3 text-[10px] font-black text-slate-600 uppercase tracking-widest text-center w-10">#</th>}
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-600 uppercase tracking-widest">Vendor</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-600 uppercase tracking-widest hidden sm:table-cell">Contact</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-600 uppercase tracking-widest hidden md:table-cell">Location</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-600 uppercase tracking-widest text-center">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody className="divide-y divide-slate-100">
                 {vendors.map((vendor, index) => (
-                  <tr key={vendor._id} className="hover:bg-slate-50 transition-all">
+                  <tr key={vendor._id} className="hover:bg-slate-50/80 transition-colors">
                     {!isVendorRole && (
-                      <td className="px-6 py-4 text-center text-[12px] font-bold text-slate-400">{index + 1}</td>
+                      <td className="px-4 py-3 text-center text-xs font-bold text-slate-400">{index + 1}</td>
                     )}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-4">
-                        <div className="w-11 h-11 rounded-lg bg-slate-100 border overflow-hidden">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden shrink-0">
                           {vendor.vendorImg
                             ? <img src={vendor.vendorImg} className="w-full h-full object-cover" alt="" />
-                            : <User size={20} className="m-auto mt-2 text-slate-300" />
-                          }
+                            : <User size={16} className="m-auto mt-1.5 text-slate-300" />}
                         </div>
-                        <div>
-                          <p className="font-bold text-slate-900 text-[15px]">{vendor.vendorName}</p>
-                          {!isVendorRole && (
-                            <p className="text-[10px] text-slate-500 font-mono">ID: {vendor._id.slice(-8).toUpperCase()}</p>
-                          )}
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-900 text-sm truncate">{vendor.vendorName}</p>
+                          {!isVendorRole && <p className="text-[9px] text-slate-400 font-mono">ID: {vendor._id.slice(-8).toUpperCase()}</p>}
+                          {/* Contact visible on mobile only */}
+                          <p className="text-[10px] text-slate-500 sm:hidden flex items-center gap-1 mt-0.5">
+                            <Phone size={9} className="text-emerald-500 shrink-0"/> {vendor.vendorPhone}
+                          </p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-slate-700 font-bold text-[13px]">
-                        <Phone size={12} className="text-emerald-500" /> {vendor.vendorPhone}
+                    <td className="px-4 py-3 hidden sm:table-cell">
+                      <div className="flex items-center gap-1.5 text-slate-700 font-semibold text-xs">
+                        <Phone size={11} className="text-emerald-500 shrink-0" /> {vendor.vendorPhone}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-[13px] text-slate-600 font-medium">
-                      <MapPin size={14} className="inline mr-1 text-slate-400" /> {vendor.vendorAddress}
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      <p className="text-xs text-slate-600 flex items-start gap-1">
+                        <MapPin size={11} className="text-slate-400 shrink-0 mt-0.5" />
+                        <span className="line-clamp-2">{vendor.vendorAddress}</span>
+                      </p>
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <div className="flex justify-center gap-2">
-                        {/* Details — সবাই দেখতে পারবে */}
-                        <button
-                          onClick={() => navigate(`/vendor-details/${vendor._id}`)}
-                          title="View Details"
-                          className="p-2 border rounded-lg hover:bg-slate-900 hover:text-white transition-all"
-                        >
-                          <Eye size={16} />
+                    <td className="px-4 py-3">
+                      <div className="flex justify-center items-center gap-1.5 flex-wrap">
+                        <button onClick={() => navigate(`/vendor-details/${vendor._id}`)} title="View Details"
+                          className="p-2 border rounded-lg hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all text-slate-500">
+                          <Eye size={14} />
                         </button>
-
-                        {/* Trip Summary — সবাই দেখতে পারবে */}
-                        <button
-                          onClick={() => navigate(`/vendor-trip-summary/${vendor._id}`)}
-                          title="Trip Summary"
-                          className="p-2 border rounded-lg hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all text-indigo-500"
-                        >
-                          <ReceiptText size={16} />
+                        <button onClick={() => navigate(`/vendor-trip-summary/${vendor._id}`)} title="Trip Summary"
+                          className="p-2 border rounded-lg hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all text-indigo-500 border-indigo-200">
+                          <ReceiptText size={14} />
                         </button>
-
-                        {/* Edit ও Delete — শুধু non-vendor দেখতে পারবে */}
                         {!isVendorRole && (
                           <>
-                            <button
-                              onClick={() => setEditVendor(vendor)}
-                              title="Edit Vendor"
-                              className="p-2 border rounded-lg hover:bg-amber-500 hover:text-white transition-all"
-                            >
-                              <Edit3 size={16} />
+                            <button onClick={() => setEditVendor(vendor)} title="Edit"
+                              className="p-2 border rounded-lg hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-all text-slate-500">
+                              <Edit3 size={14} />
                             </button>
-                            <button
-                              onClick={() => handleDelete(vendor._id)}
-                              title="Delete Vendor"
-                              className="p-2 border rounded-lg hover:bg-red-600 hover:text-white transition-all"
-                            >
-                              <Trash2 size={16} />
+                            <button onClick={() => handleDelete(vendor._id)} title="Delete"
+                              className="p-2 border rounded-lg hover:bg-red-600 hover:text-white hover:border-red-600 transition-all text-slate-500">
+                              <Trash2 size={14} />
                             </button>
                           </>
                         )}
@@ -492,56 +486,50 @@ const AllVendor = () => {
         </div>
       )}
 
-      {/* Edit Modal — শুধু non-vendor দেখতে পারবে */}
+      {/* ── Edit Modal ── */}
       {editVendor && !isVendorRole && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border overflow-hidden">
-            <div className="flex justify-between items-center px-6 py-4 border-b bg-slate-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md border overflow-hidden">
+            <div className="flex justify-between items-center px-5 py-3.5 border-b bg-slate-50">
               <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest">Update Vendor</h2>
-              <button onClick={() => { setEditVendor(null); setUpdatedImg(""); }} className="text-slate-400 hover:text-red-500">
-                <X size={22} />
+              <button onClick={() => { setEditVendor(null); setUpdatedImg(""); }} className="text-slate-400 hover:text-red-500 transition">
+                <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleUpdate} className="p-8 space-y-5">
-              <div className="grid grid-cols-2 gap-5">
-                <div className="space-y-1.5">
+            <form onSubmit={handleUpdate} className="p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-500 uppercase">Legal Name</label>
                   <input type="text" name="vendorName" defaultValue={editVendor.vendorName}
-                    className="w-full text-sm p-3 rounded-lg border outline-none focus:ring-2 focus:ring-slate-900" required />
+                    className="w-full text-sm p-2.5 rounded-lg border outline-none focus:ring-2 focus:ring-slate-900" required />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-500 uppercase">Phone</label>
                   <input type="text" name="vendorPhone" defaultValue={editVendor.vendorPhone}
-                    className="w-full text-sm p-3 rounded-lg border outline-none focus:ring-2 focus:ring-slate-900" required />
+                    className="w-full text-sm p-2.5 rounded-lg border outline-none focus:ring-2 focus:ring-slate-900" required />
                 </div>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-500 uppercase">Vendor Logo</label>
-                <div className="flex items-center gap-4 p-3 border rounded-lg bg-slate-50">
-                  <div className="w-12 h-12 rounded bg-white border overflow-hidden">
+                <div className="flex items-center gap-3 p-2.5 border rounded-lg bg-slate-50">
+                  <div className="w-10 h-10 rounded bg-white border overflow-hidden shrink-0">
                     <img src={updatedImg || editVendor.vendorImg} alt="preview" className="w-full h-full object-cover" />
                   </div>
-                  <input type="file" onChange={handleImageUpload} className="text-xs w-full"
+                  <input type="file" onChange={handleImageUpload} className="text-xs flex-1 min-w-0"
                     accept="image/jpeg,image/png,image/webp" disabled={uploading} />
                 </div>
-                {uploading && (
-                  <p className="text-[10px] text-blue-600 animate-pulse font-bold flex items-center gap-1">
-                    <Loader2 size={10} className="animate-spin" /> Uploading...
-                  </p>
-                )}
+                {uploading && <p className="text-[10px] text-blue-600 animate-pulse font-bold flex items-center gap-1"><Loader2 size={10} className="animate-spin" /> Uploading...</p>}
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-500 uppercase">Address</label>
-                <textarea name="vendorAddress" defaultValue={editVendor.vendorAddress} rows="3"
-                  className="w-full text-sm p-3 rounded-lg border outline-none focus:ring-2 focus:ring-slate-900" required />
+                <textarea name="vendorAddress" defaultValue={editVendor.vendorAddress} rows="2"
+                  className="w-full text-sm p-2.5 rounded-lg border outline-none focus:ring-2 focus:ring-slate-900 resize-none" required />
               </div>
-              <div className="flex gap-4 pt-4 border-t">
+              <div className="flex gap-3 pt-2 border-t">
                 <button type="button" onClick={() => { setEditVendor(null); setUpdatedImg(""); }}
-                  className="flex-1 py-3 text-[11px] font-black text-slate-400 border rounded-lg uppercase">
-                  Dismiss
-                </button>
+                  className="flex-1 py-2.5 text-xs font-black text-slate-400 border rounded-lg uppercase hover:bg-slate-50 transition">Dismiss</button>
                 <button type="submit" disabled={uploading}
-                  className={`flex-1 py-3 text-white text-[11px] font-black rounded-lg uppercase ${uploading ? "bg-slate-400" : "bg-slate-900 hover:bg-black"}`}>
+                  className={`flex-1 py-2.5 text-white text-xs font-black rounded-lg uppercase transition ${uploading ? "bg-slate-400" : "bg-slate-900 hover:bg-black"}`}>
                   {uploading ? "Uploading..." : "Save Changes"}
                 </button>
               </div>

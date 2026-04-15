@@ -1,19 +1,370 @@
 
 
+// import React, { useEffect, useState } from "react";
+// import { useParams, useNavigate } from "react-router";
+// import Swal from "sweetalert2";
+// import useAxiosSecure from "../hooks/useAxiosSecure";
+// import {
+//   Truck, Phone, MapPin, User, Plus, Loader2, ClipboardList,
+//   Briefcase, Camera, Edit3, Trash2, PhoneCall, ReceiptText
+// } from "lucide-react";
+// import LoadingSpinner from "../Component/LoadingSpinner";
+
+// const VendorDetails = () => {
+//   const { id } = useParams();
+//   const navigate = useNavigate();
+//   const axiosSecure = useAxiosSecure();
+
+//   const [vendor, setVendor] = useState({});
+//   const [vehicles, setVehicles] = useState([]);
+//   const [loading, setLoading] = useState(true);
+//   const [uploading, setUploading] = useState(false);
+//   const [driverImg, setDriverImg] = useState("");
+
+//   useEffect(() => {
+//     const loadData = async () => {
+//       await Promise.all([fetchVendor(), fetchVehicles()]);
+//       setLoading(false);
+//     };
+//     loadData();
+//   }, [id]);
+
+//   const fetchVendor = async () => {
+//     const res = await axiosSecure.get(`/vendors/${id}`);
+//     setVendor(res.data);
+//   };
+
+//   const fetchVehicles = async () => {
+//     const res = await axiosSecure.get(`/vendors/${id}`);
+//     setVehicles(res.data.vehicles || []);
+//   };
+
+//   const handleImageUpload = async (e) => {
+//     const file = e.target.files[0];
+//     if (!file) return;
+//     setUploading(true);
+//     try {
+//       const imgFormData = new FormData();
+//       imgFormData.append("image", file);
+//       const res = await axiosSecure.post("/upload-image", imgFormData, {
+//         headers: { "Content-Type": "multipart/form-data" },
+//       });
+//       if (res.data.success) {
+//         setDriverImg(res.data.url);
+//         Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Driver Photo Uploaded", showConfirmButton: false, timer: 1500 });
+//       }
+//     } catch {
+//       Swal.fire("Error", "Image upload failed", "error");
+//     } finally {
+//       setUploading(false);
+//     }
+//   };
+
+//   const handleAddVehicle = async (e) => {
+//     e.preventDefault();
+//     const form = e.target;
+//     const vehicleData = {
+//       vendorId: id,
+//       vehicleNumber: form.vehicleNumber.value,
+//       vehicleModel: form.vehicleModel.value,
+//       driverName: form.driverName.value,
+//       driverPhone: form.driverPhone.value,
+//       driverImg: driverImg,
+//     };
+//     const res = await axiosSecure.post("/vehicles", vehicleData);
+//     if (res.data.insertedId) {
+//       Swal.fire({ icon: "success", title: "Vehicle Registered", confirmButtonColor: "#0f172a" });
+//       form.reset();
+//       setDriverImg("");
+//       fetchVehicles();
+//     }
+//   };
+
+//   if (loading) return <LoadingSpinner text="Loading Profile..." />;
+
+//   return (
+//     <div className="p-6 md:p-10 bg-[#F1F5F9] min-h-screen font-sans">
+//       <div className="max-w-7xl mx-auto space-y-8">
+
+//         {/* Header & Vendor Card */}
+//         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+//           <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex flex-col md:flex-row gap-6 items-start md:items-center">
+//             <div className="w-24 h-24 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-xl overflow-hidden border-2 border-slate-100">
+//               {vendor.vendorImg
+//                 ? <img src={vendor.vendorImg} alt={vendor.vendorName} className="w-full h-full object-cover" />
+//                 : <Briefcase size={40} />
+//               }
+//             </div>
+//             <div className="flex-1">
+//               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 mb-1">
+//                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+//                 Verified Partner
+//               </div>
+//               <h1 className="text-3xl font-black text-slate-900 tracking-tight">{vendor.vendorName}</h1>
+//               <div className="mt-4 flex flex-wrap gap-3">
+//                 <div className="flex items-center gap-2 text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
+//                   <MapPin size={14} className="text-slate-400" />
+//                   <span className="text-sm font-medium">{vendor.vendorAddress}</span>
+//                 </div>
+//                 <div className="flex items-center gap-2 text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
+//                   <Phone size={14} className="text-slate-400" />
+//                   <span className="text-sm font-bold tracking-tight">{vendor.vendorPhone}</span>
+//                 </div>
+//                 {/* ── Trip Summary navigate button ── */}
+//                 <button
+//                   onClick={() => navigate(`/vendor-trip-summary/${id}`)}
+//                   className="flex items-center gap-2 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-all shadow-sm"
+//                 >
+//                   <ReceiptText size={13} />
+//                   Trip Summary
+//                 </button>
+//               </div>
+//             </div>
+//           </div>
+
+//           <div className="bg-slate-900 rounded-2xl p-8 text-white flex flex-col justify-center items-center shadow-2xl relative overflow-hidden">
+//             <div className="absolute top-0 right-0 p-4 opacity-10"><Truck size={100} /></div>
+//             <h2 className="text-5xl font-black">{vehicles.length}</h2>
+//             <p className="text-slate-400 text-xs mt-2 italic font-medium">Registered Vehicles</p>
+//           </div>
+//         </div>
+
+//         {/* Add Vehicle Section */}
+//         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+//           <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+//             <Plus size={18} className="text-slate-800" />
+//             <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Register New Vehicle</h3>
+//           </div>
+//           <form onSubmit={handleAddVehicle} className="p-6">
+//             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+//               <div className="space-y-1.5">
+//                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Driver Photo</label>
+//                 <div className="flex items-center gap-3">
+//                   <label className="flex-1 flex items-center justify-center gap-2 p-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-all">
+//                     {uploading ? <Loader2 className="animate-spin text-slate-400" size={16} /> : <Camera size={16} className="text-slate-400" />}
+//                     <span className="text-[11px] font-bold text-slate-600 uppercase">Img</span>
+//                     <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" onChange={handleImageUpload} disabled={uploading} />
+//                   </label>
+//                   {driverImg && <img src={driverImg} className="w-10 h-10 rounded-lg object-cover border border-emerald-500" alt="" />}
+//                 </div>
+//               </div>
+//               <div className="space-y-1.5">
+//                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Vehicle Model</label>
+//                 <input type="text" name="vehicleModel" placeholder="e.g. Tata ACE"
+//                   className="w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-slate-900 outline-none font-semibold" required />
+//               </div>
+//               <div className="space-y-1.5">
+//                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Vehicle Number</label>
+//                 <input type="text" name="vehicleNumber" placeholder="DHAKA-METRO-X"
+//                   className="w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-slate-900 outline-none font-semibold" required />
+//               </div>
+//               <div className="space-y-1.5">
+//                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Driver Name</label>
+//                 <input type="text" name="driverName" placeholder="Full Name"
+//                   className="w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-slate-900 outline-none font-semibold" required />
+//               </div>
+//               <div className="space-y-1.5">
+//                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Driver Phone</label>
+//                 <input type="text" name="driverPhone" placeholder="017XXXXXXXX"
+//                   className="w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-slate-900 outline-none font-semibold" required />
+//               </div>
+//             </div>
+//             <button disabled={uploading}
+//               className="mt-6 w-full bg-slate-900 text-white py-3.5 rounded-xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-black transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 disabled:bg-slate-300">
+//               <Plus size={16} /> {uploading ? "Uploading..." : "Add Vehicle to Fleet"}
+//             </button>
+//           </form>
+//         </div>
+
+//         {/* Vehicle Table */}
+//         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+//           <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+//             <div className="flex items-center gap-2">
+//               <ClipboardList size={18} className="text-slate-800" />
+//               <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Vehicle Inventory</h3>
+//             </div>
+//             <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded tracking-tighter">Live Database</span>
+//           </div>
+//           <div className="overflow-x-auto">
+//             <table className="w-full text-left border-collapse">
+//               <thead className="bg-slate-50 border-b border-slate-200">
+//                 <tr>
+//                   <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center w-12">SL</th>
+//                   <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Driver Details</th>
+//                   <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Vehicle Model</th>
+//                   <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Vehicle Number</th>
+//                   <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Contact</th>
+//                   <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Actions</th>
+//                 </tr>
+//               </thead>
+//               <tbody className="divide-y divide-slate-100">
+//                 {vehicles.length > 0 ? (
+//                   vehicles.map((v, index) => (
+//                     <tr key={v._id} className="hover:bg-slate-50/50 transition-colors">
+//                       <td className="px-6 py-4 text-[12px] font-bold text-center">{index + 1}</td>
+//                       <td className="px-6 py-4">
+//                         <div className="flex items-center gap-3">
+//                           <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden border border-slate-200 shadow-sm">
+//                             {v.driverImg
+//                               ? <img src={v.driverImg} className="w-full h-full object-cover" alt="" />
+//                               : <div className="w-full h-full flex items-center justify-center text-slate-400"><User size={18} /></div>
+//                             }
+//                           </div>
+//                           <div>
+//                             <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{v.driverName}</p>
+//                             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">ID: {v._id.slice(-6)}</p>
+//                           </div>
+//                         </div>
+//                       </td>
+//                       <td className="px-6 py-4">
+//                         <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-900 text-white rounded-lg shadow-sm">
+//                           <span className="text-[11px] font-black uppercase tracking-wider">{v.vehicleModel || "Standard"}</span>
+//                         </div>
+//                       </td>
+//                       <td className="px-6 py-4 text-center">
+//                         <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-900 text-white rounded-lg shadow-sm">
+//                           <Truck size={12} className="text-slate-400" />
+//                           <span className="text-[11px] font-black uppercase tracking-wider">{v.vehicleNumber}</span>
+//                         </div>
+//                       </td>
+//                       <td className="px-6 py-4 text-center">
+//                         <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-900 text-white rounded-lg shadow-sm">
+//                           <PhoneCall size={12} className="text-slate-400" />
+//                           <span className="text-[11px] font-black uppercase tracking-wider">{v.driverPhone}</span>
+//                         </div>
+//                       </td>
+//                       <td className="px-6 py-4">
+//                         <div className="flex justify-center items-center gap-2">
+//                           <button
+//                             onClick={async () => {
+//                               const { value: formValues } = await Swal.fire({
+//                                 title: '<h2 class="text-lg font-black text-slate-800 uppercase tracking-tight">Update Fleet Asset</h2>',
+//                                 html: `
+//                                   <div class="space-y-4 text-left p-1">
+//                                     <div>
+//                                       <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Vehicle Model</label>
+//                                       <input id="swal-model" class="w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-slate-900 outline-none transition-all" placeholder="Model" value="${v.vehicleModel || ''}">
+//                                     </div>
+//                                     <div>
+//                                       <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Plate Number</label>
+//                                       <input id="swal-number" class="w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-slate-900 outline-none transition-all" placeholder="Plate" value="${v.vehicleNumber}">
+//                                     </div>
+//                                     <div class="grid grid-cols-2 gap-3">
+//                                       <div>
+//                                         <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Driver Name</label>
+//                                         <input id="swal-name" class="w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-slate-900 outline-none transition-all" placeholder="Name" value="${v.driverName}">
+//                                       </div>
+//                                       <div>
+//                                         <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Driver Phone</label>
+//                                         <input id="swal-phone" class="w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-slate-900 outline-none transition-all" placeholder="Phone" value="${v.driverPhone}">
+//                                       </div>
+//                                     </div>
+//                                   </div>
+//                                 `,
+//                                 focusConfirm: false,
+//                                 showCancelButton: true,
+//                                 confirmButtonText: 'Save Changes',
+//                                 confirmButtonColor: '#0f172a',
+//                                 customClass: {
+//                                   popup: 'rounded-3xl border border-slate-100 shadow-2xl',
+//                                   confirmButton: 'rounded-xl px-6 py-3 text-[11px] font-black uppercase tracking-widest'
+//                                 },
+//                                 preConfirm: () => ({
+//                                   vehicleModel: document.getElementById('swal-model').value,
+//                                   vehicleNumber: document.getElementById('swal-number').value,
+//                                   driverName: document.getElementById('swal-name').value,
+//                                   driverPhone: document.getElementById('swal-phone').value,
+//                                 })
+//                               });
+//                               if (formValues) {
+//                                 try {
+//                                   await axiosSecure.put(`/vehicles/${id}/${v._id}`, formValues);
+//                                   Swal.fire({ icon: 'success', title: 'Asset Updated', timer: 1500, showConfirmButton: false });
+//                                   fetchVehicles();
+//                                 } catch {
+//                                   Swal.fire('Error', 'Update failed', 'error');
+//                                 }
+//                               }
+//                             }}
+//                             className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+//                           >
+//                             <Edit3 size={16} />
+//                           </button>
+//                           <button
+//                             onClick={async () => {
+//                               const result = await Swal.fire({
+//                                 title: 'Confirm Deletion',
+//                                 text: 'This action cannot be undone.',
+//                                 icon: 'warning',
+//                                 showCancelButton: true,
+//                                 confirmButtonColor: '#e11d48',
+//                                 confirmButtonText: 'Yes, Delete',
+//                                 customClass: {
+//                                   popup: 'rounded-3xl',
+//                                   confirmButton: 'rounded-xl px-6 py-2 text-[11px] font-black uppercase tracking-widest',
+//                                   cancelButton: 'rounded-xl px-6 py-2 text-[11px] font-black uppercase tracking-widest text-slate-500'
+//                                 }
+//                               });
+//                               if (result.isConfirmed) {
+//                                 try {
+//                                   await axiosSecure.delete(`/vehicles/${id}/${v._id}`);
+//                                   fetchVehicles();
+//                                   Swal.fire({ icon: 'success', title: 'Asset Removed', timer: 1500, showConfirmButton: false });
+//                                 } catch {
+//                                   Swal.fire('Error', 'Deletion failed', 'error');
+//                                 }
+//                               }
+//                             }}
+//                             className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+//                           >
+//                             <Trash2 size={16} />
+//                           </button>
+//                         </div>
+//                       </td>
+//                     </tr>
+//                   ))
+//                 ) : (
+//                   <tr>
+//                     <td colSpan="6" className="py-24 text-center">
+//                       <div className="flex flex-col items-center justify-center opacity-20">
+//                         <Truck size={48} className="mb-2" />
+//                         <p className="text-sm font-black uppercase tracking-widest italic">No Assets Found in Inventory</p>
+//                       </div>
+//                     </td>
+//                   </tr>
+//                 )}
+//               </tbody>
+//             </table>
+//           </div>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default VendorDetails;
+
+
+
+
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import Swal from "sweetalert2";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import {
   Truck, Phone, MapPin, User, Plus, Loader2, ClipboardList,
-  Briefcase, Camera, Edit3, Trash2, PhoneCall, ReceiptText
+  Briefcase, Camera, Edit3, Trash2, PhoneCall, ReceiptText, ArrowLeft
 } from "lucide-react";
 import LoadingSpinner from "../Component/LoadingSpinner";
+import useRole from "../hooks/useRole";
 
 const VendorDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const axiosSecure = useAxiosSecure();
+  const { role } = useRole();
+  const isVendorRole = role === "vendor";
 
   const [vendor, setVendor] = useState({});
   const [vehicles, setVehicles] = useState([]);
@@ -22,11 +373,7 @@ const VendorDetails = () => {
   const [driverImg, setDriverImg] = useState("");
 
   useEffect(() => {
-    const loadData = async () => {
-      await Promise.all([fetchVendor(), fetchVehicles()]);
-      setLoading(false);
-    };
-    loadData();
+    Promise.all([fetchVendor(), fetchVehicles()]).finally(() => setLoading(false));
   }, [id]);
 
   const fetchVendor = async () => {
@@ -44,34 +391,28 @@ const VendorDetails = () => {
     if (!file) return;
     setUploading(true);
     try {
-      const imgFormData = new FormData();
-      imgFormData.append("image", file);
-      const res = await axiosSecure.post("/upload-image", imgFormData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const fd = new FormData();
+      fd.append("image", file);
+      const res = await axiosSecure.post("/upload-image", fd, { headers: { "Content-Type": "multipart/form-data" } });
       if (res.data.success) {
         setDriverImg(res.data.url);
         Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Driver Photo Uploaded", showConfirmButton: false, timer: 1500 });
       }
-    } catch {
-      Swal.fire("Error", "Image upload failed", "error");
-    } finally {
-      setUploading(false);
-    }
+    } catch { Swal.fire("Error", "Image upload failed", "error"); }
+    finally { setUploading(false); }
   };
 
   const handleAddVehicle = async (e) => {
     e.preventDefault();
     const form = e.target;
-    const vehicleData = {
+    const res = await axiosSecure.post("/vehicles", {
       vendorId: id,
       vehicleNumber: form.vehicleNumber.value,
       vehicleModel: form.vehicleModel.value,
       driverName: form.driverName.value,
       driverPhone: form.driverPhone.value,
-      driverImg: driverImg,
-    };
-    const res = await axiosSecure.post("/vehicles", vehicleData);
+      driverImg,
+    });
     if (res.data.insertedId) {
       Swal.fire({ icon: "success", title: "Vehicle Registered", confirmButtonColor: "#0f172a" });
       form.reset();
@@ -83,259 +424,207 @@ const VendorDetails = () => {
   if (loading) return <LoadingSpinner text="Loading Profile..." />;
 
   return (
-    <div className="p-6 md:p-10 bg-[#F1F5F9] min-h-screen font-sans">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="flex flex-col h-full gap-4">
 
-        {/* Header & Vendor Card */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex flex-col md:flex-row gap-6 items-start md:items-center">
-            <div className="w-24 h-24 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-xl overflow-hidden border-2 border-slate-100">
-              {vendor.vendorImg
-                ? <img src={vendor.vendorImg} alt={vendor.vendorName} className="w-full h-full object-cover" />
-                : <Briefcase size={40} />
-              }
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 mb-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                Verified Partner
-              </div>
-              <h1 className="text-3xl font-black text-slate-900 tracking-tight">{vendor.vendorName}</h1>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <div className="flex items-center gap-2 text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-                  <MapPin size={14} className="text-slate-400" />
-                  <span className="text-sm font-medium">{vendor.vendorAddress}</span>
-                </div>
-                <div className="flex items-center gap-2 text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-                  <Phone size={14} className="text-slate-400" />
-                  <span className="text-sm font-bold tracking-tight">{vendor.vendorPhone}</span>
-                </div>
-                {/* ── Trip Summary navigate button ── */}
-                <button
-                  onClick={() => navigate(`/vendor-trip-summary/${id}`)}
-                  className="flex items-center gap-2 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-all shadow-sm"
-                >
-                  <ReceiptText size={13} />
-                  Trip Summary
-                </button>
-              </div>
-            </div>
+      {/* ── Vendor Header Card ── */}
+      <div className="flex-shrink-0 grid grid-cols-1 md:grid-cols-4 gap-3">
+        {/* Vendor info */}
+        <div className="md:col-span-3 bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-center gap-4">
+          <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-900 rounded-xl flex items-center justify-center text-white shadow-lg overflow-hidden border-2 border-slate-100 shrink-0">
+            {vendor.vendorImg
+              ? <img src={vendor.vendorImg} alt={vendor.vendorName} className="w-full h-full object-cover" />
+              : <Briefcase size={28} />}
           </div>
-
-          <div className="bg-slate-900 rounded-2xl p-8 text-white flex flex-col justify-center items-center shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-10"><Truck size={100} /></div>
-            <h2 className="text-5xl font-black">{vehicles.length}</h2>
-            <p className="text-slate-400 text-xs mt-2 italic font-medium">Registered Vehicles</p>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-emerald-600 mb-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+              Verified Partner
+            </div>
+            <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight truncate">{vendor.vendorName}</h1>
+            <div className="flex flex-wrap gap-2 mt-2">
+              <span className="flex items-center gap-1.5 text-slate-600 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 text-xs">
+                <MapPin size={11} className="text-slate-400 shrink-0" /> <span className="truncate max-w-[180px]">{vendor.vendorAddress}</span>
+              </span>
+              <span className="flex items-center gap-1.5 text-slate-600 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 text-xs font-bold">
+                <Phone size={11} className="text-slate-400 shrink-0" /> {vendor.vendorPhone}
+              </span>
+              <button onClick={() => navigate(`/vendor-trip-summary/${id}`)}
+                className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition shadow-sm">
+                <ReceiptText size={11} /> Trip Summary
+              </button>
+            </div>
           </div>
         </div>
+        {/* Vehicles count */}
+        <div className="bg-slate-900 rounded-xl p-4 text-white flex flex-col justify-center items-center shadow-lg relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-2 opacity-10"><Truck size={60} /></div>
+          <h2 className="text-4xl font-black">{vehicles.length}</h2>
+          <p className="text-slate-400 text-[10px] mt-1 italic font-medium">Registered Vehicles</p>
+        </div>
+      </div>
 
-        {/* Add Vehicle Section */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
-            <Plus size={18} className="text-slate-800" />
-            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Register New Vehicle</h3>
+      {/* ── Add Vehicle (only non-vendor) ── */}
+      {!isVendorRole && (
+        <div className="flex-shrink-0 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+            <Plus size={15} className="text-slate-700" />
+            <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Register New Vehicle</h3>
           </div>
-          <form onSubmit={handleAddVehicle} className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Driver Photo</label>
-                <div className="flex items-center gap-3">
-                  <label className="flex-1 flex items-center justify-center gap-2 p-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-all">
-                    {uploading ? <Loader2 className="animate-spin text-slate-400" size={16} /> : <Camera size={16} className="text-slate-400" />}
-                    <span className="text-[11px] font-bold text-slate-600 uppercase">Img</span>
+          <form onSubmit={handleAddVehicle} className="p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Driver Photo</label>
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 flex items-center justify-center gap-1.5 p-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 cursor-pointer transition">
+                    {uploading ? <Loader2 className="animate-spin text-slate-400" size={13} /> : <Camera size={13} className="text-slate-400" />}
+                    <span className="text-[10px] font-bold text-slate-600 uppercase">Photo</span>
                     <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" onChange={handleImageUpload} disabled={uploading} />
                   </label>
-                  {driverImg && <img src={driverImg} className="w-10 h-10 rounded-lg object-cover border border-emerald-500" alt="" />}
+                  {driverImg && <img src={driverImg} className="w-9 h-9 rounded-lg object-cover border border-emerald-500 shrink-0" alt="" />}
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Vehicle Model</label>
-                <input type="text" name="vehicleModel" placeholder="e.g. Tata ACE"
-                  className="w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-slate-900 outline-none font-semibold" required />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Vehicle Number</label>
-                <input type="text" name="vehicleNumber" placeholder="DHAKA-METRO-X"
-                  className="w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-slate-900 outline-none font-semibold" required />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Driver Name</label>
-                <input type="text" name="driverName" placeholder="Full Name"
-                  className="w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-slate-900 outline-none font-semibold" required />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Driver Phone</label>
-                <input type="text" name="driverPhone" placeholder="017XXXXXXXX"
-                  className="w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-slate-900 outline-none font-semibold" required />
-              </div>
+              {[
+                { name: "vehicleModel", label: "Vehicle Model", ph: "e.g. Tata ACE" },
+                { name: "vehicleNumber", label: "Vehicle No.", ph: "DHAKA-X" },
+                { name: "driverName", label: "Driver Name", ph: "Full Name" },
+                { name: "driverPhone", label: "Driver Phone", ph: "017XXXXXXXX" },
+              ].map(f => (
+                <div key={f.name} className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{f.label}</label>
+                  <input type="text" name={f.name} placeholder={f.ph}
+                    className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-slate-900 outline-none font-semibold" required />
+                </div>
+              ))}
             </div>
             <button disabled={uploading}
-              className="mt-6 w-full bg-slate-900 text-white py-3.5 rounded-xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-black transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 disabled:bg-slate-300">
-              <Plus size={16} /> {uploading ? "Uploading..." : "Add Vehicle to Fleet"}
+              className="mt-3 w-full bg-slate-900 text-white py-2.5 rounded-lg font-black text-[11px] uppercase tracking-widest hover:bg-black transition shadow active:scale-[0.99] flex items-center justify-center gap-2 disabled:bg-slate-300">
+              <Plus size={13} /> {uploading ? "Uploading..." : "Add Vehicle to Fleet"}
             </button>
           </form>
         </div>
+      )}
 
-        {/* Vehicle Table */}
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ClipboardList size={18} className="text-slate-800" />
-              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Vehicle Inventory</h3>
-            </div>
-            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded tracking-tighter">Live Database</span>
+      {/* ── Vehicle Table ── */}
+      <div className="flex-1 min-h-0 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+        <div className="flex-shrink-0 px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-2">
+            <ClipboardList size={15} className="text-slate-700" />
+            <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Vehicle Inventory</h3>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center w-12">SL</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Driver Details</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Vehicle Model</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Vehicle Number</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Contact</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {vehicles.length > 0 ? (
-                  vehicles.map((v, index) => (
-                    <tr key={v._id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-6 py-4 text-[12px] font-bold text-center">{index + 1}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden border border-slate-200 shadow-sm">
-                            {v.driverImg
-                              ? <img src={v.driverImg} className="w-full h-full object-cover" alt="" />
-                              : <div className="w-full h-full flex items-center justify-center text-slate-400"><User size={18} /></div>
+          <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{vehicles.length} vehicles</span>
+        </div>
+        <div className="flex-1 min-h-0 overflow-auto">
+          <table className="w-full text-left border-collapse">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="px-3 py-2.5 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center w-10">SL</th>
+                <th className="px-3 py-2.5 text-[9px] font-black text-slate-500 uppercase tracking-widest">Driver</th>
+                <th className="px-3 py-2.5 text-[9px] font-black text-slate-500 uppercase tracking-widest hidden sm:table-cell">Model</th>
+                <th className="px-3 py-2.5 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Vehicle No.</th>
+                <th className="px-3 py-2.5 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center hidden sm:table-cell">Contact</th>
+                {!isVendorRole && <th className="px-3 py-2.5 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Actions</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {vehicles.length > 0 ? vehicles.map((v, index) => (
+                <tr key={v._id} className="hover:bg-slate-50/60 transition-colors">
+                  <td className="px-3 py-2.5 text-xs font-bold text-slate-400 text-center">{index + 1}</td>
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 overflow-hidden border border-slate-200 shadow-sm shrink-0">
+                        {v.driverImg
+                          ? <img src={v.driverImg} className="w-full h-full object-cover" alt="" />
+                          : <div className="w-full h-full flex items-center justify-center text-slate-400"><User size={14} /></div>}
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{v.driverName}</p>
+                        <p className="text-[9px] text-slate-400 font-bold sm:hidden">{v.driverPhone}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5 hidden sm:table-cell">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-800 text-white rounded-lg text-[10px] font-black uppercase">
+                      {v.vehicleModel || "Standard"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-center">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-800 text-white rounded-lg text-[10px] font-black uppercase">
+                      <Truck size={10} className="text-slate-400" /> {v.vehicleNumber}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-center hidden sm:table-cell">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-800 text-white rounded-lg text-[10px] font-black">
+                      <PhoneCall size={10} className="text-slate-400" /> {v.driverPhone}
+                    </span>
+                  </td>
+                  {!isVendorRole && (
+                    <td className="px-3 py-2.5">
+                      <div className="flex justify-center gap-1.5">
+                        <button
+                          onClick={async () => {
+                            const { value: fv } = await Swal.fire({
+                              title: '<h2 class="text-base font-black text-slate-800 uppercase">Update Vehicle</h2>',
+                              html: `<div class="space-y-3 text-left">
+                                <div><label class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Model</label>
+                                <input id="sw-model" class="w-full text-sm p-2.5 rounded-lg border border-slate-200 bg-slate-50 outline-none mt-1" value="${v.vehicleModel || ''}"></div>
+                                <div><label class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Plate Number</label>
+                                <input id="sw-number" class="w-full text-sm p-2.5 rounded-lg border border-slate-200 bg-slate-50 outline-none mt-1" value="${v.vehicleNumber}"></div>
+                                <div class="grid grid-cols-2 gap-2">
+                                  <div><label class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Driver Name</label>
+                                  <input id="sw-name" class="w-full text-sm p-2.5 rounded-lg border border-slate-200 bg-slate-50 outline-none mt-1" value="${v.driverName}"></div>
+                                  <div><label class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Driver Phone</label>
+                                  <input id="sw-phone" class="w-full text-sm p-2.5 rounded-lg border border-slate-200 bg-slate-50 outline-none mt-1" value="${v.driverPhone}"></div>
+                                </div>
+                              </div>`,
+                              focusConfirm: false, showCancelButton: true,
+                              confirmButtonText: 'Save', confirmButtonColor: '#0f172a',
+                              preConfirm: () => ({
+                                vehicleModel: document.getElementById('sw-model').value,
+                                vehicleNumber: document.getElementById('sw-number').value,
+                                driverName: document.getElementById('sw-name').value,
+                                driverPhone: document.getElementById('sw-phone').value,
+                              })
+                            });
+                            if (fv) {
+                              try {
+                                await axiosSecure.put(`/vehicles/${id}/${v._id}`, fv);
+                                Swal.fire({ icon: 'success', title: 'Updated', timer: 1500, showConfirmButton: false });
+                                fetchVehicles();
+                              } catch { Swal.fire('Error', 'Update failed', 'error'); }
                             }
-                          </div>
-                          <div>
-                            <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{v.driverName}</p>
-                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">ID: {v._id.slice(-6)}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-900 text-white rounded-lg shadow-sm">
-                          <span className="text-[11px] font-black uppercase tracking-wider">{v.vehicleModel || "Standard"}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-900 text-white rounded-lg shadow-sm">
-                          <Truck size={12} className="text-slate-400" />
-                          <span className="text-[11px] font-black uppercase tracking-wider">{v.vehicleNumber}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-900 text-white rounded-lg shadow-sm">
-                          <PhoneCall size={12} className="text-slate-400" />
-                          <span className="text-[11px] font-black uppercase tracking-wider">{v.driverPhone}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex justify-center items-center gap-2">
-                          <button
-                            onClick={async () => {
-                              const { value: formValues } = await Swal.fire({
-                                title: '<h2 class="text-lg font-black text-slate-800 uppercase tracking-tight">Update Fleet Asset</h2>',
-                                html: `
-                                  <div class="space-y-4 text-left p-1">
-                                    <div>
-                                      <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Vehicle Model</label>
-                                      <input id="swal-model" class="w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-slate-900 outline-none transition-all" placeholder="Model" value="${v.vehicleModel || ''}">
-                                    </div>
-                                    <div>
-                                      <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Plate Number</label>
-                                      <input id="swal-number" class="w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-slate-900 outline-none transition-all" placeholder="Plate" value="${v.vehicleNumber}">
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-3">
-                                      <div>
-                                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Driver Name</label>
-                                        <input id="swal-name" class="w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-slate-900 outline-none transition-all" placeholder="Name" value="${v.driverName}">
-                                      </div>
-                                      <div>
-                                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Driver Phone</label>
-                                        <input id="swal-phone" class="w-full text-sm p-3 rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-slate-900 outline-none transition-all" placeholder="Phone" value="${v.driverPhone}">
-                                      </div>
-                                    </div>
-                                  </div>
-                                `,
-                                focusConfirm: false,
-                                showCancelButton: true,
-                                confirmButtonText: 'Save Changes',
-                                confirmButtonColor: '#0f172a',
-                                customClass: {
-                                  popup: 'rounded-3xl border border-slate-100 shadow-2xl',
-                                  confirmButton: 'rounded-xl px-6 py-3 text-[11px] font-black uppercase tracking-widest'
-                                },
-                                preConfirm: () => ({
-                                  vehicleModel: document.getElementById('swal-model').value,
-                                  vehicleNumber: document.getElementById('swal-number').value,
-                                  driverName: document.getElementById('swal-name').value,
-                                  driverPhone: document.getElementById('swal-phone').value,
-                                })
-                              });
-                              if (formValues) {
-                                try {
-                                  await axiosSecure.put(`/vehicles/${id}/${v._id}`, formValues);
-                                  Swal.fire({ icon: 'success', title: 'Asset Updated', timer: 1500, showConfirmButton: false });
-                                  fetchVehicles();
-                                } catch {
-                                  Swal.fire('Error', 'Update failed', 'error');
-                                }
-                              }
-                            }}
-                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                          >
-                            <Edit3 size={16} />
-                          </button>
-                          <button
-                            onClick={async () => {
-                              const result = await Swal.fire({
-                                title: 'Confirm Deletion',
-                                text: 'This action cannot be undone.',
-                                icon: 'warning',
-                                showCancelButton: true,
-                                confirmButtonColor: '#e11d48',
-                                confirmButtonText: 'Yes, Delete',
-                                customClass: {
-                                  popup: 'rounded-3xl',
-                                  confirmButton: 'rounded-xl px-6 py-2 text-[11px] font-black uppercase tracking-widest',
-                                  cancelButton: 'rounded-xl px-6 py-2 text-[11px] font-black uppercase tracking-widest text-slate-500'
-                                }
-                              });
-                              if (result.isConfirmed) {
-                                try {
-                                  await axiosSecure.delete(`/vehicles/${id}/${v._id}`);
-                                  fetchVehicles();
-                                  Swal.fire({ icon: 'success', title: 'Asset Removed', timer: 1500, showConfirmButton: false });
-                                } catch {
-                                  Swal.fire('Error', 'Deletion failed', 'error');
-                                }
-                              }
-                            }}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="6" className="py-24 text-center">
-                      <div className="flex flex-col items-center justify-center opacity-20">
-                        <Truck size={48} className="mb-2" />
-                        <p className="text-sm font-black uppercase tracking-widest italic">No Assets Found in Inventory</p>
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition">
+                          <Edit3 size={13} />
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const r = await Swal.fire({ title: 'Delete?', text: 'This cannot be undone.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#e11d48', confirmButtonText: 'Delete' });
+                            if (r.isConfirmed) {
+                              try {
+                                await axiosSecure.delete(`/vehicles/${id}/${v._id}`);
+                                fetchVehicles();
+                                Swal.fire({ icon: 'success', title: 'Removed', timer: 1500, showConfirmButton: false });
+                              } catch { Swal.fire('Error', 'Failed', 'error'); }
+                            }
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                     </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  )}
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan="6" className="py-16 text-center">
+                    <div className="flex flex-col items-center justify-center opacity-20 gap-2">
+                      <Truck size={36} /><p className="text-xs font-black uppercase tracking-widest italic">No Vehicles Found</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
