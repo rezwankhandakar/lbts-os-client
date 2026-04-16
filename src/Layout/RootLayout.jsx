@@ -141,7 +141,29 @@
 //         )}
 
 
-//         {NAV_SECTIONS.map((section) => (
+//         {/* Vendor role: শুধু Vendor Database দেখাবে */}
+//         {role === 'vendor' && status === 'approved' && (
+//           <div>
+//             <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest px-3 mb-1.5">Vendor</p>
+//             <ul className="space-y-0.5">
+//               <li>
+//                 <NavLink to="/all-vendor" className={linkClass}>
+//                   {({ isActive }) => (
+//                     <>
+//                       <span className={`flex-shrink-0 ${isActive ? 'text-white' : 'text-purple-400'}`}>
+//                         <FiUsers size={17} />
+//                       </span>
+//                       Vendor Database
+//                     </>
+//                   )}
+//                 </NavLink>
+//               </li>
+//             </ul>
+//           </div>
+//         )}
+
+//         {/* Non-vendor: সব sections দেখাবে */}
+//         {role !== 'vendor' && NAV_SECTIONS.map((section) => (
 //           <div key={section.label}>
 //             <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest px-3 mb-1.5">
 //               {section.label}
@@ -302,6 +324,9 @@
 
 
 
+
+
+
 import React, { useState, useEffect } from 'react';
 import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router';
 import useAuth from '../hooks/useAuth';
@@ -315,7 +340,6 @@ import {
 import { FaFileInvoice, FaPlusCircle } from 'react-icons/fa';
 import { MdOutlineLocalShipping, MdInventory2 } from 'react-icons/md';
 
-// ── Nav sections config ────────────────────────────────────────────
 const NAV_SECTIONS = [
   {
     label: 'General',
@@ -326,8 +350,8 @@ const NAV_SECTIONS = [
   {
     label: 'Gate Pass',
     items: [
-      { to: '/add-gate-pass',  icon: <FaPlusCircle size={15} />,   label: 'Add Gate Pass',       color: 'text-blue-400' },
-      { to: '/all-gate-pass',  icon: <FaFileInvoice size={15} />,  label: 'Gate Pass Inventory', color: 'text-blue-400' },
+      { to: '/add-gate-pass', icon: <FaPlusCircle size={15} />,  label: 'Add Gate Pass',       color: 'text-blue-400' },
+      { to: '/all-gate-pass', icon: <FaFileInvoice size={15} />, label: 'Gate Pass Inventory', color: 'text-blue-400' },
     ],
   },
   {
@@ -340,8 +364,8 @@ const NAV_SECTIONS = [
   {
     label: 'Vendor',
     items: [
-      { to: '/add-vendor', icon: <FiTruck size={17} />,  label: 'Add Vendor',      color: 'text-purple-400' },
-      { to: '/all-vendor', icon: <FiUsers size={17} />,  label: 'Vendor Database', color: 'text-purple-400' },
+      { to: '/add-vendor', icon: <FiTruck size={17} />, label: 'Add Vendor',      color: 'text-purple-400' },
+      { to: '/all-vendor', icon: <FiUsers size={17} />, label: 'Vendor Database', color: 'text-purple-400' },
     ],
   },
   {
@@ -358,7 +382,6 @@ const NAV_SECTIONS = [
       { to: '/car-rent', icon: <MdOutlineLocalShipping size={18} />, label: 'Car Rent', color: 'text-orange-400' },
     ],
   },
- 
 ];
 
 const RootLayout = () => {
@@ -369,15 +392,13 @@ const RootLayout = () => {
   const navigate = useNavigate();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileOpen, setMobileOpen]   = useState(false);
 
-  // Reset search on route change
   useEffect(() => {
     setSearchText('');
     setMobileOpen(false);
   }, [location.pathname]);
 
-  // Close mobile sidebar on resize
   useEffect(() => {
     const onResize = () => { if (window.innerWidth >= 1024) setMobileOpen(false); };
     window.addEventListener('resize', onResize);
@@ -391,40 +412,40 @@ const RootLayout = () => {
   };
 
   const linkClass = ({ isActive }) =>
-    `flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 ${
+    `flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs sm:text-sm transition-all duration-200 ${
       isActive
         ? 'bg-orange-500 text-white shadow-md shadow-orange-200 font-semibold'
         : 'text-gray-500 hover:bg-orange-50 hover:text-orange-600'
     }`;
 
-  // ── Sidebar content ────────────────────────────────────────────
+  /* ── Sidebar content ── */
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white">
 
       {/* Logo */}
-      <div className="flex items-center gap-3 px-5 py-5 border-b border-gray-100">
-        <div className="w-9 h-9 bg-orange-500 rounded-xl flex-shrink-0 flex items-center justify-center shadow-lg shadow-orange-200">
-          <FiPackage className="text-white text-lg" />
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100">
+        <div className="w-8 h-8 bg-orange-500 rounded-xl flex-shrink-0 flex items-center justify-center shadow-lg shadow-orange-200">
+          <FiPackage className="text-white text-base" />
         </div>
         <div>
-          <span className="text-lg font-black text-gray-900 leading-none tracking-tight">
+          <span className="text-base font-black text-gray-900 leading-none tracking-tight">
             LBTS <span className="text-orange-500">OS</span>
           </span>
-          <p className="text-[10px] text-gray-400 font-medium tracking-widest uppercase mt-0.5">Logistics System</p>
+          <p className="text-[9px] text-gray-400 font-medium tracking-widest uppercase mt-0.5">Logistics System</p>
         </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5 scrollbar-none">
+      <nav className="flex-1 overflow-y-auto py-3 px-2.5 space-y-4 scrollbar-none">
 
         {/* Admin only */}
         {role === 'admin' && status === 'approved' && (
           <div>
-            <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest px-3 mb-1.5">Admin</p>
-            <ul>
+            <p className="text-[9px] font-bold text-gray-300 uppercase tracking-widest px-3 mb-1">Admin</p>
+            <ul className="space-y-0.5">
               <li>
                 <NavLink to="/user-management" className={linkClass}>
-                  <FiUsers size={17} className="flex-shrink-0" /> User Control
+                  <FiUsers size={16} className="flex-shrink-0" /> User Control
                 </NavLink>
               </li>
               <li>
@@ -432,7 +453,7 @@ const RootLayout = () => {
                   {({ isActive }) => (
                     <>
                       <span className={`flex-shrink-0 ${isActive ? 'text-white' : 'text-emerald-400'}`}>
-                        <FiPackage size={17} />
+                        <FiPackage size={16} />
                       </span>
                       Accounts Dashboard
                     </>
@@ -443,10 +464,31 @@ const RootLayout = () => {
           </div>
         )}
 
+        {/* Vendor role */}
+        {role === 'vendor' && status === 'approved' && (
+          <div>
+            <p className="text-[9px] font-bold text-gray-300 uppercase tracking-widest px-3 mb-1">Vendor</p>
+            <ul className="space-y-0.5">
+              <li>
+                <NavLink to="/all-vendor" className={linkClass}>
+                  {({ isActive }) => (
+                    <>
+                      <span className={`flex-shrink-0 ${isActive ? 'text-white' : 'text-purple-400'}`}>
+                        <FiUsers size={16} />
+                      </span>
+                      Vendor Database
+                    </>
+                  )}
+                </NavLink>
+              </li>
+            </ul>
+          </div>
+        )}
 
-        {NAV_SECTIONS.map((section) => (
+        {/* Non-vendor sections */}
+        {role !== 'vendor' && NAV_SECTIONS.map((section) => (
           <div key={section.label}>
-            <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest px-3 mb-1.5">
+            <p className="text-[9px] font-bold text-gray-300 uppercase tracking-widest px-3 mb-1">
               {section.label}
             </p>
             <ul className="space-y-0.5">
@@ -469,20 +511,20 @@ const RootLayout = () => {
         ))}
       </nav>
 
-      {/* Footer */}
+      {/* User footer */}
       {user && (
-        <div className="p-3 border-t border-gray-100">
-          <div className="flex items-center justify-between bg-gray-50 rounded-2xl px-3 py-2.5">
-            <div className="flex items-center gap-2.5 min-w-0">
+        <div className="p-2.5 border-t border-gray-100">
+          <div className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2">
+            <div className="flex items-center gap-2 min-w-0">
               <img
                 src={user?.photoURL || `https://ui-avatars.com/api/?name=${user?.displayName}&background=f97316&color=fff`}
                 alt=""
-                className="w-8 h-8 rounded-full flex-shrink-0 object-cover ring-2 ring-orange-100"
+                className="w-7 h-7 rounded-full flex-shrink-0 object-cover ring-2 ring-orange-100"
                 onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${user?.displayName}&background=f97316&color=fff`; }}
               />
               <div className="min-w-0">
                 <p className="text-xs font-bold text-gray-700 truncate">{user?.displayName}</p>
-                <p className="text-[10px] text-orange-500 font-bold uppercase tracking-wide">{role || 'User'}</p>
+                <p className="text-[9px] text-orange-500 font-bold uppercase tracking-wide">{role || 'User'}</p>
               </div>
             </div>
             <button
@@ -490,7 +532,7 @@ const RootLayout = () => {
               title="Sign out"
               className="p-1.5 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition-colors flex-shrink-0"
             >
-              <FiLogOut size={15} />
+              <FiLogOut size={14} />
             </button>
           </div>
         </div>
@@ -502,7 +544,8 @@ const RootLayout = () => {
     <div className="flex h-screen bg-gray-50 font-sans overflow-hidden">
 
       {/* ── Desktop Sidebar ── */}
-      <aside className={`hidden lg:flex flex-col flex-shrink-0 border-r border-gray-100 transition-all duration-300 overflow-hidden ${sidebarOpen ? 'w-56' : 'w-0'}`}>
+      {/* w-52 on small laptop, w-56 on larger — collapses to w-0 */}
+      <aside className={`hidden lg:flex flex-col flex-shrink-0 border-r border-gray-100 transition-all duration-300 overflow-hidden ${sidebarOpen ? 'w-52 xl:w-56' : 'w-0'}`}>
         <SidebarContent />
       </aside>
 
@@ -510,7 +553,7 @@ const RootLayout = () => {
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute left-0 top-0 bottom-0 w-56 shadow-2xl">
+          <aside className="absolute left-0 top-0 bottom-0 w-52 shadow-2xl">
             <SidebarContent />
           </aside>
         </div>
@@ -519,45 +562,45 @@ const RootLayout = () => {
       {/* ── Main Content ── */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
-        {/* Navbar */}
-        <nav className="flex-shrink-0 flex items-center gap-3 px-4 py-3 bg-orange-400 border-b border-orange-500/20 shadow-sm shadow-orange-200/50">
+        {/* ── Navbar ── */}
+        <nav className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-orange-400 border-b border-orange-500/20 shadow-sm shadow-orange-200/50">
 
           {/* Mobile menu toggle */}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="lg:hidden p-2 rounded-xl text-white hover:bg-orange-500 transition-colors"
+            className="lg:hidden p-1.5 rounded-xl text-white hover:bg-orange-500 transition-colors shrink-0"
           >
-            <FiMenu size={20} />
+            <FiMenu size={19} />
           </button>
 
           {/* Desktop sidebar toggle */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="hidden lg:flex p-2 rounded-xl text-white hover:bg-orange-500 transition-colors"
+            className="hidden lg:flex p-1.5 rounded-xl text-white hover:bg-orange-500 transition-colors shrink-0"
           >
-            <FiMenu size={20} />
+            <FiMenu size={19} />
           </button>
 
           {/* Search */}
-          <div className="flex-1 max-w-sm relative">
-            <FiSearch size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-200" />
+          <div className="flex-1 max-w-xs relative">
+            <FiSearch size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-200" />
             <input
               type="text"
               placeholder="Search..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-orange-500/40 border border-orange-300/30 rounded-full text-sm text-white placeholder-orange-200 focus:outline-none focus:bg-orange-500/60 transition-all"
+              className="w-full pl-8 pr-8 py-1.5 bg-orange-500/40 border border-orange-300/30 rounded-full text-xs text-white placeholder-orange-200 focus:outline-none focus:bg-orange-500/60 transition-all"
             />
             {searchText && (
               <button onClick={() => setSearchText('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-orange-200 hover:text-white">
-                <FiX size={14} />
+                <FiX size={13} />
               </button>
             )}
           </div>
 
-          <div className="flex items-center gap-2 ml-auto">
-            {/* Username */}
-            <span className="hidden sm:block text-sm font-bold text-white">
+          <div className="flex items-center gap-2 ml-auto shrink-0">
+            {/* Username — hidden on small screens */}
+            <span className="hidden md:block text-sm font-bold text-white truncate max-w-[120px]">
               {user?.displayName}
             </span>
 
@@ -567,23 +610,23 @@ const RootLayout = () => {
                 <img
                   src={user?.photoURL || `https://ui-avatars.com/api/?name=${user?.displayName}&background=fff&color=f97316`}
                   alt=""
-                  className="w-9 h-9 rounded-full object-cover ring-2 ring-white/50 hover:ring-white transition-all"
+                  className="w-8 h-8 rounded-full object-cover ring-2 ring-white/50 hover:ring-white transition-all"
                   onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${user?.displayName}&background=fff&color=f97316`; }}
                 />
               </div>
-              <ul tabIndex={0} className="mt-3 z-50 p-2 shadow-2xl menu menu-sm dropdown-content bg-white rounded-2xl w-52 border border-gray-100">
+              <ul tabIndex={0} className="mt-3 z-50 p-2 shadow-2xl menu menu-sm dropdown-content bg-white rounded-2xl w-48 border border-gray-100">
                 <div className="px-3 py-2 border-b border-gray-50 mb-1">
                   <p className="text-xs font-bold text-gray-800 truncate">{user?.displayName}</p>
-                  <p className="text-[11px] text-gray-400 truncate">{user?.email}</p>
+                  <p className="text-[10px] text-gray-400 truncate">{user?.email}</p>
                 </div>
                 <li>
-                  <Link to="/profile" className="flex items-center gap-2 text-sm">
-                    <FiUser size={14} /> My Profile
+                  <Link to="/profile" className="flex items-center gap-2 text-xs">
+                    <FiUser size={13} /> My Profile
                   </Link>
                 </li>
                 <li className="mt-1">
-                  <button onClick={handleLogOut} className="flex items-center gap-2 text-sm text-red-500 hover:bg-red-50">
-                    <FiLogOut size={14} /> Sign Out
+                  <button onClick={handleLogOut} className="flex items-center gap-2 text-xs text-red-500 hover:bg-red-50">
+                    <FiLogOut size={13} /> Sign Out
                   </button>
                 </li>
               </ul>
@@ -591,8 +634,9 @@ const RootLayout = () => {
           </div>
         </nav>
 
-        {/* Page content */}
-        <main className="flex-1 min-h-0 overflow-hidden p-4 md:p-6 flex flex-col">
+        {/* ── Page content ── */}
+        {/* p-2 mobile, p-3 sm, p-4 md+ — gives max space to content */}
+        <main className="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4">
           <Outlet />
         </main>
       </div>

@@ -1,4 +1,33 @@
 
+// import React from "react";
+// import Forbidden from "../Component/Forbidden";
+// import useRole from "../hooks/useRole";
+
+// const RoleRoute = ({ roles, children }) => {
+//   const { role, status } = useRole();
+
+//   // ✅ Loading / fetching role
+//   if (!role || !status) {
+//   return (
+//     <div className="flex items-center justify-center min-h-screen">
+//       <div className="w-10 h-10 border-4 border-t-green-500 border-gray-200 rounded-full animate-spin"></div>
+//     </div>
+//   );
+// }
+
+//   // ✅ Role approved and included in allowed roles
+//   if (status === "approved" && roles.includes(role)) {
+//     return children;
+//   }
+
+//   // ❌ Access denied
+//   return <Forbidden />;
+// };
+
+// export default RoleRoute;
+
+
+
 import React from "react";
 import Forbidden from "../Component/Forbidden";
 import useRole from "../hooks/useRole";
@@ -6,21 +35,24 @@ import useRole from "../hooks/useRole";
 const RoleRoute = ({ roles, children }) => {
   const { role, status } = useRole();
 
-  // ✅ Loading / fetching role
-  if (!role || !status) {
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="w-10 h-10 border-4 border-t-green-500 border-gray-200 rounded-full animate-spin"></div>
-    </div>
-  );
-}
+  // role এখনো fetch হয়নি — loading
+  if (role === undefined || status === undefined) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-8 h-8 border-4 border-t-orange-500 border-gray-200 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
-  // ✅ Role approved and included in allowed roles
+  // login করা নেই (role null হলে)
+  if (!role || !status) return <Forbidden />;
+
+  // role allowed এবং approved
   if (status === "approved" && roles.includes(role)) {
     return children;
   }
 
-  // ❌ Access denied
+  // access denied
   return <Forbidden />;
 };
 

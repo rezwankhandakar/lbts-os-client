@@ -1,9 +1,11 @@
+
 // import React, { useEffect, useState, useCallback, useRef } from "react";
 // import useAxiosSecure from "../hooks/useAxiosSecure";
 // import * as XLSX from "xlsx";
 // import { saveAs } from "file-saver";
 // import Swal from "sweetalert2";
 // import LoadingSpinner from "../Component/LoadingSpinner";
+// import { FiTrendingUp, FiTrendingDown } from "react-icons/fi"; // ← FIX
 
 // const fmt  = (n) => n == null ? "—" : "৳ " + Number(n).toLocaleString("en-IN");
 // const num  = (n) => (n != null ? Number(n) : 0);
@@ -311,15 +313,21 @@
 //   const [tab,           setTab]           = useState("overview");
 //   const [payVendorName, setPayVendorName] = useState(null);
 //   const [advSearch,     setAdvSearch]     = useState("");
+//   const [advTypeFilter, setAdvTypeFilter] = useState("all");
 //   const [manualModal,   setManualModal]   = useState(false);
 //   const [typeFilter,    setTypeFilter]    = useState("all");
 //   const [searchTx,      setSearchTx]      = useState("");
 
-//   // FIX: prevMonthBalance এখন number — positive হলে income এ যোগ, negative হলে expense এ যোগ
-//   const [prevMonthBalance,  setPrevMonthBalance]  = useState(null); // null = loading, 0 = no prev data
-//   const [carryForwardTxs,   setCarryForwardTxs]   = useState([]);   // unpaid manual advances from prev months
+//   const [auditLogs,    setAuditLogs]    = useState([]);
+//   const [auditLoading, setAuditLoading] = useState(false);
+//   const [auditTotal,   setAuditTotal]   = useState(0);
+//   const [auditPage,    setAuditPage]    = useState(1);
+//   const [auditSearch,  setAuditSearch]  = useState("");
+//   const [restoring,    setRestoring]    = useState(null);
 
-//   // FIX: API response cache — বারবার same month fetch বন্ধ করতে
+//   const [prevMonthBalance,  setPrevMonthBalance]  = useState(null);
+//   const [carryForwardTxs,   setCarryForwardTxs]   = useState([]);
+
 //   const apiCache = useRef({});
 //   const fetchWithCache = useCallback(async (url) => {
 //     if (apiCache.current[url]) return apiCache.current[url];
@@ -328,10 +336,8 @@
 //     return res.data;
 //   }, [axiosSecure]);
 
-//   // Cache clear on month/year change
 //   useEffect(() => { apiCache.current = {}; }, [month, year]);
 
-//   /* ── Fetch trips ── */
 //   const fetchTrips = useCallback(async (m, y) => {
 //     setLoading(true);
 //     try {
@@ -341,7 +347,6 @@
 //     setLoading(false);
 //   }, [fetchWithCache]);
 
-//   /* ── Fetch account transactions ── */
 //   const fetchAccountTxs = useCallback(async (m, y) => {
 //     setTxLoading(true);
 //     try {
@@ -351,21 +356,15 @@
 //     setTxLoading(false);
 //   }, [fetchWithCache]);
 
-//   /* ── Calc net balance for any month (iterative, uses cache) ── */
-//   // FIX: Iterative chain — January থেকে target month পর্যন্ত forward calculate
-//   // এতে recursion নেই, API call সর্বোচ্চ target month সংখ্যক
-//   // targetM/targetY মাসের net balance calculate করে (সেই মাস সহ, chain আকারে)
 //   const calcNetBalanceChain = useCallback(async (targetM, targetY) => {
-//     // LOOKBACK months আগে থেকে শুরু করে targetM পর্যন্ত iterate — targetM নিজেও include
 //     const LOOKBACK = 6;
 //     const months = [];
-//     for (let i = LOOKBACK; i >= 0; i--) {   // i=0 মানে targetM নিজে
+//     for (let i = LOOKBACK; i >= 0; i--) {
 //       let m = targetM - i;
 //       let y = targetY;
 //       while (m <= 0) { m += 12; y -= 1; }
 //       months.push({ m, y });
 //     }
-
 //     let runningBalance = 0;
 //     for (const { m, y } of months) {
 //       try {
@@ -375,18 +374,15 @@
 //         ]);
 //         const txs  = accData.data  || [];
 //         const trps = tripData.data || [];
-
 //         const inc  = txs.filter(t=>t.type==="income").reduce((s,t)=>s+num(t.amount),0);
 //         const exp  = txs.filter(t=>t.type==="expense").reduce((s,t)=>s+num(t.amount),0);
 //         const vadv = txs.filter(t=>t.type==="manual_advance").reduce((s,t)=>s+num(t.amount),0);
 //         const vpay = txs.filter(t=>t.type==="vendor_payment").reduce((s,t)=>s+num(t.amount),0);
 //         const aadv = trps.reduce((s,t)=>s+num(t.advance),0);
-
-//         // Opening balance chain: positive → income এ যোগ, negative → expense এ যোগ
 //         const totalInc = inc + (runningBalance > 0 ? runningBalance : 0);
 //         const totalExp = exp + vadv + vpay + aadv + (runningBalance < 0 ? Math.abs(runningBalance) : 0);
 //         runningBalance = totalInc - totalExp;
-//       } catch { /* এই month এ data নেই, runningBalance অপরিবর্তিত */ }
+//       } catch { /* no data */ }
 //     }
 //     return runningBalance;
 //   }, [fetchWithCache]);
@@ -394,16 +390,13 @@
 //   useEffect(() => {
 //     fetchTrips(month, year);
 //     fetchAccountTxs(month, year);
-
 //     const loadPrevData = async () => {
-//       setPrevMonthBalance(null); // loading
+//       setPrevMonthBalance(null);
 //       try {
 //         const prevM = month === 1 ? 12 : month - 1;
 //         const prevY = month === 1 ? year - 1 : year;
 //         const balance = await calcNetBalanceChain(prevM, prevY);
 //         setPrevMonthBalance(balance);
-
-//         // Unpaid manual advances from last 3 months (carried forward)
 //         const recentMonths = [];
 //         for (let i = 1; i <= 3; i++) {
 //           const m2 = month - i <= 0 ? month - i + 12 : month - i;
@@ -413,7 +406,6 @@
 //         const results = await Promise.all(
 //           recentMonths.map(({ m2, y2 }) => fetchWithCache(`/accounts?month=${m2}&year=${y2}`))
 //         );
-//         // FIX: carried advances — শুধু যেগুলো current month এর accountTxs এ নেই
 //         const unpaid = results.flatMap(r =>
 //           (r.data || []).filter(t => t.type === "manual_advance" && t.status !== "paid")
 //         );
@@ -444,25 +436,21 @@
 //   const totalVendorBill = Object.values(vendorMap).reduce((s,v)=>s+v.totalBill, 0);
 //   const totalAdvance    = Object.values(vendorMap).reduce((s,v)=>s+v.totalAdvance, 0);
 //   const totalVendorPaid = accountTxs.filter(t=>t.type==="vendor_payment").reduce((s,t)=>s+num(t.amount), 0);
-//   // FIX: per-vendor due — overclear একটা vendor অন্যটার due কমাবে না
 //   const totalVendorDue  = Object.values(vendorMap).reduce((s,v)=>s+Math.max(0,v.totalBill-v.totalAdvance-v.totalPaid), 0);
 //   const pendingVendors  = Object.values(vendorMap).filter(v=>Math.max(0,v.totalBill-v.totalAdvance-v.totalPaid)>0).length;
 
 //   const manualIncome       = accountTxs.filter(t=>t.type==="income").reduce((s,t)=>s+num(t.amount), 0);
 //   const manualExpense      = accountTxs.filter(t=>t.type==="expense").reduce((s,t)=>s+num(t.amount), 0);
 //   const manualAdvanceTotal = accountTxs.filter(t=>t.type==="manual_advance").reduce((s,t)=>s+num(t.amount), 0);
-//   const carryForwardFromPrev = carryForwardTxs.reduce((s,t)=>s+num(t.amount), 0);
 
-//   // FIX: prevMonthBalance — positive হলে income এ, negative হলে সেটা additional expense
 //   const prevBalancePositive = prevMonthBalance != null && prevMonthBalance > 0 ? prevMonthBalance : 0;
 //   const prevBalanceNegative = prevMonthBalance != null && prevMonthBalance < 0 ? Math.abs(prevMonthBalance) : 0;
 
 //   const totalIncome  = manualIncome + prevBalancePositive;
-//   // carry forward advances already counted in prev month — NOT added here again
 //   const totalExpense = manualExpense + totalVendorPaid + totalAdvance + manualAdvanceTotal + prevBalanceNegative;
 //   const netBalance   = totalIncome - totalExpense;
 
-//   const prevMonthName = MONTHS[month === 1 ? 11 : month - 2];
+//   const prevMonthName    = MONTHS[month === 1 ? 11 : month - 2];
 //   const prevMonthLoading = prevMonthBalance === null;
 
 //   /* ── Handlers ── */
@@ -495,29 +483,110 @@
 //     } catch (err) { Swal.fire({ icon:"error", title: err?.response?.data?.message || "Failed" }); }
 //   };
 
+//   const fetchAuditLogs = useCallback(async (page = 1, search = "") => {
+//     setAuditLoading(true);
+//     try {
+//       const params = new URLSearchParams({ page, limit: 20 });
+//       if (search) params.append("performedBy", search);
+//       const res = await axiosSecure.get(`/audit-logs?${params}`);
+//       setAuditLogs(res.data.data || []);
+//       setAuditTotal(res.data.total || 0);
+//     } catch (err) { console.error(err); }
+//     setAuditLoading(false);
+//   }, [axiosSecure]);
+
 //   const handleDeleteTx = async (id) => {
-//     const { isConfirmed } = await Swal.fire({ title:"Delete?", icon:"warning", showCancelButton:true, confirmButtonColor:"#ef4444", confirmButtonText:"Delete" });
+//     const { value: reason, isConfirmed } = await Swal.fire({
+//       title: "Transaction Delete করবেন?",
+//       html: `
+//         <p style="font-size:13px;color:#6b7280;margin-bottom:12px">এই record টি permanently delete হবে। Audit log এ সংরক্ষিত থাকবে।</p>
+//         <textarea id="swal-reason" placeholder="কারণ লিখুন (optional)..."
+//           style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;resize:none;height:72px;outline:none"></textarea>
+//       `,
+//       icon: "warning",
+//       showCancelButton: true,
+//       confirmButtonColor: "#ef4444",
+//       confirmButtonText: "Delete করুন",
+//       cancelButtonText: "Cancel",
+//       preConfirm: () => document.getElementById("swal-reason")?.value?.trim() || "",
+//     });
 //     if (!isConfirmed) return;
 //     try {
-//       await axiosSecure.delete(`/accounts/${id}`);
+//       await axiosSecure.delete(`/accounts/${id}`, { data: { reason } });
 //       setAccountTxs(prev => prev.filter(t => t._id !== id));
-//       // FIX: carryForwardTxs থেকেও সরাও
 //       setCarryForwardTxs(prev => prev.filter(t => t._id !== id));
-//     } catch (err) { Swal.fire({ icon:"error", title: err?.response?.data?.message || "Failed" }); }
+//       Swal.fire({ icon: "success", title: "Deleted!", toast: true, position: "top-end", timer: 1800, showConfirmButton: false });
+//       if (tab === "audit") fetchAuditLogs(auditPage, auditSearch);
+//     } catch (err) { Swal.fire({ icon: "error", title: err?.response?.data?.message || "Failed" }); }
+//   };
+
+//   const handleRestore = async (log) => {
+//     if (log.isRestored) {
+//       Swal.fire({ icon: "info", title: "ইতোমধ্যে Restore হয়েছে", text: "এই transaction আগেই restore করা হয়েছে।", timer: 2000, showConfirmButton: false });
+//       return;
+//     }
+//     const doc = log.deletedDocument;
+//     if (!doc) return;
+//     const { isConfirmed } = await Swal.fire({
+//       title: "Restore করবেন?",
+//       html: `
+//         <p style="font-size:13px;color:#6b7280;margin-bottom:8px">নিচের transaction টি পুনরায় যোগ করা হবে:</p>
+//         <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;text-align:left;font-size:12px;line-height:1.8">
+//           <div><span style="color:#9ca3af">Description:</span> <strong>${doc.description || "—"}</strong></div>
+//           <div><span style="color:#9ca3af">Amount:</span> <strong style="color:#065f46">৳ ${Number(doc.amount || 0).toLocaleString("en-IN")}</strong></div>
+//           <div><span style="color:#9ca3af">Date:</span> <strong>${doc.date || "—"}</strong></div>
+//           <div><span style="color:#9ca3af">Type:</span> <strong>${doc.type || "—"}</strong></div>
+//         </div>
+//       `,
+//       icon: "question",
+//       showCancelButton: true,
+//       confirmButtonColor: "#059669",
+//       confirmButtonText: "হ্যাঁ, Restore করুন",
+//       cancelButtonText: "Cancel",
+//     });
+//     if (!isConfirmed) return;
+//     try {
+//       const { _id, ...rest } = doc;
+//       const res = await axiosSecure.post("/accounts", rest);
+//       if (res.data.success) {
+//         const newId = res.data.data?._id || res.data.insertedId;
+//         await axiosSecure.patch(`/audit-logs/${log._id}/restored`, { restoredDocumentId: newId });
+//         setAuditLogs(prev => prev.map(l => l._id === log._id ? { ...l, isRestored: true, restoredAt: new Date() } : l));
+//         if (rest.month === month && rest.year === year) {
+//           setAccountTxs(prev => [res.data.data, ...prev]);
+//         }
+//         Swal.fire({ icon: "success", title: "Restored!", text: "Transaction পুনরায় যোগ করা হয়েছে।", timer: 2000, showConfirmButton: false });
+//       }
+//     } catch (err) {
+//       Swal.fire({ icon: "error", title: err?.response?.data?.message || "Restore failed" });
+//     }
+//     setRestoring(null);
 //   };
 
 //   const handleMarkPaid = async (id, currentStatus) => {
 //     const newStatus = currentStatus === "paid" ? "unpaid" : "paid";
+//     const { isConfirmed } = await Swal.fire({
+//       title: newStatus === "paid" ? "Paid হিসেবে Mark করবেন?" : "Unpaid করবেন?",
+//       text: newStatus === "paid"
+//         ? "এই advance টি পরিশোধ হয়েছে বলে চিহ্নিত হবে।"
+//         : "এই advance টি আবার unpaid হিসেবে চিহ্নিত হবে।",
+//       icon: "question",
+//       showCancelButton: true,
+//       confirmButtonColor: newStatus === "paid" ? "#059669" : "#f59e0b",
+//       confirmButtonText: newStatus === "paid" ? "✓ হ্যাঁ, Paid করুন" : "Unpaid করুন",
+//       cancelButtonText: "Cancel",
+//     });
+//     if (!isConfirmed) return;
 //     try {
 //       const res = await axiosSecure.patch(`/accounts/${id}/status`, { status: newStatus });
 //       if (res.data.success) {
 //         setAccountTxs(prev => prev.map(t => t._id === id ? { ...t, status: newStatus } : t));
-//         // FIX: paid হলে carried list থেকে সরাও instantly
 //         if (newStatus === "paid") {
 //           setCarryForwardTxs(prev => prev.filter(t => t._id !== id));
 //         } else {
 //           setCarryForwardTxs(prev => prev.map(t => t._id === id ? { ...t, status: newStatus } : t));
 //         }
+//         Swal.fire({ icon: "success", title: newStatus === "paid" ? "Paid marked!" : "Unpaid marked!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
 //       }
 //     } catch (err) { Swal.fire({ icon:"error", title: err?.response?.data?.message || "Failed" }); }
 //   };
@@ -554,12 +623,10 @@
 //     return true;
 //   });
 
-//   // FIX: footer total — income filter হলে income total, expense হলে expense total
 //   const footerTotal = (() => {
 //     if (typeFilter === "income") return filteredTxs.reduce((s,t)=>s+num(t.amount),0);
 //     if (["expense","vendor_payment","manual_advance","auto_advance","all_expense"].includes(typeFilter))
 //       return filteredTxs.reduce((s,t)=>s+num(t.amount),0);
-//     // "all" — income ও expense মিশিয়ে total দেখানো misleading, তাই hide
 //     return null;
 //   })();
 
@@ -623,7 +690,7 @@
 
 //         {/* Stat Cards */}
 //         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
-//           <StatCard label="Total Income" value={prevMonthLoading ? "…" : fmt(totalIncome)}
+//           <StatCard label="Total Deposit" value={prevMonthLoading ? "…" : fmt(totalIncome)}
 //             sub={prevBalancePositive > 0
 //               ? `Manual: ${fmt(manualIncome)} + ${prevMonthName}: ${fmt(prevBalancePositive)}`
 //               : `${accountTxs.filter(t=>t.type==="income").length} entries`}
@@ -660,15 +727,19 @@
 //             onClick={() => setTab("vendors")} />
 //         </div>
 
-//         {/* FIX: Tabs — advances tab add করা হয়েছে */}
+//         {/* Tabs */}
 //         <div className="flex gap-1 mb-4 bg-white border border-gray-200 rounded-lg p-1 w-fit shadow-sm">
 //           {[
 //             { id:"overview",     label:"Overview" },
 //             { id:"vendors",      label:`Vendors${pendingVendors>0?` (${pendingVendors})`:""}` },
 //             { id:"advances",     label:"Advances" },
 //             { id:"transactions", label:"Transactions" },
+//             { id:"audit",        label:"🗑 Delete Log" },
 //           ].map(t => (
-//             <button key={t.id} onClick={() => setTab(t.id)}
+//             <button key={t.id} onClick={() => {
+//               setTab(t.id);
+//               if (t.id === "audit") fetchAuditLogs(1, auditSearch);
+//             }}
 //               className={`px-4 py-1.5 text-xs font-semibold rounded transition-all whitespace-nowrap ${tab===t.id?"bg-gray-800 text-white":"text-gray-500 hover:text-gray-800"}`}>
 //               {t.label}
 //             </button>
@@ -677,81 +748,124 @@
 
 //         {/* ══ OVERVIEW ══ */}
 //         {tab === "overview" && (
+//           // FIX: flat grid — 3 direct children, no nested grid wrapper
 //           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-//             <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
-//               <h3 className="text-sm font-bold text-gray-800 mb-0.5">Vendor Bill Breakdown</h3>
-//               <p className="text-xs text-gray-400 mb-4">Bill issued ≠ paid. Pay from "Vendors" tab per vendor.</p>
-//               <div className="space-y-3">
-//                 {[
-//                   { label:"Bill Issued (Rent + Labour)", value:totalVendorBill,  color:"bg-rose-300",   max:totalVendorBill||1 },
-//                   { label:"Advance Paid (auto)",         value:totalAdvance,     color:"bg-amber-400",  max:totalVendorBill||1 },
-//                   { label:"Paid from Accounts",          value:totalVendorPaid,  color:"bg-indigo-400", max:totalVendorBill||1 },
-//                   { label:"Still Due",                   value:totalVendorDue,   color:"bg-red-500",    max:totalVendorBill||1 },
-//                 ].map((item,i) => (
-//                   <div key={i}>
-//                     <div className="flex justify-between items-center mb-1">
-//                       <span className="text-xs text-gray-500">{item.label}</span>
-//                       <span className="text-xs font-bold text-gray-800">{fmt(item.value)}</span>
+
+//             {/* ── CARD 1: VENDOR BILL BREAKDOWN ── */}
+//             <div className="bg-white border border-slate-100 rounded-[2rem] shadow-xl shadow-slate-200/40 p-7 relative overflow-hidden group">
+//               <div className="absolute -top-10 -right-10 w-28 h-28 bg-rose-50 rounded-full blur-3xl group-hover:bg-rose-100 transition-colors duration-500" />
+//               <div className="relative z-10">
+//                 <div className="flex items-center justify-between mb-1.5">
+//                   <h3 className="text-base font-black text-slate-800 tracking-tight">Vendor Bill Breakdown</h3>
+//                   <div className="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-rose-100">
+//                     Liability
+//                   </div>
+//                 </div>
+//                 <p className="text-xs text-slate-400 mb-6 font-medium">
+//                   Bill issued ≠ paid. <span className="text-rose-400 font-bold">Pay from Vendors tab.</span>
+//                 </p>
+//                 <div className="space-y-5">
+//                   {[
+//                     { label:"Bill Issued (Rent + Labour)", value:totalVendorBill,  color:"from-rose-400 to-pink-500",    icon:"🧾" },
+//                     { label:"Vendor Advance",          value:totalAdvance,     color:"from-amber-400 to-orange-500", icon:"💸" },
+//                     { label:"Vendor Payments",      value:totalVendorPaid,  color:"from-indigo-400 to-blue-600",  icon:"🏦" },
+//                     { label:"Total Outstanding Due",        value:totalVendorDue,   color:"from-red-500 to-red-700",      icon:"⚠️" },
+//                   ].map((item,i) => (
+//                     <div key={i}>
+//                       <div className="flex justify-between items-end mb-1.5">
+//                         <div className="flex items-center gap-1.5">
+//                           <span className="text-base opacity-80">{item.icon}</span>
+//                           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{item.label}</span>
+//                         </div>
+//                         <span className="text-sm font-black text-slate-800">{fmt(item.value)}</span>
+//                       </div>
+//                       <div className="w-full bg-slate-100 rounded-full h-2.5 p-0.5 shadow-inner">
+//                         <div className={`h-full bg-gradient-to-r ${item.color} rounded-full transition-all duration-700`}
+//                           style={{ width:`${Math.min(100,(item.value/(totalVendorBill||1))*100)}%` }} />
+//                       </div>
 //                     </div>
-//                     <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-//                       <div className={`h-full ${item.color} rounded-full`}
-//                         style={{ width:`${Math.min(100,(item.value/item.max)*100)}%` }} />
+//                   ))}
+//                 </div>
+//                 <div className="mt-8 pt-5 border-t border-slate-50 grid grid-cols-3 gap-3 text-center">
+//                   <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 hover:scale-105 transition-transform">
+//                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mb-0.5">Trips</p>
+//                     <p className="text-xl font-black text-slate-800">{trips.length}</p>
+//                   </div>
+//                   <div className="p-3 rounded-2xl bg-amber-50 border border-amber-100 hover:scale-105 transition-transform">
+//                     <p className="text-[10px] font-bold text-amber-600 uppercase tracking-tighter mb-0.5">Vendors</p>
+//                     <p className="text-xl font-black text-amber-700">{Object.keys(vendorMap).length}</p>
+//                   </div>
+//                   <div className="p-3 rounded-2xl bg-red-50 border border-red-100 hover:scale-105 transition-transform">
+//                     <p className="text-[10px] font-bold text-red-500 uppercase tracking-tighter mb-0.5">Pending</p>
+//                     <p className="text-xl font-black text-red-700">{pendingVendors}</p>
+//                   </div>
+//                 </div>
+//               </div>
+//             </div>
+
+//             {/* ── CARD 2: CASH FLOW (DARK) ── */}
+//             <div className="bg-slate-900 rounded-[2rem] shadow-2xl p-7 relative overflow-hidden group border border-slate-800">
+//               <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-500/10 rounded-full blur-[70px]" />
+//               <div className="absolute bottom-0 left-0 w-28 h-28 bg-indigo-500/10 rounded-full blur-[55px]" />
+//               <div className="relative z-10 flex flex-col h-full">
+//                 <div className="flex items-center justify-between mb-7">
+//                   <h3 className="text-sm font-black text-emerald-400 uppercase tracking-[0.2em]">Live Cash Flow</h3>
+//                   <div className="flex gap-1 items-center">
+//                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+//                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/40" />
+//                   </div>
+//                 </div>
+//                 <div className="space-y-4 flex-1">
+//                   {(() => {
+//                     const maxVal = Math.max(totalIncome, totalExpense, 1);
+//                     const rows = [
+//                       ...(prevBalancePositive > 0 ? [{ label:`Opening Balance (${prevMonthName})`, value:prevBalancePositive, color:"bg-teal-400",    sign:"+" }] : []),
+//                       { label:"Deposit Money",        value:manualIncome,                    color:"bg-emerald-400",  sign:"+" },
+//                       ...(prevBalanceNegative > 0 ? [{ label:"Previous Month Deficit",               value:prevBalanceNegative, color:"bg-rose-500",  sign:"−" }] : []),
+//                       { label:"Manual Operational Expense",    value:manualExpense,                    color:"bg-rose-400",    sign:"−" },
+//                       { label:"Vendor Payout Settlements",     value:totalVendorPaid,                  color:"bg-indigo-400",  sign:"−" },
+//                       { label:"Total Advance",          value:manualAdvanceTotal + totalAdvance, color:"bg-amber-400",  sign:"−" },
+//                     ];
+//                     return rows.map((item,i) => (
+//                       <div key={i}>
+//                         <div className="flex justify-between items-center mb-1">
+//                           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{item.label}</span>
+//                           <span className={`text-xs font-black ${item.sign==="+"?"text-emerald-400":"text-rose-400"}`}>
+//                             {item.sign} {fmt(item.value)}
+//                           </span>
+//                         </div>
+//                         <div className="w-full bg-slate-800/50 rounded-full h-1.5 overflow-hidden border border-slate-700/50">
+//                           <div className={`h-full ${item.color} rounded-full transition-all duration-700`}
+//                             style={{ width:`${Math.min(100,(item.value/maxVal)*100)}%` }} />
+//                         </div>
+//                       </div>
+//                     ));
+//                   })()}
+//                 </div>
+//                 {/* Net Balance box */}
+//                 <div className={`mt-8 rounded-[1.5rem] p-5 transition-all duration-500 ${
+//                   netBalance >= 0
+//                     ? "bg-gradient-to-br from-emerald-500/20 to-teal-500/5 border border-emerald-500/20"
+//                     : "bg-gradient-to-br from-rose-500/20 to-red-500/5 border border-rose-500/20"
+//                 }`}>
+//                   <div className="flex items-center justify-between">
+//                     <div>
+//                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Net Disposable Balance</p>
+//                       <h2 className={`text-3xl font-black tracking-tighter ${netBalance>=0?"text-emerald-400":"text-rose-400"}`}>
+//                         {netBalance>=0?"+":""}{prevMonthLoading?"…":fmt(netBalance)}
+//                       </h2>
+//                     </div>
+//                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+//                       netBalance>=0?"bg-emerald-500/20 text-emerald-400":"bg-rose-500/20 text-rose-400"
+//                     }`}>
+//                       {netBalance>=0 ? <FiTrendingUp size={24}/> : <FiTrendingDown size={24}/>}
 //                     </div>
 //                   </div>
-//                 ))}
-//               </div>
-//               <div className="mt-5 pt-4 border-t border-gray-100 grid grid-cols-3 gap-2 text-center">
-//                 <div className="bg-gray-50 rounded-lg p-3">
-//                   <p className="text-xs text-gray-400">Trips</p>
-//                   <p className="text-xl font-black text-gray-800">{trips.length}</p>
-//                 </div>
-//                 <div className="bg-amber-50 rounded-lg p-3">
-//                   <p className="text-xs text-amber-600">Vendors</p>
-//                   <p className="text-lg font-black text-amber-700">{Object.keys(vendorMap).length}</p>
-//                 </div>
-//                 <div className="bg-red-50 rounded-lg p-3">
-//                   <p className="text-xs text-red-500">Due</p>
-//                   <p className="text-lg font-black text-red-700">{pendingVendors}</p>
 //                 </div>
 //               </div>
 //             </div>
 
-//             <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
-//               <h3 className="text-sm font-bold text-gray-800 mb-4">Accounts Cash Flow</h3>
-//               <div className="space-y-3 mb-5">
-//                 {(() => {
-//                   const maxVal = Math.max(totalIncome, totalExpense, 1);
-//                   const rows = [
-//                     ...(prevBalancePositive > 0 ? [{ label:`Opening Balance (${prevMonthName})`, value:prevBalancePositive, color:"bg-teal-400", sign:"+" }] : []),
-//                     { label:"Income (this month)",    value:manualIncome,        color:"bg-emerald-400", sign:"+" },
-//                     ...(prevBalanceNegative > 0 ? [{ label:`Deficit from ${prevMonthName}`, value:prevBalanceNegative, color:"bg-rose-500", sign:"−" }] : []),
-//                     { label:"Manual Expense",         value:manualExpense,       color:"bg-red-400",     sign:"−" },
-//                     { label:"Vendor Payments",        value:totalVendorPaid,     color:"bg-indigo-400",  sign:"−" },
-//                     { label:"Advance — Manual",       value:manualAdvanceTotal,  color:"bg-orange-400",  sign:"−" },
-//                     { label:"Advance — Auto (trips)", value:totalAdvance,        color:"bg-amber-400",   sign:"−" },
-//                   ];
-//                   return rows.map((item,i) => (
-//                     <div key={i}>
-//                       <div className="flex justify-between items-center mb-1">
-//                         <span className="text-xs text-gray-500">{item.label}</span>
-//                         <span className="text-xs font-bold text-gray-800">{item.sign} {fmt(item.value)}</span>
-//                       </div>
-//                       <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-//                         <div className={`h-full ${item.color} rounded-full`}
-//                           style={{ width:`${Math.min(100,(item.value/maxVal)*100)}%` }} />
-//                       </div>
-//                     </div>
-//                   ));
-//                 })()}
-//               </div>
-//               <div className={`rounded-xl p-4 flex items-center justify-between ${netBalance>=0?"bg-emerald-50 border border-emerald-200":"bg-red-50 border border-red-200"}`}>
-//                 <span className="text-sm font-semibold text-gray-700">Net Balance</span>
-//                 <span className={`text-2xl font-black ${netBalance>=0?"text-emerald-700":"text-red-700"}`}>
-//                   {netBalance>=0?"+":""}{prevMonthLoading?"…":fmt(netBalance)}
-//                 </span>
-//               </div>
-//             </div>
-
+//             {/* ── CARD 3: PENDING VENDORS QUICK VIEW (col-span-2) ── */}
 //             <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 lg:col-span-2">
 //               <div className="flex items-center justify-between mb-4">
 //                 <h3 className="text-sm font-bold text-gray-800">Pending Vendors — Quick View</h3>
@@ -783,6 +897,7 @@
 //                 </div>
 //               )}
 //             </div>
+
 //           </div>
 //         )}
 
@@ -808,25 +923,27 @@
 //           const paidCurrent    = manualAdvances.filter(a => a.status === "paid");
 //           const unpaidTotal    = unpaidCurrent.reduce((s,a) => s+num(a.amount), 0);
 
-//           // FIX: carried rows — exclude যেগুলো current month এও আছে (duplicate prevention)
-//           const currentIds = new Set(manualAdvances.map(a => String(a._id)));
+//           const currentIds    = new Set(manualAdvances.map(a => String(a._id)));
 //           const uniqueCarried = carryForwardTxs.filter(a => !currentIds.has(String(a._id)));
 
 //           const filteredManual = manualAdvances.filter(a =>
-//             !advSearch ||
-//             (a.recipientName||"").toLowerCase().includes(advSearch.toLowerCase()) ||
-//             (a.note||"").toLowerCase().includes(advSearch.toLowerCase())
+//             (advTypeFilter === "all" || advTypeFilter === "manual") &&
+//             (!advSearch ||
+//               (a.recipientName||"").toLowerCase().includes(advSearch.toLowerCase()) ||
+//               (a.note||"").toLowerCase().includes(advSearch.toLowerCase()))
 //           );
 //           const filteredTrip = tripAdvances.filter(t =>
-//             !advSearch ||
-//             (t.vendorName||"").toLowerCase().includes(advSearch.toLowerCase()) ||
-//             (t.tripNumber||"").toLowerCase().includes(advSearch.toLowerCase()) ||
-//             (t.driverName||"").toLowerCase().includes(advSearch.toLowerCase())
+//             (advTypeFilter === "all" || advTypeFilter === "auto") &&
+//             (!advSearch ||
+//               (t.vendorName||"").toLowerCase().includes(advSearch.toLowerCase()) ||
+//               (t.tripNumber||"").toLowerCase().includes(advSearch.toLowerCase()) ||
+//               (t.driverName||"").toLowerCase().includes(advSearch.toLowerCase()))
 //           );
 //           const filteredCarried = uniqueCarried.filter(a =>
-//             !advSearch ||
-//             (a.recipientName||"").toLowerCase().includes(advSearch.toLowerCase()) ||
-//             (a.note||"").toLowerCase().includes(advSearch.toLowerCase())
+//             (advTypeFilter === "all" || advTypeFilter === "carry") &&
+//             (!advSearch ||
+//               (a.recipientName||"").toLowerCase().includes(advSearch.toLowerCase()) ||
+//               (a.note||"").toLowerCase().includes(advSearch.toLowerCase()))
 //           );
 
 //           const allRows = [
@@ -893,11 +1010,19 @@
 //               <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
 //                 <div className="px-5 py-3.5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center gap-3">
 //                   <h3 className="text-sm font-bold text-gray-800">Advance History</h3>
-//                   <div className="sm:ml-auto flex items-center gap-2">
+//                   <div className="sm:ml-auto flex flex-wrap items-center gap-2">
 //                     <input
-//                       className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-gray-400 w-52 bg-white"
+//                       className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-gray-400 w-48 bg-white"
 //                       placeholder="Search name / trip / note…"
 //                       value={advSearch} onChange={e => setAdvSearch(e.target.value)} />
+//                     <select
+//                       className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none bg-white text-gray-600 focus:border-gray-400"
+//                       value={advTypeFilter} onChange={e => setAdvTypeFilter(e.target.value)}>
+//                       <option value="all">All Types</option>
+//                       <option value="manual">Manual</option>
+//                       <option value="auto">Auto (Trips)</option>
+//                       <option value="carry">Carried Forward</option>
+//                     </select>
 //                     <span className="text-xs text-gray-400 shrink-0">{allRows.length} entries</span>
 //                   </div>
 //                 </div>
@@ -1023,7 +1148,6 @@
 //                       </tr>
 //                     ))}
 //                   </tbody>
-//                   {/* FIX: footer total — "all" filter এ hide */}
 //                   {footerTotal !== null && (
 //                     <tfoot>
 //                       <tr className="bg-gray-50 border-t-2 border-gray-200">
@@ -1043,6 +1167,121 @@
 //           </div>
 //         )}
 
+//         {/* ══ AUDIT LOG ══ */}
+//         {tab === "audit" && (() => {
+//           const AUDIT_LABELS = {
+//             income:         ["Income",           "text-emerald-700 bg-emerald-50 border-emerald-200"],
+//             expense:        ["Expense",           "text-red-700 bg-red-50 border-red-200"],
+//             manual_advance: ["Advance (Manual)",  "text-orange-700 bg-orange-50 border-orange-200"],
+//             vendor_payment: ["Vendor Payment",    "text-indigo-700 bg-indigo-50 border-indigo-200"],
+//             carry_forward:  ["Carry Forward",     "text-gray-600 bg-gray-50 border-gray-200"],
+//           };
+//           const totalPages = Math.ceil(auditTotal / 20);
+//           return (
+//             <div className="space-y-3">
+//               <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+//                 <div>
+//                   <h3 className="text-sm font-bold text-red-800">🗑 Delete Audit Log</h3>
+//                   <p className="text-xs text-red-500 mt-0.5">সকল deleted transaction এর সম্পূর্ণ record। প্রয়োজনে Restore করা যাবে।</p>
+//                 </div>
+//                 <div className="sm:ml-auto flex items-center gap-2">
+//                   <input
+//                     className="border border-red-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-red-400 w-48 bg-white"
+//                     placeholder="Email দিয়ে filter…"
+//                     value={auditSearch}
+//                     onChange={e => { setAuditSearch(e.target.value); setAuditPage(1); fetchAuditLogs(1, e.target.value); }} />
+//                   <button onClick={() => fetchAuditLogs(auditPage, auditSearch)}
+//                     className="px-3 py-1.5 bg-red-700 text-white text-xs rounded-lg hover:bg-red-600 transition font-semibold">
+//                     Refresh
+//                   </button>
+//                 </div>
+//               </div>
+//               <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+//                 {auditLoading ? (
+//                   <div className="py-16 text-center text-gray-400 text-sm animate-pulse">লোড হচ্ছে…</div>
+//                 ) : auditLogs.length === 0 ? (
+//                   <div className="py-16 text-center text-gray-400 italic text-sm">কোনো delete history নেই।</div>
+//                 ) : (
+//                   <>
+//                     <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)]">
+//                       <table className="w-full text-sm border-collapse">
+//                         <thead>
+//                           <tr className="bg-gray-800 text-white sticky top-0 z-10">
+//                             {["সময়","কে Delete করেছে","Type","Description","Amount","কারণ",""].map(h => (
+//                               <th key={h} className="px-4 py-2.5 text-left text-xs font-normal uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0">{h}</th>
+//                             ))}
+//                           </tr>
+//                         </thead>
+//                         <tbody>
+//                           {auditLogs.map((log, i) => {
+//                             const doc = log.deletedDocument || {};
+//                             const [typeLabel, typeCls] = AUDIT_LABELS[doc.type] || ["Unknown","text-gray-500 bg-gray-50 border-gray-200"];
+//                             const deletedAt = log.performedAt ? new Date(log.performedAt) : null;
+//                             return (
+//                               <tr key={log._id || i} className="border-b border-gray-50 hover:bg-red-50/30 transition-colors">
+//                                 <td className="px-4 py-3 text-xs whitespace-nowrap">
+//                                   <div className="font-medium text-gray-700">{deletedAt ? deletedAt.toLocaleDateString("en-BD") : "—"}</div>
+//                                   <div className="text-gray-400">{deletedAt ? deletedAt.toLocaleTimeString("en-BD", { hour:"2-digit", minute:"2-digit" }) : ""}</div>
+//                                 </td>
+//                                 <td className="px-4 py-3">
+//                                   <div className="text-xs font-semibold text-gray-800">{log.performedBy?.email || "—"}</div>
+//                                   <div className="text-[10px] text-gray-400 uppercase mt-0.5">{log.performedBy?.role || ""}</div>
+//                                 </td>
+//                                 <td className="px-4 py-3">
+//                                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border uppercase tracking-wide ${typeCls}`}>{typeLabel}</span>
+//                                 </td>
+//                                 <td className="px-4 py-3 text-sm text-gray-700 max-w-[200px]">
+//                                   <span className="block truncate">{doc.description || "—"}</span>
+//                                   {doc.vendorName   && <span className="text-xs text-gray-400 block">Vendor: {doc.vendorName}</span>}
+//                                   {doc.recipientName && <span className="text-xs text-gray-400 block">To: {doc.recipientName}</span>}
+//                                 </td>
+//                                 <td className="px-4 py-3 text-right font-bold text-gray-800 whitespace-nowrap">
+//                                   {fmt(doc.amount)}
+//                                   <div className="text-[10px] text-gray-400 font-normal">{doc.date}</div>
+//                                 </td>
+//                                 <td className="px-4 py-3 text-xs text-gray-500 max-w-[160px]">
+//                                   {log.reason ? <span className="italic">"{log.reason}"</span> : <span className="text-gray-300">—</span>}
+//                                 </td>
+//                                 <td className="px-4 py-3 text-center">
+//                                   {log.isRestored ? (
+//                                     <span className="px-2.5 py-1 text-[10px] font-semibold rounded border border-gray-200 text-gray-400 bg-gray-50 whitespace-nowrap">
+//                                       ✓ Restored
+//                                     </span>
+//                                   ) : (
+//                                     <button
+//                                       disabled={restoring === log._id}
+//                                       onClick={() => handleRestore(log)}
+//                                       className="px-2.5 py-1 text-[10px] font-semibold rounded border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition whitespace-nowrap disabled:opacity-50">
+//                                       {restoring === log._id ? "…" : "↩ Restore"}
+//                                     </button>
+//                                   )}
+//                                 </td>
+//                               </tr>
+//                             );
+//                           })}
+//                         </tbody>
+//                       </table>
+//                     </div>
+//                     {totalPages > 1 && (
+//                       <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
+//                         <span className="text-xs text-gray-400">মোট {auditTotal} টি record · Page {auditPage}/{totalPages}</span>
+//                         <div className="flex gap-2">
+//                           <button disabled={auditPage <= 1}
+//                             onClick={() => { const p = auditPage-1; setAuditPage(p); fetchAuditLogs(p, auditSearch); }}
+//                             className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40">← Prev</button>
+//                           <button disabled={auditPage >= totalPages}
+//                             onClick={() => { const p = auditPage+1; setAuditPage(p); fetchAuditLogs(p, auditSearch); }}
+//                             className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40">Next →</button>
+//                         </div>
+//                       </div>
+//                     )}
+//                   </>
+//                 )}
+//               </div>
+//             </div>
+//           );
+//         })()}
+
 //         </>)}
 //       </div>
 //     </div>
@@ -1054,13 +1293,14 @@
 
 
 
+
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import Swal from "sweetalert2";
 import LoadingSpinner from "../Component/LoadingSpinner";
-import { FiTrendingUp, FiTrendingDown } from "react-icons/fi"; // ← FIX
+import { FiTrendingUp, FiTrendingDown } from "react-icons/fi";
 
 const fmt  = (n) => n == null ? "—" : "৳ " + Number(n).toLocaleString("en-IN");
 const num  = (n) => (n != null ? Number(n) : 0);
@@ -1068,14 +1308,20 @@ const MONTHS = ["January","February","March","April","May","June","July","August
 
 /* ── Stat Card ── */
 const StatCard = ({ label, value, sub, color="text-gray-800", border="border-gray-200", bg="bg-white", pill, onClick }) => (
-  <div onClick={onClick}
-    className={`${bg} border ${border} rounded-xl p-4 shadow-sm transition-all ${onClick?"cursor-pointer hover:shadow-md hover:brightness-95 active:scale-[0.99]":""}`}>
-    <div className="flex items-start justify-between gap-2 mb-1">
-      <p className="text-xs text-gray-400 uppercase tracking-widest leading-tight">{label}</p>
-      {pill && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide shrink-0 ${pill.color}`}>{pill.text}</span>}
+  <div
+    onClick={onClick}
+    className={`${bg} border ${border} rounded-xl p-3 shadow-sm transition-all ${onClick ? "cursor-pointer hover:shadow-md hover:brightness-95 active:scale-[0.99]" : ""}`}
+  >
+    <div className="flex items-start justify-between gap-1 mb-1">
+      <p className="text-[10px] sm:text-xs text-gray-400 uppercase tracking-widest leading-tight">{label}</p>
+      {pill && (
+        <span className={`text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide shrink-0 ${pill.color}`}>
+          {pill.text}
+        </span>
+      )}
     </div>
-    <p className={`text-xl font-bold ${color} leading-tight`}>{value}</p>
-    {sub && <p className="text-xs text-gray-400 mt-1 leading-snug">{sub}</p>}
+    <p className={`text-base sm:text-lg font-bold ${color} leading-tight`}>{value}</p>
+    {sub && <p className="text-[10px] sm:text-xs text-gray-400 mt-1 leading-snug break-words">{sub}</p>}
   </div>
 );
 
@@ -1093,30 +1339,35 @@ const Badge = ({ source, type }) => {
     : type === "manual_advance" ? "manual_advance"
     : type;
   const [tc, bg, bc, label] = cfg[key] || ["text-gray-600","bg-gray-50","border-gray-200","Other"];
-  return <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${tc} ${bg} ${bc} uppercase tracking-wide whitespace-nowrap`}>{label}</span>;
+  return (
+    <span className={`text-[9px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded border ${tc} ${bg} ${bc} uppercase tracking-wide whitespace-nowrap`}>
+      {label}
+    </span>
+  );
 };
 
 /* ── Progress bar ── */
 const Bar = ({ value, max, color="bg-emerald-500" }) => (
   <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden mt-1">
-    <div className={`h-full ${color} rounded-full transition-all`} style={{ width:`${max>0?Math.min(100,(value/max)*100):0}%` }} />
+    <div
+      className={`h-full ${color} rounded-full transition-all`}
+      style={{ width: `${max > 0 ? Math.min(100, (value / max) * 100) : 0}%` }}
+    />
   </div>
 );
 
-/* ══════════════════════════════════════════════════════════════
-   PAY VENDOR MODAL
-══════════════════════════════════════════════════════════════ */
+/* ══ PAY VENDOR MODAL ══ */
 const PayVendorModal = ({ open, onClose, vendor, summary, onPay }) => {
   const remaining = summary ? Math.max(0, summary.totalBill - summary.totalAdvance - summary.totalPaid) : 0;
   const [amount, setAmount] = useState("");
-  const [date,   setDate]   = useState(new Date().toISOString().slice(0,10));
+  const [date,   setDate]   = useState(new Date().toISOString().slice(0, 10));
   const [note,   setNote]   = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open || !summary) return;
     setAmount(remaining > 0 ? String(remaining) : "");
-    setDate(new Date().toISOString().slice(0,10));
+    setDate(new Date().toISOString().slice(0, 10));
     setNote("");
   }, [open, remaining]);
 
@@ -1124,7 +1375,7 @@ const PayVendorModal = ({ open, onClose, vendor, summary, onPay }) => {
 
   const handlePay = async () => {
     if (!amount || Number(amount) <= 0) {
-      Swal.fire({ icon:"warning", title:"Amount দাও", toast:true, position:"top-end", timer:1800, showConfirmButton:false });
+      Swal.fire({ icon: "warning", title: "Amount দাও", toast: true, position: "top-end", timer: 1800, showConfirmButton: false });
       return;
     }
     setSaving(true);
@@ -1134,13 +1385,13 @@ const PayVendorModal = ({ open, onClose, vendor, summary, onPay }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
-        <div className="px-6 py-4 border-b border-gray-100">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm max-h-[90vh] overflow-y-auto">
+        <div className="px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
           <h3 className="text-sm font-bold text-gray-800">Pay Vendor</h3>
           <p className="text-xs text-gray-400 mt-0.5">{vendor}</p>
         </div>
-        <div className="p-6 space-y-4">
+        <div className="p-5 space-y-4">
           <div className="bg-gray-50 rounded-lg p-3 text-xs space-y-1.5">
             <div className="flex justify-between text-gray-500">
               <span>Total Bill (Rent + Labour)</span>
@@ -1156,45 +1407,52 @@ const PayVendorModal = ({ open, onClose, vendor, summary, onPay }) => {
                 <span className="font-semibold">— {fmt(summary.totalPaid)}</span>
               </div>
             )}
-            <div className={`flex justify-between font-black pt-1.5 border-t border-gray-200 ${remaining>0?"text-red-600":"text-emerald-600"}`}>
+            <div className={`flex justify-between font-black pt-1.5 border-t border-gray-200 ${remaining > 0 ? "text-red-600" : "text-emerald-600"}`}>
               <span>Remaining Due</span>
               <span>{remaining > 0 ? fmt(remaining) : "✓ Cleared"}</span>
             </div>
           </div>
           <details className="text-xs text-gray-500 cursor-pointer">
             <summary className="font-semibold text-gray-600 mb-1">{summary.trips} trips included</summary>
-            <div className="mt-1.5 space-y-1 pl-2 max-h-32 overflow-y-auto">
-              {summary.tripList.map((t,i) => (
+            <div className="mt-1.5 space-y-1 pl-2 max-h-28 overflow-y-auto">
+              {summary.tripList.map((t, i) => (
                 <div key={i} className="flex justify-between">
                   <span className="font-mono text-gray-400">{t.tripNumber}</span>
-                  <span className="text-gray-600">{fmt(num(t.rent)+num(t.leborBill))}</span>
+                  <span className="text-gray-600">{fmt(num(t.rent) + num(t.leborBill))}</span>
                 </div>
               ))}
             </div>
           </details>
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Payment Amount (৳) *</label>
-            <input type="number" min="0"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-500"
-              value={amount} onChange={e => setAmount(e.target.value)} />
+            <input
+              type="number" min="0"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-500"
+              value={amount} onChange={e => setAmount(e.target.value)}
+            />
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Date *</label>
-            <input type="date"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-500"
-              value={date} onChange={e => setDate(e.target.value)} />
+            <input
+              type="date"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-500"
+              value={date} onChange={e => setDate(e.target.value)}
+            />
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Note</label>
             <input
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-500"
-              placeholder="optional..." value={note} onChange={e => setNote(e.target.value)} />
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-500"
+              placeholder="optional..." value={note} onChange={e => setNote(e.target.value)}
+            />
           </div>
         </div>
-        <div className="flex gap-3 px-6 pb-5">
-          <button onClick={onClose} className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50">Cancel</button>
-          <button onClick={handlePay} disabled={saving}
-            className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-500 transition disabled:opacity-60">
+        <div className="flex gap-3 px-5 pb-6 pt-2">
+          <button onClick={onClose} className="flex-1 py-3 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50">Cancel</button>
+          <button
+            onClick={handlePay} disabled={saving}
+            className="flex-1 py-3 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-500 transition disabled:opacity-60"
+          >
             {saving ? "Saving…" : "Pay Now"}
           </button>
         </div>
@@ -1203,26 +1461,27 @@ const PayVendorModal = ({ open, onClose, vendor, summary, onPay }) => {
   );
 };
 
-/* ══════════════════════════════════════════════════════════════
-   MANUAL TX MODAL
-══════════════════════════════════════════════════════════════ */
+/* ══ MANUAL TX MODAL ══ */
 const ManualTxModal = ({ open, onClose, onSave }) => {
-  const [form, setForm] = useState({ type:"income", description:"", amount:"", date:new Date().toISOString().slice(0,10), note:"", recipientName:"" });
+  const [form, setForm] = useState({
+    type: "income", description: "", amount: "",
+    date: new Date().toISOString().slice(0, 10), note: "", recipientName: ""
+  });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) setForm({ type:"income", description:"", amount:"", date:new Date().toISOString().slice(0,10), note:"", recipientName:"" });
+    if (open) setForm({ type: "income", description: "", amount: "", date: new Date().toISOString().slice(0, 10), note: "", recipientName: "" });
   }, [open]);
 
   if (!open) return null;
 
   const handleSave = async () => {
     if (!form.description.trim() || !form.amount || !form.date) {
-      Swal.fire({ icon:"warning", title:"সব required field fill করো", toast:true, position:"top-end", timer:1800, showConfirmButton:false });
+      Swal.fire({ icon: "warning", title: "সব required field fill করো", toast: true, position: "top-end", timer: 1800, showConfirmButton: false });
       return;
     }
     if (form.type === "manual_advance" && !form.recipientName.trim()) {
-      Swal.fire({ icon:"warning", title:"Recipient name দাও", toast:true, position:"top-end", timer:1800, showConfirmButton:false });
+      Swal.fire({ icon: "warning", title: "Recipient name দাও", toast: true, position: "top-end", timer: 1800, showConfirmButton: false });
       return;
     }
     setSaving(true);
@@ -1232,21 +1491,26 @@ const ManualTxModal = ({ open, onClose, onSave }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md max-h-[92vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
           <h3 className="text-base font-bold text-gray-800">Add Transaction</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none p-1">✕</button>
         </div>
-        <div className="p-6 space-y-4">
+        <div className="p-5 space-y-4">
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Type</label>
             <div className="grid grid-cols-3 gap-2">
-              {[["income","Income","text-emerald-700 bg-emerald-50 border-emerald-200"],
-                ["expense","Expense","text-red-700 bg-red-50 border-red-200"],
-                ["manual_advance","Advance","text-orange-700 bg-orange-50 border-orange-200"]].map(([k,l,c]) => (
-                <button key={k} onClick={() => setForm(f=>({...f,type:k}))}
-                  className={`py-2 px-3 rounded-lg border text-sm font-semibold transition-all ${form.type===k?c+" ring-2 ring-offset-1 ring-current":"border-gray-200 text-gray-500 hover:border-gray-400"}`}>
+              {[
+                ["income", "Income", "text-emerald-700 bg-emerald-50 border-emerald-200"],
+                ["expense", "Expense", "text-red-700 bg-red-50 border-red-200"],
+                ["manual_advance", "Advance", "text-orange-700 bg-orange-50 border-orange-200"],
+              ].map(([k, l, c]) => (
+                <button
+                  key={k}
+                  onClick={() => setForm(f => ({ ...f, type: k }))}
+                  className={`py-2.5 px-2 rounded-lg border text-xs sm:text-sm font-semibold transition-all ${form.type === k ? c + " ring-2 ring-offset-1 ring-current" : "border-gray-200 text-gray-500 hover:border-gray-400"}`}
+                >
                   {l}
                 </button>
               ))}
@@ -1255,44 +1519,54 @@ const ManualTxModal = ({ open, onClose, onSave }) => {
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Description *</label>
             <input
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-500"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-500"
               placeholder="e.g. Office rent, Salary, Client payment..."
-              value={form.description} onChange={e => setForm(f=>({...f,description:e.target.value}))} />
+              value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+            />
           </div>
           {form.type === "manual_advance" && (
             <div>
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Recipient *</label>
               <input
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-500"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-500"
                 placeholder="e.g. Karim, Driver Rahim, Office..."
-                value={form.recipientName} onChange={e => setForm(f=>({...f,recipientName:e.target.value}))} />
+                value={form.recipientName} onChange={e => setForm(f => ({ ...f, recipientName: e.target.value }))}
+              />
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Amount (৳) *</label>
-              <input type="number" min="0"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-500"
-                placeholder="0" value={form.amount} onChange={e => setForm(f=>({...f,amount:e.target.value}))} />
+              <input
+                type="number" min="0"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-500"
+                placeholder="0" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+              />
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Date *</label>
-              <input type="date"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-500"
-                value={form.date} onChange={e => setForm(f=>({...f,date:e.target.value}))} />
+              <input
+                type="date"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-500"
+                value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+              />
             </div>
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Note (optional)</label>
-            <textarea rows={2}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-500 resize-none"
-              value={form.note} onChange={e => setForm(f=>({...f,note:e.target.value}))} />
+            <textarea
+              rows={2}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-500 resize-none"
+              value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
+            />
           </div>
         </div>
-        <div className="flex gap-3 px-6 pb-5">
-          <button onClick={onClose} className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50">Cancel</button>
-          <button onClick={handleSave} disabled={saving}
-            className="flex-1 py-2 bg-gray-800 text-white rounded-lg text-sm font-semibold hover:bg-gray-700 transition disabled:opacity-60">
+        <div className="flex gap-3 px-5 pb-6 pt-2">
+          <button onClick={onClose} className="flex-1 py-3 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50">Cancel</button>
+          <button
+            onClick={handleSave} disabled={saving}
+            className="flex-1 py-3 bg-gray-800 text-white rounded-lg text-sm font-semibold hover:bg-gray-700 transition disabled:opacity-60"
+          >
             {saving ? "Saving…" : "Save"}
           </button>
         </div>
@@ -1301,24 +1575,59 @@ const ManualTxModal = ({ open, onClose, onSave }) => {
   );
 };
 
-/* ══════════════════════════════════════════════════════════════
-   VENDOR SUMMARY TABLE
-══════════════════════════════════════════════════════════════ */
+/* ══ VENDOR SUMMARY TABLE ══ */
 const VendorSummaryTable = ({ vendorMap, onPayVendor }) => {
-  const vendors = Object.values(vendorMap).sort((a,b) => b.totalBill - a.totalBill);
+  const vendors = Object.values(vendorMap).sort((a, b) => b.totalBill - a.totalBill);
   if (!vendors.length) return <p className="text-center text-gray-400 text-sm py-8 italic">No vendor data.</p>;
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm border-collapse">
+    <div className="overflow-x-auto -mx-0">
+      {/* Mobile card view */}
+      <div className="sm:hidden divide-y divide-gray-100">
+        {vendors.map((v, i) => {
+          const cleared = v.totalAdvance + v.totalPaid;
+          const due = Math.max(0, v.totalBill - cleared);
+          return (
+            <div key={i} className="p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-gray-800 text-sm">{v.vendor}</span>
+                <span className="text-xs text-gray-400">{v.trips} trips</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div><span className="text-gray-400">Total Bill</span><div className="font-semibold text-gray-800">{fmt(v.totalBill)}</div></div>
+                <div><span className="text-gray-400">Advance</span><div className="font-medium text-amber-700">{fmt(v.totalAdvance)}</div></div>
+                <div><span className="text-gray-400">Paid</span><div className="font-medium text-indigo-700">{v.totalPaid > 0 ? fmt(v.totalPaid) : "—"}</div></div>
+                <div>
+                  <span className="text-gray-400">Due</span>
+                  <div className={`font-bold ${due > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                    {due > 0 ? fmt(due) : "✓ Cleared"}
+                  </div>
+                </div>
+              </div>
+              {v.totalBill > 0 && <Bar value={cleared} max={v.totalBill} color={due > 0 ? "bg-amber-400" : "bg-emerald-500"} />}
+              {due > 0 && (
+                <button
+                  onClick={() => onPayVendor(v.vendor)}
+                  className="w-full mt-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-lg transition font-semibold"
+                >
+                  Pay Vendor
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {/* Desktop table view */}
+      <table className="hidden sm:table w-full text-sm border-collapse">
         <thead>
           <tr className="bg-gray-800 text-white text-left">
-            {["Vendor","Trips","Total Bill","Advance (auto)","Paid","Due",""].map(h => (
+            {["Vendor", "Trips", "Total Bill", "Advance (auto)", "Paid", "Due", ""].map(h => (
               <th key={h} className="px-3 py-2.5 text-xs font-normal uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0">{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {vendors.map((v,i) => {
+          {vendors.map((v, i) => {
             const cleared = v.totalAdvance + v.totalPaid;
             const due = Math.max(0, v.totalBill - cleared);
             return (
@@ -1329,15 +1638,17 @@ const VendorSummaryTable = ({ vendorMap, onPayVendor }) => {
                 <td className="px-3 py-2.5 text-amber-700 font-medium">{fmt(v.totalAdvance)}</td>
                 <td className="px-3 py-2.5 text-indigo-700 font-medium">{v.totalPaid > 0 ? fmt(v.totalPaid) : <span className="text-gray-300">—</span>}</td>
                 <td className="px-3 py-2.5 min-w-[140px]">
-                  <span className={`font-bold ${due>0?"text-red-600":"text-emerald-600"}`}>
+                  <span className={`font-bold ${due > 0 ? "text-red-600" : "text-emerald-600"}`}>
                     {due > 0 ? fmt(due) : "✓ Cleared"}
                   </span>
-                  {v.totalBill > 0 && <Bar value={cleared} max={v.totalBill} color={due>0?"bg-amber-400":"bg-emerald-500"} />}
+                  {v.totalBill > 0 && <Bar value={cleared} max={v.totalBill} color={due > 0 ? "bg-amber-400" : "bg-emerald-500"} />}
                 </td>
                 <td className="px-3 py-2.5">
                   {due > 0 && (
-                    <button onClick={() => onPayVendor(v.vendor)}
-                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded transition font-semibold whitespace-nowrap">
+                    <button
+                      onClick={() => onPayVendor(v.vendor)}
+                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded transition font-semibold whitespace-nowrap"
+                    >
                       Pay
                     </button>
                   )}
@@ -1429,11 +1740,11 @@ const AccountsDashboard = () => {
         ]);
         const txs  = accData.data  || [];
         const trps = tripData.data || [];
-        const inc  = txs.filter(t=>t.type==="income").reduce((s,t)=>s+num(t.amount),0);
-        const exp  = txs.filter(t=>t.type==="expense").reduce((s,t)=>s+num(t.amount),0);
-        const vadv = txs.filter(t=>t.type==="manual_advance").reduce((s,t)=>s+num(t.amount),0);
-        const vpay = txs.filter(t=>t.type==="vendor_payment").reduce((s,t)=>s+num(t.amount),0);
-        const aadv = trps.reduce((s,t)=>s+num(t.advance),0);
+        const inc  = txs.filter(t => t.type === "income").reduce((s, t) => s + num(t.amount), 0);
+        const exp  = txs.filter(t => t.type === "expense").reduce((s, t) => s + num(t.amount), 0);
+        const vadv = txs.filter(t => t.type === "manual_advance").reduce((s, t) => s + num(t.amount), 0);
+        const vpay = txs.filter(t => t.type === "vendor_payment").reduce((s, t) => s + num(t.amount), 0);
+        const aadv = trps.reduce((s, t) => s + num(t.advance), 0);
         const totalInc = inc + (runningBalance > 0 ? runningBalance : 0);
         const totalExp = exp + vadv + vpay + aadv + (runningBalance < 0 ? Math.abs(runningBalance) : 0);
         runningBalance = totalInc - totalExp;
@@ -1474,7 +1785,7 @@ const AccountsDashboard = () => {
   const vendorMap = {};
   trips.forEach(t => {
     const v = t.vendorName || "Unknown";
-    if (!vendorMap[v]) vendorMap[v] = { vendor:v, trips:0, totalBill:0, totalAdvance:0, totalPaid:0, tripList:[] };
+    if (!vendorMap[v]) vendorMap[v] = { vendor: v, trips: 0, totalBill: 0, totalAdvance: 0, totalPaid: 0, tripList: [] };
     vendorMap[v].trips++;
     vendorMap[v].totalBill    += num(t.rent) + num(t.leborBill);
     vendorMap[v].totalAdvance += num(t.advance);
@@ -1484,19 +1795,19 @@ const AccountsDashboard = () => {
     const v = t.vendorName || "";
     if (!v) return;
     if (vendorMap[v]) vendorMap[v].totalPaid += num(t.amount);
-    else vendorMap[v] = { vendor:v, trips:0, totalBill:0, totalAdvance:0, totalPaid:num(t.amount), tripList:[] };
+    else vendorMap[v] = { vendor: v, trips: 0, totalBill: 0, totalAdvance: 0, totalPaid: num(t.amount), tripList: [] };
   });
 
   /* ══ TOTALS ══ */
-  const totalVendorBill = Object.values(vendorMap).reduce((s,v)=>s+v.totalBill, 0);
-  const totalAdvance    = Object.values(vendorMap).reduce((s,v)=>s+v.totalAdvance, 0);
-  const totalVendorPaid = accountTxs.filter(t=>t.type==="vendor_payment").reduce((s,t)=>s+num(t.amount), 0);
-  const totalVendorDue  = Object.values(vendorMap).reduce((s,v)=>s+Math.max(0,v.totalBill-v.totalAdvance-v.totalPaid), 0);
-  const pendingVendors  = Object.values(vendorMap).filter(v=>Math.max(0,v.totalBill-v.totalAdvance-v.totalPaid)>0).length;
+  const totalVendorBill = Object.values(vendorMap).reduce((s, v) => s + v.totalBill, 0);
+  const totalAdvance    = Object.values(vendorMap).reduce((s, v) => s + v.totalAdvance, 0);
+  const totalVendorPaid = accountTxs.filter(t => t.type === "vendor_payment").reduce((s, t) => s + num(t.amount), 0);
+  const totalVendorDue  = Object.values(vendorMap).reduce((s, v) => s + Math.max(0, v.totalBill - v.totalAdvance - v.totalPaid), 0);
+  const pendingVendors  = Object.values(vendorMap).filter(v => Math.max(0, v.totalBill - v.totalAdvance - v.totalPaid) > 0).length;
 
-  const manualIncome       = accountTxs.filter(t=>t.type==="income").reduce((s,t)=>s+num(t.amount), 0);
-  const manualExpense      = accountTxs.filter(t=>t.type==="expense").reduce((s,t)=>s+num(t.amount), 0);
-  const manualAdvanceTotal = accountTxs.filter(t=>t.type==="manual_advance").reduce((s,t)=>s+num(t.amount), 0);
+  const manualIncome       = accountTxs.filter(t => t.type === "income").reduce((s, t) => s + num(t.amount), 0);
+  const manualExpense      = accountTxs.filter(t => t.type === "expense").reduce((s, t) => s + num(t.amount), 0);
+  const manualAdvanceTotal = accountTxs.filter(t => t.type === "manual_advance").reduce((s, t) => s + num(t.amount), 0);
 
   const prevBalancePositive = prevMonthBalance != null && prevMonthBalance > 0 ? prevMonthBalance : 0;
   const prevBalanceNegative = prevMonthBalance != null && prevMonthBalance < 0 ? Math.abs(prevMonthBalance) : 0;
@@ -1517,9 +1828,9 @@ const AccountsDashboard = () => {
       });
       if (res.data.success) {
         setAccountTxs(prev => [res.data.data, ...prev]);
-        Swal.fire({ icon:"success", title:"Payment saved!", toast:true, position:"top-end", timer:1800, showConfirmButton:false });
+        Swal.fire({ icon: "success", title: "Payment saved!", toast: true, position: "top-end", timer: 1800, showConfirmButton: false });
       }
-    } catch (err) { Swal.fire({ icon:"error", title: err?.response?.data?.message || "Failed" }); }
+    } catch (err) { Swal.fire({ icon: "error", title: err?.response?.data?.message || "Failed" }); }
   };
 
   const handleAddManualTx = async (tx) => {
@@ -1533,9 +1844,9 @@ const AccountsDashboard = () => {
       });
       if (res.data.success) {
         setAccountTxs(prev => [res.data.data, ...prev]);
-        Swal.fire({ icon:"success", title:"Transaction added", toast:true, position:"top-end", timer:1500, showConfirmButton:false });
+        Swal.fire({ icon: "success", title: "Transaction added", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
       }
-    } catch (err) { Swal.fire({ icon:"error", title: err?.response?.data?.message || "Failed" }); }
+    } catch (err) { Swal.fire({ icon: "error", title: err?.response?.data?.message || "Failed" }); }
   };
 
   const fetchAuditLogs = useCallback(async (page = 1, search = "") => {
@@ -1643,7 +1954,7 @@ const AccountsDashboard = () => {
         }
         Swal.fire({ icon: "success", title: newStatus === "paid" ? "Paid marked!" : "Unpaid marked!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
       }
-    } catch (err) { Swal.fire({ icon:"error", title: err?.response?.data?.message || "Failed" }); }
+    } catch (err) { Swal.fire({ icon: "error", title: err?.response?.data?.message || "Failed" }); }
   };
 
   /* ── Transactions list ── */
@@ -1652,7 +1963,7 @@ const AccountsDashboard = () => {
     .map(t => ({
       _id: `adv_${t._id}`, source: "auto_advance",
       description: `Advance — ${t.tripNumber} (${t.vendorName})`,
-      amount: num(t.advance), date: t.createdAt?.slice(0,10) || "",
+      amount: num(t.advance), date: t.createdAt?.slice(0, 10) || "",
       note: `Driver: ${t.driverName}`,
     }));
 
@@ -1664,38 +1975,40 @@ const AccountsDashboard = () => {
             : "manual",
     })),
     ...autoAdvanceTxs,
-  ].sort((a,b) => new Date(b.date||b.createdAt) - new Date(a.date||a.createdAt));
+  ].sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
 
   const filteredTxs = allTransactions.filter(t => {
     if (typeFilter === "auto_advance"   && t.source !== "auto_advance")   return false;
     if (typeFilter === "manual_advance" && t.source !== "manual_advance") return false;
     if (typeFilter === "vendor_payment" && t.source !== "vendor_payment") return false;
-    if (typeFilter === "income"         && !(t.source==="manual" && t.type==="income"))  return false;
-    if (typeFilter === "expense"        && !(t.source==="manual" && t.type==="expense")) return false;
-    if (typeFilter === "all_expense"    && t.source==="manual" && t.type==="income") return false;
+    if (typeFilter === "income"         && !(t.source === "manual" && t.type === "income"))  return false;
+    if (typeFilter === "expense"        && !(t.source === "manual" && t.type === "expense")) return false;
+    if (typeFilter === "all_expense"    && t.source === "manual" && t.type === "income") return false;
     const q = searchTx.toLowerCase();
     if (q && !t.description?.toLowerCase().includes(q) && !t.note?.toLowerCase().includes(q)) return false;
     return true;
   });
 
   const footerTotal = (() => {
-    if (typeFilter === "income") return filteredTxs.reduce((s,t)=>s+num(t.amount),0);
-    if (["expense","vendor_payment","manual_advance","auto_advance","all_expense"].includes(typeFilter))
-      return filteredTxs.reduce((s,t)=>s+num(t.amount),0);
+    if (typeFilter === "income") return filteredTxs.reduce((s, t) => s + num(t.amount), 0);
+    if (["expense", "vendor_payment", "manual_advance", "auto_advance", "all_expense"].includes(typeFilter))
+      return filteredTxs.reduce((s, t) => s + num(t.amount), 0);
     return null;
   })();
 
   const handleExport = () => {
     const rows = filteredTxs.map(t => ({
-      Date: t.date || t.createdAt?.slice(0,10),
-      Type: t.source==="auto_advance"?"Advance (Auto)":t.source==="manual_advance"?"Advance (Manual)":t.source==="vendor_payment"?"Vendor Payment":t.type,
-      Description: t.description, Amount: t.amount, Note: t.note||"",
+      Date: t.date || t.createdAt?.slice(0, 10),
+      Type: t.source === "auto_advance" ? "Advance (Auto)" : t.source === "manual_advance" ? "Advance (Manual)" : t.source === "vendor_payment" ? "Vendor Payment" : t.type,
+      Description: t.description, Amount: t.amount, Note: t.note || "",
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Accounts");
-    saveAs(new Blob([XLSX.write(wb,{bookType:"xlsx",type:"array"})],{type:"application/octet-stream"}),
-      `Accounts_${MONTHS[month-1]}_${year}.xlsx`);
+    saveAs(
+      new Blob([XLSX.write(wb, { bookType: "xlsx", type: "array" })], { type: "application/octet-stream" }),
+      `Accounts_${MONTHS[month - 1]}_${year}.xlsx`
+    );
   };
 
   const payingVendorSummary = payVendorName ? vendorMap[payVendorName] : null;
@@ -1705,250 +2018,307 @@ const AccountsDashboard = () => {
   ══════════════════════════════════════════════════════════════ */
   return (
     <div className="min-h-screen bg-gray-50">
-      <PayVendorModal open={!!payVendorName} vendor={payVendorName} summary={payingVendorSummary}
-        onClose={() => setPayVendorName(null)} onPay={handlePayVendor} />
+      <PayVendorModal
+        open={!!payVendorName} vendor={payVendorName} summary={payingVendorSummary}
+        onClose={() => setPayVendorName(null)} onPay={handlePayVendor}
+      />
       <ManualTxModal open={manualModal} onClose={() => setManualModal(false)} onSave={handleAddManualTx} />
 
-      <div className="max-w-full mx-auto p-4">
+      <div className="max-w-full mx-auto p-3 sm:p-4">
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">
-          <div>
-            <h1 className="text-xl font-bold text-gray-800">Accounts</h1>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {MONTHS[month-1]} {year} · {trips.length} trips
-              {pendingVendors > 0 && <span className="ml-2 text-red-500 font-semibold">· {pendingVendors} vendors pending</span>}
-            </p>
+        {/* ── Header ── */}
+        <div className="flex flex-col gap-3 mb-4 sm:mb-5">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-800">Accounts</h1>
+              <p className="text-[11px] sm:text-xs text-gray-400 mt-0.5">
+                {MONTHS[month - 1]} {year} · {trips.length} trips
+                {pendingVendors > 0 && <span className="ml-2 text-red-500 font-semibold">· {pendingVendors} vendors pending</span>}
+              </p>
+            </div>
+            {/* Mobile action buttons — icon only */}
+            <div className="flex items-center gap-1.5 sm:hidden">
+              <button
+                onClick={() => setManualModal(true)}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded bg-emerald-600 text-white hover:bg-emerald-500 transition font-medium"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add
+              </button>
+              <button
+                onClick={handleExport}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded bg-gray-800 text-white hover:bg-gray-700 transition"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                XLSX
+              </button>
+            </div>
           </div>
+
+          {/* Filter row */}
           <div className="flex flex-wrap items-center gap-2">
-            <select className="border border-gray-300 px-2.5 py-1.5 rounded text-sm bg-white text-gray-700 focus:outline-none"
-              value={month} onChange={e => setMonth(parseInt(e.target.value))}>
-              {MONTHS.map((m,i) => <option key={i} value={i+1}>{m}</option>)}
+            <select
+              className="border border-gray-300 px-2.5 py-1.5 rounded text-xs sm:text-sm bg-white text-gray-700 focus:outline-none flex-1 min-w-[110px] max-w-[160px]"
+              value={month} onChange={e => setMonth(parseInt(e.target.value))}
+            >
+              {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
             </select>
-            <input type="number"
-              className="border border-gray-300 px-2.5 py-1.5 rounded text-sm bg-white text-gray-700 w-20 focus:outline-none"
-              value={year} onChange={e => setYear(parseInt(e.target.value))} />
-            <button onClick={() => setManualModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded bg-emerald-600 text-white hover:bg-emerald-500 transition font-medium">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Add Transaction
-            </button>
-            <button onClick={handleExport}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded bg-gray-800 text-white hover:bg-gray-700 transition">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Export
-            </button>
+            <input
+              type="number"
+              className="border border-gray-300 px-2.5 py-1.5 rounded text-xs sm:text-sm bg-white text-gray-700 w-20 focus:outline-none"
+              value={year} onChange={e => setYear(parseInt(e.target.value))}
+            />
+            {/* Desktop action buttons */}
+            <div className="hidden sm:flex items-center gap-2 ml-auto">
+              <button
+                onClick={() => setManualModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded bg-emerald-600 text-white hover:bg-emerald-500 transition font-medium"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Transaction
+              </button>
+              <button
+                onClick={handleExport}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded bg-gray-800 text-white hover:bg-gray-700 transition"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export
+              </button>
+            </div>
           </div>
         </div>
 
         {loading || txLoading ? <LoadingSpinner /> : (<>
 
-        {/* Stat Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
-          <StatCard label="Total Deposit" value={prevMonthLoading ? "…" : fmt(totalIncome)}
+        {/* ── Stat Cards ── */}
+        {/* Mobile: 2 cols. Tablet: 3 cols. Desktop: 6 cols */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 mb-4 sm:mb-5">
+          <StatCard
+            label="Total Deposit" value={prevMonthLoading ? "…" : fmt(totalIncome)}
             sub={prevBalancePositive > 0
               ? `Manual: ${fmt(manualIncome)} + ${prevMonthName}: ${fmt(prevBalancePositive)}`
-              : `${accountTxs.filter(t=>t.type==="income").length} entries`}
+              : `${accountTxs.filter(t => t.type === "income").length} entries`}
             color="text-emerald-700" border="border-emerald-200" bg="bg-emerald-50"
-            onClick={() => { setTab("transactions"); setTypeFilter("income"); }} />
-          <StatCard label="Total Expense" value={prevMonthLoading ? "…" : fmt(totalExpense)}
+            onClick={() => { setTab("transactions"); setTypeFilter("income"); }}
+          />
+          <StatCard
+            label="Total Expense" value={prevMonthLoading ? "…" : fmt(totalExpense)}
             sub="Manual + Vendor + Advance"
             color="text-red-600" border="border-red-200" bg="bg-red-50"
-            onClick={() => { setTab("transactions"); setTypeFilter("all_expense"); }} />
-          <StatCard label="Net Balance" value={prevMonthLoading ? "…" : fmt(netBalance)}
+            onClick={() => { setTab("transactions"); setTypeFilter("all_expense"); }}
+          />
+          <StatCard
+            label="Net Balance" value={prevMonthLoading ? "…" : fmt(netBalance)}
             sub={prevMonthBalance != null && prevMonthBalance !== 0
               ? `Incl. ${prevMonthName}: ${prevMonthBalance > 0 ? "+" : ""}${fmt(prevMonthBalance)}`
               : netBalance >= 0 ? "Surplus" : "Deficit"}
-            color={netBalance>=0?"text-emerald-700":"text-red-700"}
-            border={netBalance>=0?"border-emerald-200":"border-red-200"}
-            bg={netBalance>=0?"bg-emerald-50":"bg-red-50"}
-            onClick={() => { setTab("transactions"); setTypeFilter("all"); }} />
-          <StatCard label="Bill Issued" value={fmt(totalVendorBill)}
-            sub="Rent + Labour · not paid"
+            color={netBalance >= 0 ? "text-emerald-700" : "text-red-700"}
+            border={netBalance >= 0 ? "border-emerald-200" : "border-red-200"}
+            bg={netBalance >= 0 ? "bg-emerald-50" : "bg-red-50"}
+            onClick={() => { setTab("transactions"); setTypeFilter("all"); }}
+          />
+          <StatCard
+            label="Bill Issued" value={fmt(totalVendorBill)}
+            sub="Rent + Labour"
             color="text-rose-700" border="border-rose-200" bg="bg-rose-50"
-            pill={{ text:"Issued", color:"bg-rose-100 text-rose-700" }}
-            onClick={() => setTab("vendors")} />
-          <StatCard label="Advance" value={fmt(totalAdvance + manualAdvanceTotal)}
+            pill={{ text: "Issued", color: "bg-rose-100 text-rose-700" }}
+            onClick={() => setTab("vendors")}
+          />
+          <StatCard
+            label="Advance" value={fmt(totalAdvance + manualAdvanceTotal)}
             sub={`Auto: ${fmt(totalAdvance)} · Manual: ${fmt(manualAdvanceTotal)}`}
             color="text-amber-700" border="border-amber-200" bg="bg-amber-50"
-            pill={{ text:"All", color:"bg-amber-100 text-amber-700" }}
-            onClick={() => setTab("advances")} />
-          <StatCard label="Vendor Due" value={fmt(totalVendorDue)}
+            pill={{ text: "All", color: "bg-amber-100 text-amber-700" }}
+            onClick={() => setTab("advances")}
+          />
+          <StatCard
+            label="Vendor Due" value={fmt(totalVendorDue)}
             sub={`${pendingVendors} vendors pending`}
-            color={totalVendorDue>0?"text-red-700":"text-emerald-700"}
-            border={totalVendorDue>0?"border-red-200":"border-emerald-200"}
-            bg={totalVendorDue>0?"bg-red-50":"bg-emerald-50"}
-            pill={totalVendorDue===0?{text:"Cleared",color:"bg-emerald-100 text-emerald-700"}:null}
-            onClick={() => setTab("vendors")} />
+            color={totalVendorDue > 0 ? "text-red-700" : "text-emerald-700"}
+            border={totalVendorDue > 0 ? "border-red-200" : "border-emerald-200"}
+            bg={totalVendorDue > 0 ? "bg-red-50" : "bg-emerald-50"}
+            pill={totalVendorDue === 0 ? { text: "Cleared", color: "bg-emerald-100 text-emerald-700" } : null}
+            onClick={() => setTab("vendors")}
+          />
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 mb-4 bg-white border border-gray-200 rounded-lg p-1 w-fit shadow-sm">
-          {[
-            { id:"overview",     label:"Overview" },
-            { id:"vendors",      label:`Vendors${pendingVendors>0?` (${pendingVendors})`:""}` },
-            { id:"advances",     label:"Advances" },
-            { id:"transactions", label:"Transactions" },
-            { id:"audit",        label:"🗑 Delete Log" },
-          ].map(t => (
-            <button key={t.id} onClick={() => {
-              setTab(t.id);
-              if (t.id === "audit") fetchAuditLogs(1, auditSearch);
-            }}
-              className={`px-4 py-1.5 text-xs font-semibold rounded transition-all whitespace-nowrap ${tab===t.id?"bg-gray-800 text-white":"text-gray-500 hover:text-gray-800"}`}>
-              {t.label}
-            </button>
-          ))}
+        {/* ── Tabs (horizontally scrollable on mobile) ── */}
+        <div className="mb-4 overflow-x-auto pb-1">
+          <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm w-fit min-w-full sm:min-w-0">
+            {[
+              { id: "overview",     label: "Overview" },
+              { id: "vendors",      label: `Vendors${pendingVendors > 0 ? ` (${pendingVendors})` : ""}` },
+              { id: "advances",     label: "Advances" },
+              { id: "transactions", label: "Transactions" },
+              { id: "audit",        label: "🗑 Deleted" },
+            ].map(t => (
+              <button
+                key={t.id}
+                onClick={() => {
+                  setTab(t.id);
+                  if (t.id === "audit") fetchAuditLogs(1, auditSearch);
+                }}
+                className={`px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-semibold rounded transition-all whitespace-nowrap ${tab === t.id ? "bg-gray-800 text-white" : "text-gray-500 hover:text-gray-800"}`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* ══ OVERVIEW ══ */}
         {tab === "overview" && (
-          // FIX: flat grid — 3 direct children, no nested grid wrapper
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-            {/* ── CARD 1: VENDOR BILL BREAKDOWN ── */}
-            <div className="bg-white border border-slate-100 rounded-[2rem] shadow-xl shadow-slate-200/40 p-7 relative overflow-hidden group">
+            {/* CARD 1: VENDOR BILL BREAKDOWN */}
+            <div className="bg-white border border-slate-100 rounded-2xl sm:rounded-[2rem] shadow-xl shadow-slate-200/40 p-5 sm:p-7 relative overflow-hidden group">
               <div className="absolute -top-10 -right-10 w-28 h-28 bg-rose-50 rounded-full blur-3xl group-hover:bg-rose-100 transition-colors duration-500" />
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-1.5">
-                  <h3 className="text-base font-black text-slate-800 tracking-tight">Vendor Bill Breakdown</h3>
-                  <div className="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-rose-100">
+                  <h3 className="text-sm sm:text-base font-black text-slate-800 tracking-tight">Vendor Bill Breakdown</h3>
+                  <div className="px-2 py-1 bg-rose-50 text-rose-600 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-widest border border-rose-100">
                     Liability
                   </div>
                 </div>
-                <p className="text-xs text-slate-400 mb-6 font-medium">
+                <p className="text-[11px] sm:text-xs text-slate-400 mb-4 sm:mb-6 font-medium">
                   Bill issued ≠ paid. <span className="text-rose-400 font-bold">Pay from Vendors tab.</span>
                 </p>
-                <div className="space-y-5">
+                <div className="space-y-4 sm:space-y-5">
                   {[
-                    { label:"Bill Issued (Rent + Labour)", value:totalVendorBill,  color:"from-rose-400 to-pink-500",    icon:"🧾" },
-                    { label:"Vendor Advance",          value:totalAdvance,     color:"from-amber-400 to-orange-500", icon:"💸" },
-                    { label:"Vendor Payments",      value:totalVendorPaid,  color:"from-indigo-400 to-blue-600",  icon:"🏦" },
-                    { label:"Total Outstanding Due",        value:totalVendorDue,   color:"from-red-500 to-red-700",      icon:"⚠️" },
-                  ].map((item,i) => (
+                    { label: "Bill Issued (Rent + Labour)", value: totalVendorBill,  color: "from-rose-400 to-pink-500",    icon: "🧾" },
+                    { label: "Vendor Advance",              value: totalAdvance,      color: "from-amber-400 to-orange-500", icon: "💸" },
+                    { label: "Vendor Payments",             value: totalVendorPaid,   color: "from-indigo-400 to-blue-600",  icon: "🏦" },
+                    { label: "Total Outstanding Due",       value: totalVendorDue,    color: "from-red-500 to-red-700",      icon: "⚠️" },
+                  ].map((item, i) => (
                     <div key={i}>
                       <div className="flex justify-between items-end mb-1.5">
                         <div className="flex items-center gap-1.5">
                           <span className="text-base opacity-80">{item.icon}</span>
-                          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{item.label}</span>
+                          <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">{item.label}</span>
                         </div>
-                        <span className="text-sm font-black text-slate-800">{fmt(item.value)}</span>
+                        <span className="text-xs sm:text-sm font-black text-slate-800 ml-2 shrink-0">{fmt(item.value)}</span>
                       </div>
-                      <div className="w-full bg-slate-100 rounded-full h-2.5 p-0.5 shadow-inner">
-                        <div className={`h-full bg-gradient-to-r ${item.color} rounded-full transition-all duration-700`}
-                          style={{ width:`${Math.min(100,(item.value/(totalVendorBill||1))*100)}%` }} />
+                      <div className="w-full bg-slate-100 rounded-full h-2 sm:h-2.5 p-0.5 shadow-inner">
+                        <div
+                          className={`h-full bg-gradient-to-r ${item.color} rounded-full transition-all duration-700`}
+                          style={{ width: `${Math.min(100, (item.value / (totalVendorBill || 1)) * 100)}%` }}
+                        />
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="mt-8 pt-5 border-t border-slate-50 grid grid-cols-3 gap-3 text-center">
-                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 hover:scale-105 transition-transform">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mb-0.5">Trips</p>
-                    <p className="text-xl font-black text-slate-800">{trips.length}</p>
+                <div className="mt-6 sm:mt-8 pt-4 sm:pt-5 border-t border-slate-50 grid grid-cols-3 gap-2 sm:gap-3 text-center">
+                  <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-50 border border-slate-100">
+                    <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-tighter mb-0.5">Trips</p>
+                    <p className="text-lg sm:text-xl font-black text-slate-800">{trips.length}</p>
                   </div>
-                  <div className="p-3 rounded-2xl bg-amber-50 border border-amber-100 hover:scale-105 transition-transform">
-                    <p className="text-[10px] font-bold text-amber-600 uppercase tracking-tighter mb-0.5">Vendors</p>
-                    <p className="text-xl font-black text-amber-700">{Object.keys(vendorMap).length}</p>
+                  <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-amber-50 border border-amber-100">
+                    <p className="text-[9px] sm:text-[10px] font-bold text-amber-600 uppercase tracking-tighter mb-0.5">Vendors</p>
+                    <p className="text-lg sm:text-xl font-black text-amber-700">{Object.keys(vendorMap).length}</p>
                   </div>
-                  <div className="p-3 rounded-2xl bg-red-50 border border-red-100 hover:scale-105 transition-transform">
-                    <p className="text-[10px] font-bold text-red-500 uppercase tracking-tighter mb-0.5">Pending</p>
-                    <p className="text-xl font-black text-red-700">{pendingVendors}</p>
+                  <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-red-50 border border-red-100">
+                    <p className="text-[9px] sm:text-[10px] font-bold text-red-500 uppercase tracking-tighter mb-0.5">Pending</p>
+                    <p className="text-lg sm:text-xl font-black text-red-700">{pendingVendors}</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* ── CARD 2: CASH FLOW (DARK) ── */}
-            <div className="bg-slate-900 rounded-[2rem] shadow-2xl p-7 relative overflow-hidden group border border-slate-800">
+            {/* CARD 2: CASH FLOW (DARK) */}
+            <div className="bg-slate-900 rounded-2xl sm:rounded-[2rem] shadow-2xl p-5 sm:p-7 relative overflow-hidden group border border-slate-800">
               <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-500/10 rounded-full blur-[70px]" />
               <div className="absolute bottom-0 left-0 w-28 h-28 bg-indigo-500/10 rounded-full blur-[55px]" />
               <div className="relative z-10 flex flex-col h-full">
-                <div className="flex items-center justify-between mb-7">
-                  <h3 className="text-sm font-black text-emerald-400 uppercase tracking-[0.2em]">Live Cash Flow</h3>
+                <div className="flex items-center justify-between mb-5 sm:mb-7">
+                  <h3 className="text-xs sm:text-sm font-black text-emerald-400 uppercase tracking-[0.15em] sm:tracking-[0.2em]">Live Cash Flow</h3>
                   <div className="flex gap-1 items-center">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/40" />
                   </div>
                 </div>
-                <div className="space-y-4 flex-1">
+                <div className="space-y-3 sm:space-y-4 flex-1">
                   {(() => {
                     const maxVal = Math.max(totalIncome, totalExpense, 1);
                     const rows = [
-                      ...(prevBalancePositive > 0 ? [{ label:`Opening Balance (${prevMonthName})`, value:prevBalancePositive, color:"bg-teal-400",    sign:"+" }] : []),
-                      { label:"Deposit Money",        value:manualIncome,                    color:"bg-emerald-400",  sign:"+" },
-                      ...(prevBalanceNegative > 0 ? [{ label:"Previous Month Deficit",               value:prevBalanceNegative, color:"bg-rose-500",  sign:"−" }] : []),
-                      { label:"Manual Operational Expense",    value:manualExpense,                    color:"bg-rose-400",    sign:"−" },
-                      { label:"Vendor Payout Settlements",     value:totalVendorPaid,                  color:"bg-indigo-400",  sign:"−" },
-                      { label:"Total Advance",          value:manualAdvanceTotal + totalAdvance, color:"bg-amber-400",  sign:"−" },
+                      ...(prevBalancePositive > 0 ? [{ label: `Opening Balance (${prevMonthName})`, value: prevBalancePositive, color: "bg-teal-400",   sign: "+" }] : []),
+                      { label: "Deposit Money",               value: manualIncome,                    color: "bg-emerald-400", sign: "+" },
+                      ...(prevBalanceNegative > 0 ? [{ label: "Previous Month Deficit",              value: prevBalanceNegative, color: "bg-rose-500", sign: "−" }] : []),
+                      { label: "Operational Expense",         value: manualExpense,                   color: "bg-rose-400",    sign: "−" },
+                      { label: "Vendor Payout",               value: totalVendorPaid,                 color: "bg-indigo-400", sign: "−" },
+                      { label: "Total Advance",               value: manualAdvanceTotal + totalAdvance, color: "bg-amber-400", sign: "−" },
                     ];
-                    return rows.map((item,i) => (
+                    return rows.map((item, i) => (
                       <div key={i}>
                         <div className="flex justify-between items-center mb-1">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{item.label}</span>
-                          <span className={`text-xs font-black ${item.sign==="+"?"text-emerald-400":"text-rose-400"}`}>
+                          <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest">{item.label}</span>
+                          <span className={`text-[10px] sm:text-xs font-black ml-2 shrink-0 ${item.sign === "+" ? "text-emerald-400" : "text-rose-400"}`}>
                             {item.sign} {fmt(item.value)}
                           </span>
                         </div>
                         <div className="w-full bg-slate-800/50 rounded-full h-1.5 overflow-hidden border border-slate-700/50">
-                          <div className={`h-full ${item.color} rounded-full transition-all duration-700`}
-                            style={{ width:`${Math.min(100,(item.value/maxVal)*100)}%` }} />
+                          <div
+                            className={`h-full ${item.color} rounded-full transition-all duration-700`}
+                            style={{ width: `${Math.min(100, (item.value / maxVal) * 100)}%` }}
+                          />
                         </div>
                       </div>
                     ));
                   })()}
                 </div>
                 {/* Net Balance box */}
-                <div className={`mt-8 rounded-[1.5rem] p-5 transition-all duration-500 ${
+                <div className={`mt-6 sm:mt-8 rounded-2xl p-4 sm:p-5 transition-all duration-500 ${
                   netBalance >= 0
                     ? "bg-gradient-to-br from-emerald-500/20 to-teal-500/5 border border-emerald-500/20"
                     : "bg-gradient-to-br from-rose-500/20 to-red-500/5 border border-rose-500/20"
                 }`}>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Net Disposable Balance</p>
-                      <h2 className={`text-3xl font-black tracking-tighter ${netBalance>=0?"text-emerald-400":"text-rose-400"}`}>
-                        {netBalance>=0?"+":""}{prevMonthLoading?"…":fmt(netBalance)}
+                      <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Net Disposable Balance</p>
+                      <h2 className={`text-2xl sm:text-3xl font-black tracking-tighter ${netBalance >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {netBalance >= 0 ? "+" : ""}{prevMonthLoading ? "…" : fmt(netBalance)}
                       </h2>
                     </div>
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-                      netBalance>=0?"bg-emerald-500/20 text-emerald-400":"bg-rose-500/20 text-rose-400"
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center ${
+                      netBalance >= 0 ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
                     }`}>
-                      {netBalance>=0 ? <FiTrendingUp size={24}/> : <FiTrendingDown size={24}/>}
+                      {netBalance >= 0 ? <FiTrendingUp size={20} /> : <FiTrendingDown size={20} />}
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* ── CARD 3: PENDING VENDORS QUICK VIEW (col-span-2) ── */}
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 lg:col-span-2">
-              <div className="flex items-center justify-between mb-4">
+            {/* CARD 3: PENDING VENDORS QUICK VIEW */}
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 lg:col-span-2">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
                 <h3 className="text-sm font-bold text-gray-800">Pending Vendors — Quick View</h3>
-                <button onClick={() => setTab("vendors")} className="text-xs text-indigo-600 hover:underline font-semibold">View All →</button>
+                <button onClick={() => setTab("vendors")} className="text-xs text-indigo-600 hover:underline font-semibold shrink-0">View All →</button>
               </div>
               {pendingVendors === 0 ? (
                 <div className="text-center py-6 text-emerald-600 font-semibold text-sm">✓ All vendors cleared!</div>
               ) : (
                 <div className="space-y-2">
                   {Object.values(vendorMap)
-                    .filter(v=>Math.max(0,v.totalBill-v.totalAdvance-v.totalPaid)>0)
-                    .sort((a,b)=>(b.totalBill-b.totalAdvance-b.totalPaid)-(a.totalBill-a.totalAdvance-a.totalPaid))
-                    .slice(0,6)
-                    .map((v,i) => {
+                    .filter(v => Math.max(0, v.totalBill - v.totalAdvance - v.totalPaid) > 0)
+                    .sort((a, b) => (b.totalBill - b.totalAdvance - b.totalPaid) - (a.totalBill - a.totalAdvance - a.totalPaid))
+                    .slice(0, 6)
+                    .map((v, i) => {
                       const due = v.totalBill - v.totalAdvance - v.totalPaid;
                       return (
-                        <div key={i} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-b-0">
-                          <span className="text-sm text-gray-700 flex-1 font-medium truncate">{v.vendor}</span>
-                          <span className="text-xs text-gray-400 shrink-0">{v.trips} trips · {fmt(v.totalBill)} bill</span>
-                          <span className="font-bold text-red-600 text-sm shrink-0">{fmt(due)} due</span>
-                          <button onClick={()=>setPayVendorName(v.vendor)}
-                            className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded transition font-semibold shrink-0">
+                        <div key={i} className="flex items-center gap-2 sm:gap-3 py-2 border-b border-gray-50 last:border-b-0">
+                          <span className="text-sm text-gray-700 flex-1 font-medium truncate min-w-0">{v.vendor}</span>
+                          {/* Hide secondary info on very small screens */}
+                          <span className="text-xs text-gray-400 shrink-0 hidden xs:block sm:block">{v.trips} trips</span>
+                          <span className="font-bold text-red-600 text-sm shrink-0">{fmt(due)}</span>
+                          <button
+                            onClick={() => setPayVendorName(v.vendor)}
+                            className="px-2 sm:px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded transition font-semibold shrink-0"
+                          >
                             Pay
                           </button>
                         </div>
                       );
-                    })
-                  }
+                    })}
                 </div>
               )}
             </div>
@@ -1959,12 +2329,12 @@ const AccountsDashboard = () => {
         {/* ══ VENDORS ══ */}
         {tab === "vendors" && (
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-gray-800">Vendor-wise Summary — {MONTHS[month-1]} {year}</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Pay করলে সব trips-এর bill একসাথে settle হবে</p>
+            <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-gray-800 truncate">Vendor Summary — {MONTHS[month - 1]} {year}</h3>
+                <p className="text-xs text-gray-400 mt-0.5 hidden sm:block">Pay করলে সব trips-এর bill একসাথে settle হবে</p>
               </div>
-              <span className="text-xs text-gray-400">{trips.length} trips · {Object.keys(vendorMap).length} vendors</span>
+              <span className="text-xs text-gray-400 shrink-0">{trips.length} trips · {Object.keys(vendorMap).length} vendors</span>
             </div>
             <VendorSummaryTable vendorMap={vendorMap} onPayVendor={setPayVendorName} />
           </div>
@@ -1976,7 +2346,7 @@ const AccountsDashboard = () => {
           const tripAdvances   = trips.filter(t => t.advance != null && t.advance > 0);
           const unpaidCurrent  = manualAdvances.filter(a => a.status !== "paid");
           const paidCurrent    = manualAdvances.filter(a => a.status === "paid");
-          const unpaidTotal    = unpaidCurrent.reduce((s,a) => s+num(a.amount), 0);
+          const unpaidTotal    = unpaidCurrent.reduce((s, a) => s + num(a.amount), 0);
 
           const currentIds    = new Set(manualAdvances.map(a => String(a._id)));
           const uniqueCarried = carryForwardTxs.filter(a => !currentIds.has(String(a._id)));
@@ -1984,104 +2354,147 @@ const AccountsDashboard = () => {
           const filteredManual = manualAdvances.filter(a =>
             (advTypeFilter === "all" || advTypeFilter === "manual") &&
             (!advSearch ||
-              (a.recipientName||"").toLowerCase().includes(advSearch.toLowerCase()) ||
-              (a.note||"").toLowerCase().includes(advSearch.toLowerCase()))
+              (a.recipientName || "").toLowerCase().includes(advSearch.toLowerCase()) ||
+              (a.note || "").toLowerCase().includes(advSearch.toLowerCase()))
           );
           const filteredTrip = tripAdvances.filter(t =>
             (advTypeFilter === "all" || advTypeFilter === "auto") &&
             (!advSearch ||
-              (t.vendorName||"").toLowerCase().includes(advSearch.toLowerCase()) ||
-              (t.tripNumber||"").toLowerCase().includes(advSearch.toLowerCase()) ||
-              (t.driverName||"").toLowerCase().includes(advSearch.toLowerCase()))
+              (t.vendorName || "").toLowerCase().includes(advSearch.toLowerCase()) ||
+              (t.tripNumber || "").toLowerCase().includes(advSearch.toLowerCase()) ||
+              (t.driverName || "").toLowerCase().includes(advSearch.toLowerCase()))
           );
           const filteredCarried = uniqueCarried.filter(a =>
             (advTypeFilter === "all" || advTypeFilter === "carry") &&
             (!advSearch ||
-              (a.recipientName||"").toLowerCase().includes(advSearch.toLowerCase()) ||
-              (a.note||"").toLowerCase().includes(advSearch.toLowerCase()))
+              (a.recipientName || "").toLowerCase().includes(advSearch.toLowerCase()) ||
+              (a.note || "").toLowerCase().includes(advSearch.toLowerCase()))
           );
 
           const allRows = [
             ...filteredManual.map(a => ({
-              date: a.date, name: a.recipientName || a.description?.replace("Advance — ","") || "—",
-              type:"manual", note: a.note || "", amount: num(a.amount), status: a.status||"unpaid", _id: a._id,
+              date: a.date, name: a.recipientName || a.description?.replace("Advance — ", "") || "—",
+              type: "manual", note: a.note || "", amount: num(a.amount), status: a.status || "unpaid", _id: a._id,
             })),
             ...filteredTrip.map(t => ({
-              date: t.createdAt?.slice(0,10)||"", name: t.vendorName, type:"auto",
-              note: `${t.tripNumber} · ${t.driverName}`, amount: num(t.advance), status:"auto", _id: null,
+              date: t.createdAt?.slice(0, 10) || "", name: t.vendorName, type: "auto",
+              note: `${t.tripNumber} · ${t.driverName}`, amount: num(t.advance), status: "auto", _id: null,
             })),
             ...filteredCarried.map(a => ({
-              date: a.date, name: a.recipientName || a.description?.replace("Advance — ","") || "—",
-              type:"carry", note: a.note ? `[Carried] ${a.note}` : "[Carried from prev month]",
-              amount: num(a.amount), status:"unpaid", _id: a._id,
+              date: a.date, name: a.recipientName || a.description?.replace("Advance — ", "") || "—",
+              type: "carry", note: a.note ? `[Carried] ${a.note}` : "[Carried from prev month]",
+              amount: num(a.amount), status: "unpaid", _id: a._id,
             })),
-          ].sort((a,b) => new Date(b.date) - new Date(a.date));
+          ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
           return (
             <div className="space-y-3">
               {uniqueCarried.length > 0 && (
-                <div className="flex items-start gap-3 px-4 py-3 bg-orange-50 border border-orange-200 rounded-xl text-sm">
+                <div className="flex items-start gap-2 sm:gap-3 px-3 sm:px-4 py-3 bg-orange-50 border border-orange-200 rounded-xl text-sm">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c2410c" strokeWidth="2" strokeLinecap="round" className="shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                   <div>
-                    <p className="font-semibold text-orange-800">
-                      {uniqueCarried.length} unpaid advance{uniqueCarried.length>1?"s":""} carried from previous months — {fmt(uniqueCarried.reduce((s,a)=>s+num(a.amount),0))}
+                    <p className="font-semibold text-orange-800 text-xs sm:text-sm">
+                      {uniqueCarried.length} unpaid advance{uniqueCarried.length > 1 ? "s" : ""} carried from previous months — {fmt(uniqueCarried.reduce((s, a) => s + num(a.amount), 0))}
                     </p>
-                    <p className="text-xs text-orange-600 mt-0.5">আগের month এ already expense হিসেবে count হয়েছে — এই month এ শুধু reminder</p>
+                    <p className="text-[10px] sm:text-xs text-orange-600 mt-0.5">আগের month এ already expense হিসেবে count হয়েছে — এই month এ শুধু reminder</p>
                   </div>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 shadow-sm">
-                  <p className="text-xs text-amber-600 uppercase tracking-widest mb-0.5">Auto (Trips)</p>
-                  <p className="text-lg font-bold text-amber-700">{fmt(totalAdvance)}</p>
-                  <p className="text-xs text-amber-400">{tripAdvances.length} trips</p>
+                  <p className="text-[10px] sm:text-xs text-amber-600 uppercase tracking-widest mb-0.5">Auto (Trips)</p>
+                  <p className="text-base sm:text-lg font-bold text-amber-700">{fmt(totalAdvance)}</p>
+                  <p className="text-[10px] sm:text-xs text-amber-400">{tripAdvances.length} trips</p>
                 </div>
                 <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 shadow-sm">
-                  <p className="text-xs text-orange-500 uppercase tracking-widest mb-0.5">Manual</p>
-                  <p className="text-lg font-bold text-orange-700">{fmt(manualAdvanceTotal)}</p>
-                  <p className="text-xs text-orange-400">{paidCurrent.length} paid · {unpaidCurrent.length} unpaid</p>
+                  <p className="text-[10px] sm:text-xs text-orange-500 uppercase tracking-widest mb-0.5">Manual</p>
+                  <p className="text-base sm:text-lg font-bold text-orange-700">{fmt(manualAdvanceTotal)}</p>
+                  <p className="text-[10px] sm:text-xs text-orange-400">{paidCurrent.length} paid · {unpaidCurrent.length} unpaid</p>
                 </div>
                 <div className="bg-red-50 border border-red-200 rounded-xl p-3 shadow-sm">
-                  <p className="text-xs text-red-500 uppercase tracking-widest mb-0.5">Unpaid (this month)</p>
-                  <p className="text-lg font-bold text-red-700">{fmt(unpaidTotal)}</p>
-                  <p className="text-xs text-red-400">will carry forward</p>
+                  <p className="text-[10px] sm:text-xs text-red-500 uppercase tracking-widest mb-0.5">Unpaid (this month)</p>
+                  <p className="text-base sm:text-lg font-bold text-red-700">{fmt(unpaidTotal)}</p>
+                  <p className="text-[10px] sm:text-xs text-red-400">will carry forward</p>
                 </div>
                 {uniqueCarried.length > 0 ? (
                   <div className="bg-orange-100 border border-orange-300 rounded-xl p-3 shadow-sm">
-                    <p className="text-xs text-orange-600 uppercase tracking-widest mb-0.5">Carried Forward</p>
-                    <p className="text-lg font-bold text-orange-800">{fmt(uniqueCarried.reduce((s,a)=>s+num(a.amount),0))}</p>
-                    <p className="text-xs text-orange-500">{uniqueCarried.length} from prev months</p>
+                    <p className="text-[10px] sm:text-xs text-orange-600 uppercase tracking-widest mb-0.5">Carried Forward</p>
+                    <p className="text-base sm:text-lg font-bold text-orange-800">{fmt(uniqueCarried.reduce((s, a) => s + num(a.amount), 0))}</p>
+                    <p className="text-[10px] sm:text-xs text-orange-500">{uniqueCarried.length} from prev months</p>
                   </div>
                 ) : (
                   <div className="bg-gray-800 border border-gray-700 rounded-xl p-3 shadow-sm">
-                    <p className="text-xs text-gray-400 uppercase tracking-widest mb-0.5">Total</p>
-                    <p className="text-lg font-bold text-white">{fmt(totalAdvance + manualAdvanceTotal)}</p>
-                    <p className="text-xs text-gray-400">Auto + Manual</p>
+                    <p className="text-[10px] sm:text-xs text-gray-400 uppercase tracking-widest mb-0.5">Total</p>
+                    <p className="text-base sm:text-lg font-bold text-white">{fmt(totalAdvance + manualAdvanceTotal)}</p>
+                    <p className="text-[10px] sm:text-xs text-gray-400">Auto + Manual</p>
                   </div>
                 )}
               </div>
 
               <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center gap-3">
-                  <h3 className="text-sm font-bold text-gray-800">Advance History</h3>
-                  <div className="sm:ml-auto flex flex-wrap items-center gap-2">
+                <div className="px-4 sm:px-5 py-3 sm:py-3.5 border-b border-gray-100 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-gray-800">Advance History</h3>
+                    <span className="text-xs text-gray-400">{allRows.length} entries</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
                     <input
-                      className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-gray-400 w-48 bg-white"
-                      placeholder="Search name / trip / note…"
-                      value={advSearch} onChange={e => setAdvSearch(e.target.value)} />
+                      className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-gray-400 flex-1 min-w-[120px] bg-white"
+                      placeholder="Search name / trip…"
+                      value={advSearch} onChange={e => setAdvSearch(e.target.value)}
+                    />
                     <select
                       className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none bg-white text-gray-600 focus:border-gray-400"
-                      value={advTypeFilter} onChange={e => setAdvTypeFilter(e.target.value)}>
+                      value={advTypeFilter} onChange={e => setAdvTypeFilter(e.target.value)}
+                    >
                       <option value="all">All Types</option>
                       <option value="manual">Manual</option>
                       <option value="auto">Auto (Trips)</option>
                       <option value="carry">Carried Forward</option>
                     </select>
-                    <span className="text-xs text-gray-400 shrink-0">{allRows.length} entries</span>
                   </div>
                 </div>
-                <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-380px)]">
+
+                {/* Mobile card view for advances */}
+                <div className="sm:hidden divide-y divide-gray-50 max-h-[60vh] overflow-y-auto">
+                  {allRows.length === 0 ? (
+                    <div className="text-center py-10 text-gray-400 italic text-sm">No advance records.</div>
+                  ) : allRows.map((r, i) => (
+                    <div key={i} className={`p-3 space-y-1.5 ${r.status === "paid" ? "opacity-50 bg-gray-50/40" : r.type === "carry" ? "bg-orange-50/50" : ""}`}>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-gray-800 text-sm">{r.name}</span>
+                        <span className={`text-[9px] font-semibold px-2 py-0.5 rounded border uppercase tracking-wide ${
+                          r.type === "auto" ? "text-amber-700 bg-amber-50 border-amber-200" :
+                          r.type === "carry" ? "text-orange-800 bg-orange-100 border-orange-300" :
+                          "text-orange-700 bg-orange-50 border-orange-200"
+                        }`}>
+                          {r.type === "auto" ? "Auto" : r.type === "carry" ? "Carried" : "Manual"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-400">{r.date}</span>
+                        <span className="font-bold text-amber-700">{fmt(r.amount)}</span>
+                      </div>
+                      {r.note && <p className="text-[10px] text-gray-400 truncate">{r.note}</p>}
+                      {r.type !== "auto" && r._id && (
+                        <button
+                          onClick={() => handleMarkPaid(r._id, r.status)}
+                          className={`w-full py-1.5 text-[10px] font-semibold rounded border transition-all ${
+                            r.status === "paid"
+                              ? "text-emerald-700 bg-emerald-50 border-emerald-300"
+                              : "text-gray-600 bg-white border-gray-300"
+                          }`}
+                        >
+                          {r.status === "paid" ? "✓ Paid" : "Mark Paid"}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop table view for advances */}
+                <div className="hidden sm:block overflow-x-auto overflow-y-auto max-h-[calc(100vh-380px)]">
                   {allRows.length === 0 ? (
                     <div className="text-center py-12 text-gray-400 italic text-sm">No advance records.</div>
                   ) : (
@@ -2097,38 +2510,38 @@ const AccountsDashboard = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {allRows.map((r,i) => (
+                        {allRows.map((r, i) => (
                           <tr key={i} className={`border-b border-gray-50 transition-colors ${
-                            r.status==="paid" ? "opacity-50 bg-gray-50/40" :
-                            r.type==="carry"  ? "bg-orange-50/50 hover:bg-orange-50" :
+                            r.status === "paid" ? "opacity-50 bg-gray-50/40" :
+                            r.type === "carry"  ? "bg-orange-50/50 hover:bg-orange-50" :
                             "hover:bg-amber-50/40"
                           }`}>
                             <td className="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">{r.date}</td>
                             <td className="px-4 py-2.5 font-semibold text-gray-800">{r.name}</td>
-                            <td className="px-4 py-2.5 text-xs text-gray-400 max-w-[200px]">
-                              <span className="truncate block">{r.note||"—"}</span>
-                            </td>
+                            <td className="px-4 py-2.5 text-xs text-gray-400 max-w-[200px]"><span className="truncate block">{r.note || "—"}</span></td>
                             <td className="px-4 py-2.5 text-center">
                               <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border uppercase tracking-wide ${
-                                r.type==="auto"  ? "text-amber-700 bg-amber-50 border-amber-200" :
-                                r.type==="carry" ? "text-orange-800 bg-orange-100 border-orange-300" :
-                                                   "text-orange-700 bg-orange-50 border-orange-200"
+                                r.type === "auto"  ? "text-amber-700 bg-amber-50 border-amber-200" :
+                                r.type === "carry" ? "text-orange-800 bg-orange-100 border-orange-300" :
+                                                     "text-orange-700 bg-orange-50 border-orange-200"
                               }`}>
-                                {r.type==="auto" ? "Auto" : r.type==="carry" ? "Carried" : "Manual"}
+                                {r.type === "auto" ? "Auto" : r.type === "carry" ? "Carried" : "Manual"}
                               </span>
                             </td>
                             <td className="px-4 py-2.5 text-right font-bold text-amber-700 whitespace-nowrap">{fmt(r.amount)}</td>
                             <td className="px-4 py-2.5 text-center">
-                              {r.type==="auto" ? (
+                              {r.type === "auto" ? (
                                 <span className="text-xs text-gray-300">—</span>
                               ) : (
-                                <button onClick={() => handleMarkPaid(r._id, r.status)}
+                                <button
+                                  onClick={() => handleMarkPaid(r._id, r.status)}
                                   className={`px-2.5 py-1 text-[10px] font-semibold rounded border transition-all whitespace-nowrap ${
-                                    r.status==="paid"
+                                    r.status === "paid"
                                       ? "text-emerald-700 bg-emerald-50 border-emerald-300 hover:bg-emerald-100"
                                       : "text-gray-600 bg-white border-gray-300 hover:bg-gray-50"
-                                  }`}>
-                                  {r.status==="paid" ? "✓ Paid" : "Mark Paid"}
+                                  }`}
+                                >
+                                  {r.status === "paid" ? "✓ Paid" : "Mark Paid"}
                                 </button>
                               )}
                             </td>
@@ -2138,9 +2551,7 @@ const AccountsDashboard = () => {
                       <tfoot>
                         <tr className="bg-gray-50 border-t-2 border-gray-200">
                           <td colSpan={4} className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Total</td>
-                          <td className="px-4 py-2.5 text-right font-black text-gray-800">
-                            {fmt(allRows.reduce((s,r)=>s+r.amount,0))}
-                          </td>
+                          <td className="px-4 py-2.5 text-right font-black text-gray-800">{fmt(allRows.reduce((s, r) => s + r.amount, 0))}</td>
                           <td />
                         </tr>
                       </tfoot>
@@ -2155,14 +2566,20 @@ const AccountsDashboard = () => {
         {/* ══ TRANSACTIONS ══ */}
         {tab === "transactions" && (
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center gap-3">
-              <h3 className="text-sm font-bold text-gray-800">All Transactions</h3>
-              <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+            <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-gray-800">All Transactions</h3>
+                <span className="text-xs text-gray-400">{filteredTxs.length} entries</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
                 <input
-                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-gray-400 w-48"
-                  placeholder="Search…" value={searchTx} onChange={e => setSearchTx(e.target.value)} />
-                <select className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none bg-white"
-                  value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-gray-400 flex-1 min-w-[120px]"
+                  placeholder="Search…" value={searchTx} onChange={e => setSearchTx(e.target.value)}
+                />
+                <select
+                  className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none bg-white"
+                  value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
+                >
                   <option value="all">All Types</option>
                   <option value="income">Income</option>
                   <option value="all_expense">All Expenses</option>
@@ -2171,33 +2588,66 @@ const AccountsDashboard = () => {
                   <option value="manual_advance">Advance (Manual)</option>
                   <option value="auto_advance">Advance (Auto)</option>
                 </select>
-                <span className="text-xs text-gray-400">{filteredTxs.length} entries</span>
               </div>
             </div>
-            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-300px)]">
+
+            {/* Mobile card list for transactions */}
+            <div className="sm:hidden divide-y divide-gray-50 max-h-[65vh] overflow-y-auto">
+              {filteredTxs.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 italic text-sm">No transactions found.</div>
+              ) : filteredTxs.map((t, i) => (
+                <div key={t._id || i} className="p-3 space-y-1.5 hover:bg-amber-50/40 transition-colors">
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge source={t.source} type={t.type} />
+                    <span className="font-bold text-gray-800 text-sm">{fmt(t.amount)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-gray-700 truncate flex-1">{t.description}</span>
+                    <span className="text-[10px] text-gray-400 shrink-0">{t.date || t.createdAt?.slice(0, 10)}</span>
+                  </div>
+                  {t.note && <p className="text-[10px] text-gray-400 truncate">{t.note}</p>}
+                  {t.source !== "auto_advance" && t._id && !String(t._id).startsWith("adv_") && (
+                    <button
+                      onClick={() => handleDeleteTx(t._id)}
+                      className="text-gray-300 hover:text-red-500 transition text-xs"
+                    >
+                      ✕ Delete
+                    </button>
+                  )}
+                </div>
+              ))}
+              {footerTotal !== null && (
+                <div className="px-4 py-3 bg-gray-50 border-t-2 border-gray-200 flex justify-between items-center">
+                  <span className="text-xs text-gray-500 font-semibold uppercase">Total ({filteredTxs.length})</span>
+                  <span className="text-sm font-black text-gray-800">{fmt(footerTotal)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Desktop table view for transactions */}
+            <div className="hidden sm:block overflow-x-auto overflow-y-auto max-h-[calc(100vh-300px)]">
               {filteredTxs.length === 0 ? (
                 <div className="text-center py-16 text-gray-400 italic text-sm">No transactions found.</div>
               ) : (
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
-                      {["Date","Type","Description","Note","Amount",""].map(h => (
-                        <th key={h} className={`px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider ${h==="Amount"?"text-right":"text-left"}`}>{h}</th>
+                      {["Date", "Type", "Description", "Note", "Amount", ""].map(h => (
+                        <th key={h} className={`px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider ${h === "Amount" ? "text-right" : "text-left"}`}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredTxs.map((t,i) => (
-                      <tr key={t._id||i} className="border-b border-gray-50 hover:bg-amber-50 transition-colors">
-                        <td className="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">{t.date||t.createdAt?.slice(0,10)}</td>
+                    {filteredTxs.map((t, i) => (
+                      <tr key={t._id || i} className="border-b border-gray-50 hover:bg-amber-50 transition-colors">
+                        <td className="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">{t.date || t.createdAt?.slice(0, 10)}</td>
                         <td className="px-4 py-2.5"><Badge source={t.source} type={t.type} /></td>
                         <td className="px-4 py-2.5 text-sm text-gray-700 max-w-[220px]"><span className="truncate block">{t.description}</span></td>
-                        <td className="px-4 py-2.5 text-xs text-gray-400 max-w-[160px]"><span className="truncate block">{t.note||"—"}</span></td>
+                        <td className="px-4 py-2.5 text-xs text-gray-400 max-w-[160px]"><span className="truncate block">{t.note || "—"}</span></td>
                         <td className="px-4 py-2.5 text-right font-bold text-gray-800 whitespace-nowrap">{fmt(t.amount)}</td>
                         <td className="px-4 py-2.5 text-center">
                           {t.source !== "auto_advance" && t._id && !String(t._id).startsWith("adv_") && (
-                            <button onClick={() => handleDeleteTx(t._id)}
-                              className="text-gray-300 hover:text-red-500 transition text-sm">✕</button>
+                            <button onClick={() => handleDeleteTx(t._id)} className="text-gray-300 hover:text-red-500 transition text-sm">✕</button>
                           )}
                         </td>
                       </tr>
@@ -2209,9 +2659,7 @@ const AccountsDashboard = () => {
                         <td colSpan={4} className="px-4 py-2.5 text-xs text-gray-500 uppercase tracking-wider font-semibold">
                           Total ({filteredTxs.length})
                         </td>
-                        <td className="px-4 py-2.5 text-right text-sm font-black text-gray-800">
-                          {fmt(footerTotal)}
-                        </td>
+                        <td className="px-4 py-2.5 text-right text-sm font-black text-gray-800">{fmt(footerTotal)}</td>
                         <td />
                       </tr>
                     </tfoot>
@@ -2234,23 +2682,27 @@ const AccountsDashboard = () => {
           const totalPages = Math.ceil(auditTotal / 20);
           return (
             <div className="space-y-3">
-              <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 sm:px-5 py-3 sm:py-4 flex flex-col gap-3">
                 <div>
                   <h3 className="text-sm font-bold text-red-800">🗑 Delete Audit Log</h3>
                   <p className="text-xs text-red-500 mt-0.5">সকল deleted transaction এর সম্পূর্ণ record। প্রয়োজনে Restore করা যাবে।</p>
                 </div>
-                <div className="sm:ml-auto flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <input
-                    className="border border-red-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-red-400 w-48 bg-white"
+                    className="border border-red-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-red-400 flex-1 bg-white"
                     placeholder="Email দিয়ে filter…"
                     value={auditSearch}
-                    onChange={e => { setAuditSearch(e.target.value); setAuditPage(1); fetchAuditLogs(1, e.target.value); }} />
-                  <button onClick={() => fetchAuditLogs(auditPage, auditSearch)}
-                    className="px-3 py-1.5 bg-red-700 text-white text-xs rounded-lg hover:bg-red-600 transition font-semibold">
+                    onChange={e => { setAuditSearch(e.target.value); setAuditPage(1); fetchAuditLogs(1, e.target.value); }}
+                  />
+                  <button
+                    onClick={() => fetchAuditLogs(auditPage, auditSearch)}
+                    className="px-3 py-1.5 bg-red-700 text-white text-xs rounded-lg hover:bg-red-600 transition font-semibold shrink-0"
+                  >
                     Refresh
                   </button>
                 </div>
               </div>
+
               <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
                 {auditLoading ? (
                   <div className="py-16 text-center text-gray-400 text-sm animate-pulse">লোড হচ্ছে…</div>
@@ -2258,11 +2710,48 @@ const AccountsDashboard = () => {
                   <div className="py-16 text-center text-gray-400 italic text-sm">কোনো delete history নেই।</div>
                 ) : (
                   <>
-                    <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)]">
+                    {/* Mobile audit card list */}
+                    <div className="sm:hidden divide-y divide-gray-100 max-h-[65vh] overflow-y-auto">
+                      {auditLogs.map((log, i) => {
+                        const doc = log.deletedDocument || {};
+                        const [typeLabel, typeCls] = AUDIT_LABELS[doc.type] || ["Unknown", "text-gray-500 bg-gray-50 border-gray-200"];
+                        const deletedAt = log.performedAt ? new Date(log.performedAt) : null;
+                        return (
+                          <div key={log._id || i} className="p-3 space-y-2 hover:bg-red-50/20 transition-colors">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border uppercase tracking-wide ${typeCls}`}>{typeLabel}</span>
+                              <span className="font-bold text-gray-800 text-sm">{fmt(doc.amount)}</span>
+                            </div>
+                            <div className="text-xs text-gray-700 truncate">{doc.description || "—"}</div>
+                            <div className="flex items-center justify-between text-[10px] text-gray-400">
+                              <span>{log.performedBy?.email || "—"}</span>
+                              <span>{deletedAt ? deletedAt.toLocaleDateString("en-BD") : "—"}</span>
+                            </div>
+                            {log.reason && <p className="text-[10px] text-gray-500 italic">"{log.reason}"</p>}
+                            <div className="pt-1">
+                              {log.isRestored ? (
+                                <span className="text-[10px] font-semibold text-gray-400">✓ Restored</span>
+                              ) : (
+                                <button
+                                  disabled={restoring === log._id}
+                                  onClick={() => handleRestore(log)}
+                                  className="px-3 py-1.5 text-[10px] font-semibold rounded border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition disabled:opacity-50"
+                                >
+                                  {restoring === log._id ? "…" : "↩ Restore"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Desktop audit table */}
+                    <div className="hidden sm:block overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)]">
                       <table className="w-full text-sm border-collapse">
                         <thead>
                           <tr className="bg-gray-800 text-white sticky top-0 z-10">
-                            {["সময়","কে Delete করেছে","Type","Description","Amount","কারণ",""].map(h => (
+                            {["সময়", "কে Delete করেছে", "Type", "Description", "Amount", "কারণ", ""].map(h => (
                               <th key={h} className="px-4 py-2.5 text-left text-xs font-normal uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0">{h}</th>
                             ))}
                           </tr>
@@ -2270,13 +2759,13 @@ const AccountsDashboard = () => {
                         <tbody>
                           {auditLogs.map((log, i) => {
                             const doc = log.deletedDocument || {};
-                            const [typeLabel, typeCls] = AUDIT_LABELS[doc.type] || ["Unknown","text-gray-500 bg-gray-50 border-gray-200"];
+                            const [typeLabel, typeCls] = AUDIT_LABELS[doc.type] || ["Unknown", "text-gray-500 bg-gray-50 border-gray-200"];
                             const deletedAt = log.performedAt ? new Date(log.performedAt) : null;
                             return (
                               <tr key={log._id || i} className="border-b border-gray-50 hover:bg-red-50/30 transition-colors">
                                 <td className="px-4 py-3 text-xs whitespace-nowrap">
                                   <div className="font-medium text-gray-700">{deletedAt ? deletedAt.toLocaleDateString("en-BD") : "—"}</div>
-                                  <div className="text-gray-400">{deletedAt ? deletedAt.toLocaleTimeString("en-BD", { hour:"2-digit", minute:"2-digit" }) : ""}</div>
+                                  <div className="text-gray-400">{deletedAt ? deletedAt.toLocaleTimeString("en-BD", { hour: "2-digit", minute: "2-digit" }) : ""}</div>
                                 </td>
                                 <td className="px-4 py-3">
                                   <div className="text-xs font-semibold text-gray-800">{log.performedBy?.email || "—"}</div>
@@ -2287,7 +2776,7 @@ const AccountsDashboard = () => {
                                 </td>
                                 <td className="px-4 py-3 text-sm text-gray-700 max-w-[200px]">
                                   <span className="block truncate">{doc.description || "—"}</span>
-                                  {doc.vendorName   && <span className="text-xs text-gray-400 block">Vendor: {doc.vendorName}</span>}
+                                  {doc.vendorName    && <span className="text-xs text-gray-400 block">Vendor: {doc.vendorName}</span>}
                                   {doc.recipientName && <span className="text-xs text-gray-400 block">To: {doc.recipientName}</span>}
                                 </td>
                                 <td className="px-4 py-3 text-right font-bold text-gray-800 whitespace-nowrap">
@@ -2299,14 +2788,13 @@ const AccountsDashboard = () => {
                                 </td>
                                 <td className="px-4 py-3 text-center">
                                   {log.isRestored ? (
-                                    <span className="px-2.5 py-1 text-[10px] font-semibold rounded border border-gray-200 text-gray-400 bg-gray-50 whitespace-nowrap">
-                                      ✓ Restored
-                                    </span>
+                                    <span className="px-2.5 py-1 text-[10px] font-semibold rounded border border-gray-200 text-gray-400 bg-gray-50 whitespace-nowrap">✓ Restored</span>
                                   ) : (
                                     <button
                                       disabled={restoring === log._id}
                                       onClick={() => handleRestore(log)}
-                                      className="px-2.5 py-1 text-[10px] font-semibold rounded border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition whitespace-nowrap disabled:opacity-50">
+                                      className="px-2.5 py-1 text-[10px] font-semibold rounded border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition whitespace-nowrap disabled:opacity-50"
+                                    >
                                       {restoring === log._id ? "…" : "↩ Restore"}
                                     </button>
                                   )}
@@ -2317,16 +2805,21 @@ const AccountsDashboard = () => {
                         </tbody>
                       </table>
                     </div>
+
                     {totalPages > 1 && (
-                      <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
-                        <span className="text-xs text-gray-400">মোট {auditTotal} টি record · Page {auditPage}/{totalPages}</span>
+                      <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-t border-gray-100 flex-wrap gap-2">
+                        <span className="text-xs text-gray-400">মোট {auditTotal} টি · Page {auditPage}/{totalPages}</span>
                         <div className="flex gap-2">
-                          <button disabled={auditPage <= 1}
-                            onClick={() => { const p = auditPage-1; setAuditPage(p); fetchAuditLogs(p, auditSearch); }}
-                            className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40">← Prev</button>
-                          <button disabled={auditPage >= totalPages}
-                            onClick={() => { const p = auditPage+1; setAuditPage(p); fetchAuditLogs(p, auditSearch); }}
-                            className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40">Next →</button>
+                          <button
+                            disabled={auditPage <= 1}
+                            onClick={() => { const p = auditPage - 1; setAuditPage(p); fetchAuditLogs(p, auditSearch); }}
+                            className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                          >← Prev</button>
+                          <button
+                            disabled={auditPage >= totalPages}
+                            onClick={() => { const p = auditPage + 1; setAuditPage(p); fetchAuditLogs(p, auditSearch); }}
+                            className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                          >Next →</button>
                         </div>
                       </div>
                     )}
