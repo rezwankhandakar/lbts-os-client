@@ -913,78 +913,81 @@ const VendorTripSummary = () => {
     <div className="flex flex-col h-full">
 
       {/* ══ TOP BAR — single compact row ══ */}
-      <div className="flex-shrink-0 pb-2 space-y-1.5">
+     {/* ══ TOP BAR — mobile optimized ══ */}
+<div className="flex-shrink-0 pb-2 space-y-1.5">
 
-        {/* Single row: back + vendor + month/year + controls */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <button onClick={() => navigate(-1)}
-            className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-500 transition shrink-0">
-            <ArrowLeft size={14} />
-          </button>
+  {/* Row 1: back + vendor info + export */}
+  <div className="flex items-center gap-1.5">
+    <button onClick={() => navigate(-1)}
+      className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-500 transition shrink-0">
+      <ArrowLeft size={14} />
+    </button>
 
-          {/* Vendor info — compact pill */}
-          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 shadow-sm min-w-0 flex-1 max-w-[220px] sm:max-w-xs">
-            <div className="w-6 h-6 rounded-md bg-slate-800 overflow-hidden flex items-center justify-center shrink-0">
-              {vendor.vendorImg
-                ? <img src={vendor.vendorImg} className="w-full h-full object-cover" alt="" />
-                : <Briefcase size={11} className="text-white" />}
-            </div>
-            <div className="min-w-0">
-              <p className="text-[11px] font-black text-slate-800 truncate leading-tight">{vendor.vendorName}</p>
-              <p className="text-[9px] text-slate-400 leading-none">
-                <span className="font-bold">{filteredTrips.length}/{trips.length}</span> trips
-              </p>
-            </div>
-          </div>
-
-          {/* Month + Year */}
-          <select
-            className="border border-gray-200 px-2 py-1 rounded text-xs bg-white text-gray-700 focus:outline-none shrink-0"
-            value={tripMonth} onChange={e => setTripMonth(parseInt(e.target.value))}>
-            {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-          </select>
-          <input
-            type="number"
-            className="border border-gray-200 px-2 py-1 rounded text-xs bg-white text-gray-700 w-16 focus:outline-none shrink-0"
-            value={tripYear} onChange={e => setTripYear(parseInt(e.target.value))}
-          />
-
-          {/* Filter / Reset / Export */}
-          <button
-            onClick={() => setShowFilters(f => !f)}
-            className={`flex items-center gap-1 px-2 py-1 text-xs rounded border transition shrink-0 ${hasFilter ? "border-gray-700 bg-gray-800 text-white" : "border-gray-200 text-gray-600 bg-white"}`}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
-            <ChevronDown size={9} className={`transition-transform ${showFilters ? "rotate-180" : ""}`} />
-          </button>
-          <button onClick={handleReset}
-            className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-red-200 text-red-500 hover:bg-red-500 hover:text-white transition shrink-0">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
-          </button>
-          <button onClick={handleExport}
-            className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-gray-800 text-white hover:bg-gray-700 transition ml-auto shrink-0">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-            <span className="hidden sm:inline text-[10px]">Export</span>
-          </button>
-        </div>
-
-        {/* Filter panel */}
-        {showFilters && (
-          <div className="p-2.5 bg-white border border-gray-200 rounded-xl shadow-sm">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              <div>
-                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Date</p>
-                <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
-                  className="w-full px-2 py-0.5 border border-gray-200 rounded text-[10px] outline-none bg-white" />
-              </div>
-              <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Trip</p><MultiSelectFilter options={getOpts("tripNumber")} selected={tripFilter} onChange={setTripFilter} /></div>
-              <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Driver</p><MultiSelectFilter options={getOpts("driverName")} selected={driverFilter} onChange={setDriverFilter} /></div>
-              <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Vehicle</p><MultiSelectFilter options={getOpts("vehicleNumber")} selected={vehicleFilter} onChange={setVehicleFilter} /></div>
-              <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Rent</p><SimpleSelect value={rentFilter} onChange={setRentFilter} options={[{ value: "", label: "All" }, { value: "added", label: "✓ Added" }, { value: "missing", label: "✗ Missing" }]} /></div>
-              <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Lebor Bill</p><SimpleSelect value={leborBillFilter} onChange={setLeborBillFilter} options={[{ value: "", label: "All" }, { value: "added", label: "✓ Added" }, { value: "missing", label: "✗ Missing" }]} /></div>
-            </div>
-          </div>
-        )}
+    {/* Vendor info */}
+    <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 shadow-sm min-w-0 flex-1">
+      <div className="w-6 h-6 rounded-md bg-slate-800 overflow-hidden flex items-center justify-center shrink-0">
+        {vendor.vendorImg
+          ? <img src={vendor.vendorImg} className="w-full h-full object-cover" alt="" />
+          : <Briefcase size={11} className="text-white" />}
       </div>
+      <div className="min-w-0">
+        <p className="text-[11px] font-black text-slate-800 truncate leading-tight">{vendor.vendorName}</p>
+        <p className="text-[9px] text-slate-400 leading-none">
+          <span className="font-bold">{filteredTrips.length}/{trips.length}</span> trips
+        </p>
+      </div>
+    </div>
+
+    {/* Export — always visible, right side */}
+    <button onClick={handleExport}
+      className="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded bg-gray-800 text-white hover:bg-gray-700 transition shrink-0">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+      <span className="hidden sm:inline text-[10px]">Export</span>
+    </button>
+  </div>
+
+  {/* Row 2: month + year + filter + reset */}
+  <div className="flex items-center gap-1.5">
+    <select
+      className="border border-gray-200 px-2 py-1 rounded text-xs bg-white text-gray-700 focus:outline-none flex-1 min-w-0"
+      value={tripMonth} onChange={e => setTripMonth(parseInt(e.target.value))}>
+      {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+    </select>
+    <input
+      type="number"
+      className="border border-gray-200 px-2 py-1 rounded text-xs bg-white text-gray-700 w-16 focus:outline-none shrink-0"
+      value={tripYear} onChange={e => setTripYear(parseInt(e.target.value))}
+    />
+    <button
+      onClick={() => setShowFilters(f => !f)}
+      className={`flex items-center gap-1 px-2.5 py-1.5 text-xs rounded border transition shrink-0 ${hasFilter ? "border-gray-700 bg-gray-800 text-white" : "border-gray-200 text-gray-600 bg-white"}`}>
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
+      <ChevronDown size={9} className={`transition-transform ${showFilters ? "rotate-180" : ""}`} />
+    </button>
+    <button onClick={handleReset}
+      className="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded border border-red-200 text-red-500 hover:bg-red-500 hover:text-white transition shrink-0">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
+    </button>
+  </div>
+
+  {/* Filter panel — unchanged */}
+  {showFilters && (
+    <div className="p-2.5 bg-white border border-gray-200 rounded-xl shadow-sm">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <div>
+          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Date</p>
+          <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
+            className="w-full px-2 py-0.5 border border-gray-200 rounded text-[10px] outline-none bg-white" />
+        </div>
+        <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Trip</p><MultiSelectFilter options={getOpts("tripNumber")} selected={tripFilter} onChange={setTripFilter} /></div>
+        <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Driver</p><MultiSelectFilter options={getOpts("driverName")} selected={driverFilter} onChange={setDriverFilter} /></div>
+        <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Vehicle</p><MultiSelectFilter options={getOpts("vehicleNumber")} selected={vehicleFilter} onChange={setVehicleFilter} /></div>
+        <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Rent</p><SimpleSelect value={rentFilter} onChange={setRentFilter} options={[{ value: "", label: "All" }, { value: "added", label: "✓ Added" }, { value: "missing", label: "✗ Missing" }]} /></div>
+        <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Lebor Bill</p><SimpleSelect value={leborBillFilter} onChange={setLeborBillFilter} options={[{ value: "", label: "All" }, { value: "added", label: "✓ Added" }, { value: "missing", label: "✗ Missing" }]} /></div>
+      </div>
+    </div>
+  )}
+</div>
 
       {/* ══ SUMMARY BAR ══ */}
       {filteredTrips.length > 0 && (

@@ -915,7 +915,7 @@ const EditTripInfoModal = ({ trip, onSave, onClose, axiosSecure, updatedBy }) =>
         <div className="px-4 py-3 bg-slate-800 flex items-center justify-between text-white shrink-0">
           <div>
             <p className="font-bold text-sm">Edit Trip Info</p>
-            <p className="text-slate-400 text-[10px] font-mono">{trip.tripNumber}</p>
+            <p className="text-slate-400 text-[10px] font-mono">{trip.tripNumber}  </p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition"><X size={16} /></button>
         </div>
@@ -1332,7 +1332,7 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
             <div className="flex items-center justify-between gap-2 px-3 pt-2.5 pb-2">
               <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-wrap">
                 <h2 className="text-sm sm:text-base font-black text-slate-800 tracking-tight shrink-0">{trip.tripNumber}</h2>
-                <span className="text-[9px] sm:text-[10px] text-slate-400 hidden sm:block shrink-0">{new Date(trip.createdAt).toDateString()}</span>
+                <span className="text-[9px] sm:text-[10px] text-slate-400 sm:block shrink-0">{new Date(trip.createdAt).toDateString()}</span>
                 {(trip.currentUser || trip.createdBy) && (
                   <span className="hidden sm:flex items-center gap-1 text-[10px] text-slate-400 shrink-0">
                     <User size={9} /> {trip.currentUser || trip.createdBy}
@@ -1505,7 +1505,7 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                       <div className="space-y-0.5 min-w-0 flex-1">
                         <p className="text-xs font-bold text-slate-800 leading-tight">{c.customerName}</p>
                         <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded border font-semibold uppercase
-                          ${isReturnCard ? "bg-orange-100 text-orange-700 border-orange-200" : "bg-indigo-50 text-indigo-600 border-indigo-100"}`}>Zone : 
+                          ${isReturnCard ? "bg-orange-100 text-orange-700 border-orange-200" : "bg-indigo-50 text-indigo-600 border-indigo-100"}`}>
                           {c.zone}
                         </span>
                         <p className="text-[10px] text-slate-500 leading-snug truncate">{c.address}</p>
@@ -1660,13 +1660,15 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                   </div>
                 </>
               )}
-              {trip.advance != null && (
+            <span className="hidden sm:block">
+                {trip.advance != null && (
                 <div className="flex items-center gap-1 px-2 py-0.5 bg-violet-50 border border-violet-200 rounded-lg shrink-0">
                   <Wallet size={10} className="text-violet-500 shrink-0" />
                   <span className="text-[9px] sm:text-[10px] text-violet-600 font-semibold">Adv:</span>
                   <span className="text-[9px] sm:text-[10px] font-black text-violet-700">৳{Number(trip.advance).toLocaleString()}</span>
                 </div>
               )}
+            </span>
               <button
                 onClick={() => setSelectedTrip(null)}
                 className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition ml-auto shrink-0"

@@ -340,31 +340,28 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
         </div>
 
         {/* ══ FOOTER ══ */}
-        <div className="shrink-0 border-t bg-slate-50">
-
-          {/* Product summary row */}
-          {productSummary.length > 0 && (
-            <div className="px-3 pt-2 pb-1 flex flex-wrap gap-1.5 items-center border-b border-slate-100">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">Summary:</span>
-              {productSummary.map(([name, qty], idx) => (
-                <div key={idx} className="flex items-center gap-1 px-2 py-0.5 bg-white border border-slate-200 rounded-lg shadow-sm">
-                  <span className="text-[10px] font-semibold text-slate-700 truncate max-w-[80px] sm:max-w-none">{name}</span>
-                  <span className="text-[10px] font-black text-indigo-600 shrink-0">{qty} PCS</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Totals + Close row */}
-          <div className="px-3 py-2 flex items-center justify-end gap-2">
-            <button
-              onClick={handleClose}
-              className="px-4 py-1.5 text-xs text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition border border-slate-200"
-            >
-              Close
-            </button>
+     {/* ══ FOOTER ══ */}
+<div className="shrink-0 border-t border-slate-100 px-3 py-2 bg-white">
+  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+    {productSummary.length > 0 && (
+      <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+        {productSummary.map(([name, qty], idx) => (
+          <div key={idx} className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded-lg shrink-0">
+            <span className="text-[9px] sm:text-[10px] font-semibold text-slate-700 max-w-[60px] sm:max-w-none truncate">{name}</span>
+            <span className="text-[9px] sm:text-[10px] font-black text-indigo-600 shrink-0">{qty}</span>
           </div>
-        </div>
+        ))}
+      </div>
+    )}
+
+    <button
+      onClick={handleClose}
+      className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition ml-auto shrink-0"
+    >
+      Close
+    </button>
+  </div>
+</div>
 
       </div>
     </div>
