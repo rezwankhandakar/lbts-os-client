@@ -1,5 +1,4 @@
 
-
 // import React, { useEffect, useState, useRef } from "react";
 // import useAxiosSecure from "../hooks/useAxiosSecure";
 // import { useSearch } from "../hooks/SearchContext";
@@ -368,119 +367,75 @@
 //     <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
 //       <div className="max-w-full mx-auto">
 
-//         {/* ── Header ── */}
-//         <div className="flex flex-col gap-3 mb-4">
-//           <div className="flex items-center justify-between gap-2">
-//             <div>
-//               <h2 className="text-base sm:text-xl font-semibold text-gray-800">Trip Inventory</h2>
-//               <p className="text-xs text-gray-400 mt-0.5">
-//                 {filteredRows.length} trips
-//                 {totalPages > 1 && ` — page ${clientPage} of ${totalPages}`}
-//               </p>
-//             </div>
-//             {/* Mobile: icon-only buttons */}
-//             <div className="flex items-center gap-1.5 sm:hidden">
-//               <button
-//                 onClick={() => setShowFilters(f => !f)}
-//                 className={`flex items-center gap-1 px-2.5 py-1.5 text-xs rounded border transition ${hasFilter ? "border-gray-700 bg-gray-800 text-white" : "border-gray-300 text-gray-600 bg-white"}`}
-//               >
-//                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
-//                 {hasFilter && <span className="text-[10px]">On</span>}
-//               </button>
-//               <button onClick={handleReset}
-//                 className="px-2.5 py-1.5 text-xs rounded border border-red-200 text-red-500 hover:bg-red-500 hover:text-white transition">
-//                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-//               </button>
-//               <button onClick={handleExportExcel}
-//                 className="px-2.5 py-1.5 text-xs rounded bg-gray-800 text-white hover:bg-gray-700 transition">
-//                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-//               </button>
-//             </div>
+//         {/* ── Header — single compact row on desktop ── */}
+//         <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+//           {/* Title */}
+//           <div className="shrink-0">
+//             <h2 className="text-base sm:text-lg font-semibold text-gray-800 leading-tight">Trip Inventory</h2>
+//             <p className="text-[11px] text-gray-400">
+//               {filteredRows.length} trips
+//               {totalPages > 1 && ` — page ${clientPage}/${totalPages}`}
+//             </p>
 //           </div>
 
-//           {/* Month/Year + Desktop buttons */}
-//           <div className="flex flex-wrap items-center gap-2">
+//           {/* Controls row */}
+//           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:ml-auto">
 //             <select
-//               className="border border-gray-300 px-2.5 py-1.5 rounded text-xs sm:text-sm bg-white text-gray-700 focus:outline-none flex-1 min-w-[110px] max-w-[160px]"
+//               className="border border-gray-300 px-2 py-1 rounded text-xs bg-white text-gray-700 focus:outline-none"
 //               value={month} onChange={e => { setMonth(parseInt(e.target.value)); setClientPage(1); }}>
 //               {[...Array(12)].map((_, i) => (
 //                 <option key={i} value={i + 1}>{new Date(0, i).toLocaleString("default", { month: "long" })}</option>
 //               ))}
 //             </select>
 //             <input type="number"
-//               className="border border-gray-300 px-2.5 py-1.5 rounded text-xs sm:text-sm bg-white text-gray-700 w-20 focus:outline-none"
+//               className="border border-gray-300 px-2 py-1 rounded text-xs bg-white text-gray-700 w-16 focus:outline-none"
 //               value={year} onChange={e => { setYear(parseInt(e.target.value)); setClientPage(1); }} />
 
-//             {/* Desktop buttons */}
-//             <div className="hidden sm:flex items-center gap-2 ml-auto">
-//               <button
-//                 onClick={() => setShowFilters(f => !f)}
-//                 className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border transition ${hasFilter ? "border-gray-700 bg-gray-800 text-white" : "border-gray-300 text-gray-600 bg-white hover:bg-gray-50"}`}
-//               >
-//                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
-//                 {hasFilter ? "Filters On" : "Filters"}
-//               </button>
-//               <button onClick={handleReset}
-//                 className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 transition">
-//                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-//                 Reset All
-//               </button>
-//               <button onClick={handleExportExcel}
-//                 className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded bg-gray-800 text-white hover:bg-gray-700 transition">
-//                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-//                 Export Excel
-//               </button>
-//             </div>
+//             <button
+//               onClick={() => setShowFilters(f => !f)}
+//               className={`flex items-center gap-1 px-2.5 py-1 text-xs rounded border transition ${hasFilter ? "border-gray-700 bg-gray-800 text-white" : "border-gray-300 text-gray-600 bg-white hover:bg-gray-50"}`}
+//             >
+//               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
+//               <span className="hidden sm:inline">{hasFilter ? "Filters On" : "Filters"}</span>
+//               {hasFilter && <span className="sm:hidden text-[10px]">On</span>}
+//             </button>
+//             <button onClick={handleReset}
+//               className="flex items-center gap-1 px-2.5 py-1 text-xs rounded border border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 transition">
+//               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+//               <span className="hidden sm:inline">Reset</span>
+//             </button>
+//             <button onClick={handleExportExcel}
+//               className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-gray-800 text-white hover:bg-gray-700 transition">
+//               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+//               <span className="hidden sm:inline">Export</span>
+//             </button>
 //           </div>
-
-//           {/* Mobile filter panel */}
-//           {showFilters && (
-//             <div className="sm:hidden p-3 bg-white border border-gray-200 rounded-xl shadow-sm space-y-2">
-//               <div className="grid grid-cols-2 gap-2">
-//                 <div>
-//                   <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Date</p>
-//                   <input type="date" value={dateFilter}
-//                     onChange={e => { setDateFilter(e.target.value); setClientPage(1); }}
-//                     className="w-full px-2 py-1 border border-gray-200 rounded text-[10px] outline-none bg-white" />
-//                 </div>
-//                 <div>
-//                   <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Trip</p>
-//                   <MultiSelectFilter options={getOptionsFor("tripNumber")} selected={tripFilter} onChange={setFilter(setTripFilter)} />
-//                 </div>
-//                 <div>
-//                   <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Vendor</p>
-//                   <MultiSelectFilter options={getOptionsFor("vendorName")} selected={vendorFilter} onChange={setFilter(setVendorFilter)} />
-//                 </div>
-//                 <div>
-//                   <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Driver</p>
-//                   <MultiSelectFilter options={getOptionsFor("driverName")} selected={driverFilter} onChange={setFilter(setDriverFilter)} />
-//                 </div>
-//                 <div>
-//                   <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Vehicle</p>
-//                   <MultiSelectFilter options={getOptionsFor("vehicleNumber")} selected={vehicleFilter} onChange={setFilter(setVehicleFilter)} />
-//                 </div>
-//                 <div>
-//                   <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Delivery</p>
-//                   <SimpleSelect value={deliveryFilter} onChange={setFilter(setDeliveryFilter)} options={[
-//                     { value: "", label: "All" },
-//                     { value: "delivered", label: "Delivered" },
-//                     { value: "notDelivered", label: "Not Delivered" },
-//                   ]} />
-//                 </div>
-//                 <div className="col-span-2">
-//                   <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Challan</p>
-//                   <SimpleSelect value={challanFilter} onChange={setFilter(setChallanFilter)} options={[
-//                     { value: "", label: "All" },
-//                     { value: "received", label: "All Received" },
-//                     { value: "notReceived", label: "Not Received" },
-//                   ]} />
-//                 </div>
-//               </div>
-//             </div>
-//           )}
 //         </div>
 
-//         {/* Active filter chips */}
+//         {/* Mobile filter panel */}
+//         {showFilters && (
+//           <div className="sm:hidden mb-2 p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+//             <div className="grid grid-cols-2 gap-2">
+//               <div>
+//                 <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Date</p>
+//                 <input type="date" value={dateFilter} onChange={e => { setDateFilter(e.target.value); setClientPage(1); }}
+//                   className="w-full px-2 py-1 border border-gray-200 rounded text-[10px] outline-none bg-white" />
+//               </div>
+//               <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Trip</p><MultiSelectFilter options={getOptionsFor("tripNumber")} selected={tripFilter} onChange={setFilter(setTripFilter)} /></div>
+//               <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Vendor</p><MultiSelectFilter options={getOptionsFor("vendorName")} selected={vendorFilter} onChange={setFilter(setVendorFilter)} /></div>
+//               <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Driver</p><MultiSelectFilter options={getOptionsFor("driverName")} selected={driverFilter} onChange={setFilter(setDriverFilter)} /></div>
+//               <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Vehicle</p><MultiSelectFilter options={getOptionsFor("vehicleNumber")} selected={vehicleFilter} onChange={setFilter(setVehicleFilter)} /></div>
+//               <div>
+//                 <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Delivery</p>
+//                 <SimpleSelect value={deliveryFilter} onChange={setFilter(setDeliveryFilter)} options={[{ value: "", label: "All" }, { value: "delivered", label: "Delivered" }, { value: "notDelivered", label: "Not Delivered" }]} />
+//               </div>
+//               <div className="col-span-2">
+//                 <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Challan</p>
+//                 <SimpleSelect value={challanFilter} onChange={setFilter(setChallanFilter)} options={[{ value: "", label: "All" }, { value: "received", label: "All Received" }, { value: "notReceived", label: "Not Received" }]} />
+//               </div>
+//             </div>
+//           </div>
+//         )}
 //         {activeFilterGroups.length > 0 && (
 //           <div className="flex flex-wrap items-center gap-1.5 mb-3">
 //             <span className="text-[10px] text-gray-400 uppercase tracking-widest">Filters:</span>
@@ -511,12 +466,12 @@
 
 //             {/* ── DESKTOP / LAPTOP table (>= sm) ── */}
 //             <div className="hidden sm:block bg-white border border-gray-200 rounded-lg shadow-sm">
-//               <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-240px)]">
-//                 <table className="w-full border-collapse text-sm">
+//               <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-150px)]">
+//                 <table className="w-full border-collapse text-xs">
 //                   <thead>
 //                     <tr className="bg-gray-800 text-white text-left sticky top-0 z-20">
 //                       {["Date", "Trip Number", "Vendor", "Driver", "Vehicle", "Point", "Delivery", "Challan", "View"].map(h => (
-//                         <th key={h} className="px-3 py-2.5 font-normal text-xs uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0">{h}</th>
+//                         <th key={h} className="px-2 py-2 font-normal text-[10px] uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0">{h}</th>
 //                       ))}
 //                     </tr>
 //                     {/* Inline filter row — only on desktop */}
@@ -559,27 +514,27 @@
 //                       const allReceived  = normalChallans.length > 0 && normalChallans.every(c => c.challanReturnStatus === "received");
 //                       return (
 //                         <tr key={i} className="border-b border-gray-100 hover:bg-amber-50 even:bg-gray-50/50 transition-colors text-center">
-//                           <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{date.toLocaleDateString("en-GB")}</td>
-//                           <td className="px-3 py-2">
+//                           <td className="px-2 py-1.5 text-gray-500 text-xs whitespace-nowrap">{date.toLocaleDateString("en-GB")}</td>
+//                           <td className="px-2 py-1.5">
 //                             <span className="text-xs bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 font-mono">{t.tripNumber}</span>
 //                           </td>
-//                           <td className="px-3 py-2 text-gray-700 text-sm text-left max-w-[140px] truncate">{t.vendorName}</td>
-//                           <td className="px-3 py-2 text-gray-700 text-sm text-left max-w-[120px] truncate">{t.driverName}</td>
-//                           <td className="px-3 py-2 text-xs text-gray-600 uppercase">{t.vehicleNumber}</td>
-//                           <td className="px-3 py-2 font-semibold">{t.challanQty}</td>
-//                           <td className="px-3 py-2">
-//                             <span className={`px-2 py-0.5 rounded text-[11px] font-medium whitespace-nowrap ${allDelivered ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
-//                               {allDelivered ? "All Delivered" : "Not Delivered"}
+//                           <td className="px-2 py-1.5 text-gray-700 text-xs text-left max-w-[130px] truncate">{t.vendorName}</td>
+//                           <td className="px-2 py-1.5 text-gray-700 text-xs text-left max-w-[110px] truncate">{t.driverName}</td>
+//                           <td className="px-2 py-1.5 text-[11px] text-gray-600 uppercase whitespace-nowrap">{t.vehicleNumber}</td>
+//                           <td className="px-2 py-1.5 font-semibold text-xs">{t.challanQty}</td>
+//                           <td className="px-2 py-1.5">
+//                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${allDelivered ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+//                               {allDelivered ? "✓ Delivered" : "Not Delivered"}
 //                             </span>
 //                           </td>
-//                           <td className="px-3 py-2">
-//                             <span className={`px-2 py-0.5 rounded text-[11px] font-medium whitespace-nowrap ${allReceived ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
-//                               {allReceived ? "All Received" : "Not Received"}
+//                           <td className="px-2 py-1.5">
+//                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${allReceived ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+//                               {allReceived ? "✓ Received" : "Not Received"}
 //                             </span>
 //                           </td>
-//                           <td className="px-3 py-2">
+//                           <td className="px-2 py-1.5">
 //                             <button onClick={() => setSelectedTrip(t)}
-//                               className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded transition-colors">
+//                               className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-white text-[10px] rounded transition-colors">
 //                               View
 //                             </button>
 //                           </td>
@@ -688,14 +643,12 @@ const MultiSelectFilter = ({ options, selected, onChange, placeholder = "All" })
           </svg>
         </span>
       </button>
-
       {open && (
-        <div
-          className="fixed bg-white border border-gray-200 rounded shadow-xl min-w-[150px] w-max max-w-[240px] overflow-hidden"
+        <div className="fixed bg-white border border-gray-200 rounded shadow-xl min-w-[150px] w-max max-w-[240px] overflow-hidden"
           style={{
             zIndex: 9999,
             top: ref.current ? ref.current.getBoundingClientRect().bottom + 4 : 0,
-            left: ref.current ? ref.current.getBoundingClientRect().left : 0,
+            left: ref.current ? Math.min(ref.current.getBoundingClientRect().left, window.innerWidth - 250) : 0,
           }}
         >
           {options.length > 5 && (
@@ -733,12 +686,9 @@ const MultiSelectFilter = ({ options, selected, onChange, placeholder = "All" })
 
 /* ── Simple select filter ── */
 const SimpleSelect = ({ value, onChange, options }) => (
-  <select
-    value={value}
-    onChange={e => onChange(e.target.value)}
+  <select value={value} onChange={e => onChange(e.target.value)}
     className={`w-full px-2 py-1 text-xs rounded border outline-none transition-all
-      ${value ? "border-gray-700 bg-gray-100 text-gray-800" : "border-gray-300 bg-white text-gray-400"}`}
-  >
+      ${value ? "border-gray-700 bg-gray-100 text-gray-800" : "border-gray-300 bg-white text-gray-400"}`}>
     {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
   </select>
 );
@@ -752,54 +702,41 @@ const MobileTripCard = ({ t, onView }) => {
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-      {/* Card header */}
       <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-100">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-[10px] bg-gray-800 text-white rounded px-1.5 py-0.5 font-mono shrink-0">{t.tripNumber}</span>
           <span className="text-[10px] text-gray-400 shrink-0">{new Date(t.createdAt).toLocaleDateString("en-GB")}</span>
         </div>
-        <button
-          onClick={() => onView(t)}
-          className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-white text-[10px] rounded transition shrink-0"
-        >
+        <button onClick={() => onView(t)}
+          className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-white text-[10px] rounded transition shrink-0">
           View
         </button>
       </div>
-
-      {/* Card body */}
       <div className="px-3 py-2.5 space-y-2">
-        {/* Vendor + Vehicle row */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-[8px] text-gray-400 uppercase font-bold tracking-widest">Vendor</p>
+        <div className="grid grid-cols-3 gap-1 text-xs">
+          <div title={t.vendorName} className="min-w-0">
+            <p className="text-[9px] text-gray-400 uppercase font-bold tracking-widest">Vendor</p>
             <p className="text-xs font-semibold text-gray-800 truncate">{t.vendorName}</p>
           </div>
-          <div className="text-right shrink-0">
-            <p className="text-[8px] text-gray-400 uppercase font-bold tracking-widest">Vehicle</p>
-            <p className="text-xs font-semibold text-gray-700 uppercase">{t.vehicleNumber}</p>
-          </div>
-        </div>
-
-        {/* Driver + Point row */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-[8px] text-gray-400 uppercase font-bold tracking-widest">Driver</p>
+          <div title={t.driverName} className="min-w-0">
+            <p className="text-[9px] text-gray-400 uppercase font-bold tracking-widest">Driver</p>
             <p className="text-xs font-semibold text-gray-800 truncate">{t.driverName}</p>
           </div>
-          <div className="text-right shrink-0">
-            <p className="text-[8px] text-gray-400 uppercase font-bold tracking-widest">Points</p>
-            <p className="text-xs font-bold text-emerald-700">{t.challanQty ?? t.totalChallan}</p>
+          <div title={t.vehicleNumber} className="min-w-0 text-right">
+            <p className="text-[9px] text-gray-400 uppercase font-bold tracking-widest">Vehicle</p>
+            <p className="text-xs font-semibold text-gray-700 uppercase truncate">{t.vehicleNumber}</p>
           </div>
         </div>
-
-        {/* Status badges */}
-        <div className="flex items-center gap-1.5 pt-1 border-t border-gray-100">
-          <span className={`flex-1 text-center px-2 py-0.5 rounded text-[10px] font-semibold ${allDelivered ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
-            {allDelivered ? "✓ Delivered" : "Not Delivered"}
-          </span>
-          <span className={`flex-1 text-center px-2 py-0.5 rounded text-[10px] font-semibold ${allReceived ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
-            {allReceived ? "✓ Challan Rcvd" : "Challan Pending"}
-          </span>
+        <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-100">
+          <span className="text-[9px] text-gray-400 uppercase font-bold tracking-widest">Points: <span className="text-emerald-700 font-bold text-xs">{t.challanQty ?? t.totalChallan}</span></span>
+          <div className="flex items-center gap-1">
+            <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${allDelivered ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+              {allDelivered ? "✓ Delivered" : "Not Delivered"}
+            </span>
+            <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${allReceived ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+              {allReceived ? "✓ Challan" : "Challan Pend."}
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -817,7 +754,7 @@ const TripInventoryPage = () => {
   const [loading, setLoading]           = useState(false);
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [clientPage, setClientPage]     = useState(1);
-  const [showFilters, setShowFilters]   = useState(false);
+  const [isMobile, setIsMobile]         = useState(false);
 
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year,  setYear]  = useState(new Date().getFullYear());
@@ -829,6 +766,13 @@ const TripInventoryPage = () => {
   const [dateFilter,     setDateFilter]     = useState("");
   const [deliveryFilter, setDeliveryFilter] = useState("");
   const [challanFilter,  setChallanFilter]  = useState("");
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const setFilter = (setter) => (val) => { setter(val); setClientPage(1); };
 
@@ -850,23 +794,15 @@ const TripInventoryPage = () => {
   }, [month, year, searchText]);
 
   const tripRows = deliveries.map(t => ({
-    _id:            t._id,
-    tripNumber:     t.tripNumber,
-    vendorName:     t.vendorName,
-    vendorNumber:   t.vendorNumber,
-    driverName:     t.driverName,
-    driverNumber:   t.driverNumber,
-    vehicleNumber:  t.vehicleNumber,
-    totalChallan:   t.challans ? t.challans.filter(c => !c.isReturn).length : t.totalChallan,
-    challanQty:     t.challans ? t.challans.filter(c => !c.isReturn).length : t.totalChallan,
-    createdAt:      t.createdAt,
-    createdBy:      t.createdBy,
-    currentUser:    t.currentUser,
-    challans:       t.challans,
-    advance:        t.advance        ?? null,
+    _id: t._id, tripNumber: t.tripNumber, vendorName: t.vendorName,
+    vendorNumber: t.vendorNumber, driverName: t.driverName, driverNumber: t.driverNumber,
+    vehicleNumber: t.vehicleNumber,
+    totalChallan: t.challans ? t.challans.filter(c => !c.isReturn).length : t.totalChallan,
+    challanQty:   t.challans ? t.challans.filter(c => !c.isReturn).length : t.totalChallan,
+    createdAt: t.createdAt, createdBy: t.createdBy, currentUser: t.currentUser,
+    challans: t.challans, advance: t.advance ?? null,
     advanceSavedBy: t.advanceSavedBy ?? null,
-    lastUpdatedBy:  t.lastUpdatedBy  ?? null,
-    lastUpdatedAt:  t.lastUpdatedAt  ?? null,
+    lastUpdatedBy: t.lastUpdatedBy ?? null, lastUpdatedAt: t.lastUpdatedAt ?? null,
   }));
 
   const handleTripUpdate = (updatedTrip) => {
@@ -880,13 +816,10 @@ const TripInventoryPage = () => {
     const normalChallans = challans.filter(c => !c.isReturn);
     const allDelivered = normalChallans.length > 0 && normalChallans.every(c => c.deliveryStatus === "confirmed");
     const allReceived  = normalChallans.length > 0 && normalChallans.every(c => c.challanReturnStatus === "received");
-
     const matchesSearch = !searchText ||
       [t.tripNumber, t.vendorName, t.driverName, t.vehicleNumber].some(v => v?.toLowerCase().includes(s));
-
     const check = (field, filter, val) =>
       field === excludeField || filter.length === 0 || filter.some(f => val?.toLowerCase() === f.toLowerCase());
-
     return matchesSearch &&
       check("tripNumber",    tripFilter,    t.tripNumber) &&
       check("vendorName",    vendorFilter,  t.vendorName) &&
@@ -901,12 +834,9 @@ const TripInventoryPage = () => {
         (challanFilter === "notReceived" && !allReceived));
   };
 
-  const filteredRows = tripRows.filter(t => rowMatchesAll(t));
-  const totalPages   = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
-  const paginatedRows = filteredRows.slice(
-    (clientPage - 1) * ITEMS_PER_PAGE,
-    clientPage * ITEMS_PER_PAGE
-  );
+  const filteredRows  = tripRows.filter(t => rowMatchesAll(t));
+  const totalPages    = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
+  const paginatedRows = filteredRows.slice((clientPage - 1) * ITEMS_PER_PAGE, clientPage * ITEMS_PER_PAGE);
 
   const getOptionsFor = (field) => {
     const map = new Map();
@@ -960,7 +890,6 @@ const TripInventoryPage = () => {
       preConfirm: () => document.querySelector('input[name="et"]:checked')?.value || "filtered",
     });
     if (!exportType) return;
-
     try {
       let exportData = [];
       const toRow = (t) => ({
@@ -972,7 +901,6 @@ const TripInventoryPage = () => {
         "Delivery Status": (t.challans || []).filter(c => !c.isReturn).every(c => c.deliveryStatus === "confirmed") ? "All Delivered" : "Not Delivered",
         "Challan Status":  (t.challans || []).filter(c => !c.isReturn).every(c => c.challanReturnStatus === "received") ? "All Received" : "Not Received",
       });
-
       if (exportType === "filtered") {
         if (!filteredRows.length) return Swal.fire({ icon: "warning", title: "No Data" });
         exportData = filteredRows.map(toRow);
@@ -983,14 +911,11 @@ const TripInventoryPage = () => {
         if (!exportData.length) return Swal.fire({ icon: "warning", title: "No Data" });
         Swal.close();
       }
-
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Trips");
-      saveAs(
-        new Blob([XLSX.write(wb, { bookType: "xlsx", type: "array" })], { type: "application/octet-stream" }),
-        `TripInventory_${exportType === "filtered" ? "Filtered" : "Full"}_${month}_${year}.xlsx`
-      );
+      saveAs(new Blob([XLSX.write(wb, { bookType: "xlsx", type: "array" })], { type: "application/octet-stream" }),
+        `TripInventory_${exportType === "filtered" ? "Filtered" : "Full"}_${month}_${year}.xlsx`);
       Swal.fire({ icon: "success", title: "Exported!", text: `${exportData.length} rows`, timer: 1800, showConfirmButton: false });
     } catch { Swal.fire("Error", "Export failed", "error"); }
   };
@@ -1003,150 +928,171 @@ const TripInventoryPage = () => {
       return acc;
     }, []);
 
+  const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const MONTHS_FULL  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
   /* ════════════════════════════════════════════════════════════════
-     RENDER
+     RENDER — full height, no double scroll (CarRentPage style)
   ════════════════════════════════════════════════════════════════ */
   return (
-    <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
-      <div className="max-w-full mx-auto">
+    <div className="flex flex-col h-full bg-gray-50 overflow-hidden">
 
-        {/* ── Header — single compact row on desktop ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+      {/* ══ COMPACT HEADER ══ */}
+      <div className="flex-shrink-0 bg-white border-b border-gray-200 px-3 py-2 shadow-sm">
+
+        {/* Single row: title · count · controls */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+
           {/* Title */}
-          <div className="shrink-0">
-            <h2 className="text-base sm:text-lg font-semibold text-gray-800 leading-tight">Trip Inventory</h2>
-            <p className="text-[11px] text-gray-400">
-              {filteredRows.length} trips
-              {totalPages > 1 && ` — page ${clientPage}/${totalPages}`}
-            </p>
-          </div>
+          <h2 className="text-sm font-bold text-gray-800 shrink-0">Trip Inventory</h2>
 
-          {/* Controls row */}
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:ml-auto">
-            <select
-              className="border border-gray-300 px-2 py-1 rounded text-xs bg-white text-gray-700 focus:outline-none"
-              value={month} onChange={e => { setMonth(parseInt(e.target.value)); setClientPage(1); }}>
-              {[...Array(12)].map((_, i) => (
-                <option key={i} value={i + 1}>{new Date(0, i).toLocaleString("default", { month: "long" })}</option>
-              ))}
-            </select>
-            <input type="number"
-              className="border border-gray-300 px-2 py-1 rounded text-xs bg-white text-gray-700 w-16 focus:outline-none"
-              value={year} onChange={e => { setYear(parseInt(e.target.value)); setClientPage(1); }} />
+          {/* Count */}
+          <span className="text-[10px] text-gray-400 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 shrink-0">
+            {filteredRows.length} trips{totalPages > 1 && ` · p${clientPage}/${totalPages}`}
+          </span>
 
-            <button
-              onClick={() => setShowFilters(f => !f)}
-              className={`flex items-center gap-1 px-2.5 py-1 text-xs rounded border transition ${hasFilter ? "border-gray-700 bg-gray-800 text-white" : "border-gray-300 text-gray-600 bg-white hover:bg-gray-50"}`}
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
-              <span className="hidden sm:inline">{hasFilter ? "Filters On" : "Filters"}</span>
-              {hasFilter && <span className="sm:hidden text-[10px]">On</span>}
-            </button>
-            <button onClick={handleReset}
-              className="flex items-center gap-1 px-2.5 py-1 text-xs rounded border border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 transition">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-              <span className="hidden sm:inline">Reset</span>
-            </button>
-            <button onClick={handleExportExcel}
-              className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-gray-800 text-white hover:bg-gray-700 transition">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              <span className="hidden sm:inline">Export</span>
-            </button>
-          </div>
-        </div>
+          {/* Active filter chips */}
+          {activeFilterGroups.map((f, i) => (
+            <span key={i} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-gray-800 text-white text-[9px] rounded shrink-0">
+              {f.label}: {f.values.length === 1 ? f.values[0] : `${f.values.length} sel.`}
+              <button onClick={f.clear} className="text-gray-400 hover:text-white ml-0.5 leading-none">✕</button>
+            </span>
+          ))}
+          {hasFilter && (
+            <button onClick={handleReset} className="text-[9px] text-red-400 hover:text-red-600 underline shrink-0">Clear all</button>
+          )}
 
-        {/* Mobile filter panel */}
-        {showFilters && (
-          <div className="sm:hidden mb-2 p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Date</p>
-                <input type="date" value={dateFilter} onChange={e => { setDateFilter(e.target.value); setClientPage(1); }}
-                  className="w-full px-2 py-1 border border-gray-200 rounded text-[10px] outline-none bg-white" />
-              </div>
-              <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Trip</p><MultiSelectFilter options={getOptionsFor("tripNumber")} selected={tripFilter} onChange={setFilter(setTripFilter)} /></div>
-              <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Vendor</p><MultiSelectFilter options={getOptionsFor("vendorName")} selected={vendorFilter} onChange={setFilter(setVendorFilter)} /></div>
-              <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Driver</p><MultiSelectFilter options={getOptionsFor("driverName")} selected={driverFilter} onChange={setFilter(setDriverFilter)} /></div>
-              <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Vehicle</p><MultiSelectFilter options={getOptionsFor("vehicleNumber")} selected={vehicleFilter} onChange={setFilter(setVehicleFilter)} /></div>
-              <div>
-                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Delivery</p>
-                <SimpleSelect value={deliveryFilter} onChange={setFilter(setDeliveryFilter)} options={[{ value: "", label: "All" }, { value: "delivered", label: "Delivered" }, { value: "notDelivered", label: "Not Delivered" }]} />
-              </div>
-              <div className="col-span-2">
-                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Challan</p>
-                <SimpleSelect value={challanFilter} onChange={setFilter(setChallanFilter)} options={[{ value: "", label: "All" }, { value: "received", label: "All Received" }, { value: "notReceived", label: "Not Received" }]} />
-              </div>
-            </div>
-          </div>
-        )}
-        {activeFilterGroups.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 mb-3">
-            <span className="text-[10px] text-gray-400 uppercase tracking-widest">Filters:</span>
-            {activeFilterGroups.map((f, i) => (
-              <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-800 text-white text-[10px] rounded">
-                {f.label}: {f.values.length === 1 ? f.values[0] : `${f.values.length} selected`}
-                <button onClick={f.clear} className="text-gray-400 hover:text-white ml-0.5 leading-none">✕</button>
-              </span>
+          {/* Spacer */}
+          <div className="hidden sm:block flex-1" />
+
+          {/* Month */}
+          <select className="border border-gray-300 px-2 py-1 rounded text-xs bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400 shrink-0"
+            value={month} onChange={e => { setMonth(parseInt(e.target.value)); setClientPage(1); }}>
+            {MONTHS_FULL.map((m, i) => (
+              <option key={i} value={i + 1}>{isMobile ? MONTHS_SHORT[i] : m}</option>
             ))}
-          </div>
-        )}
+          </select>
 
-        {/* ── Content ── */}
+          {/* Year */}
+          <input type="number"
+            className="border border-gray-300 px-2 py-1 rounded text-xs bg-white text-gray-700 w-16 focus:outline-none focus:ring-1 focus:ring-gray-400 shrink-0"
+            value={year} onChange={e => { setYear(parseInt(e.target.value)); setClientPage(1); }} />
+
+          {/* Reset */}
+          <button onClick={handleReset}
+            className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all shrink-0 whitespace-nowrap">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
+            </svg>
+            <span className="hidden sm:inline">Reset</span>
+          </button>
+
+          {/* Export */}
+          <button onClick={handleExportExcel}
+            className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-gray-800 text-white hover:bg-gray-700 transition-all shrink-0 whitespace-nowrap">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <span className="hidden sm:inline">Export</span>
+            <span className="sm:hidden">XLS</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ══ CONTENT ══ */}
+      <div className="flex-1 overflow-hidden">
         {loading ? (
-          <LoadingSpinner />
+          <div className="flex items-center justify-center h-full"><LoadingSpinner /></div>
         ) : filteredRows.length === 0 ? (
-          <div className="text-center py-16 text-gray-400 italic border border-dashed border-gray-200 rounded-lg bg-white">
+          <div className="flex items-center justify-center h-full text-gray-400 italic text-sm border border-dashed border-gray-200 rounded-lg m-3 bg-white">
             No trips found.
           </div>
-        ) : (
-          <>
-            {/* ── MOBILE card list (< sm) ── */}
-            <div className="sm:hidden space-y-2">
-              {paginatedRows.map((t, i) => (
-                <MobileTripCard key={i} t={t} onView={setSelectedTrip} />
-              ))}
-            </div>
+        ) : isMobile ? (
 
-            {/* ── DESKTOP / LAPTOP table (>= sm) ── */}
-            <div className="hidden sm:block bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-150px)]">
-                <table className="w-full border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-gray-800 text-white text-left sticky top-0 z-20">
-                      {["Date", "Trip Number", "Vendor", "Driver", "Vehicle", "Point", "Delivery", "Challan", "View"].map(h => (
-                        <th key={h} className="px-2 py-2 font-normal text-[10px] uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0">{h}</th>
+          /* ════ MOBILE ════ */
+          <div className="h-full overflow-y-auto p-2">
+            {/* Mobile filter bar — always visible */}
+            <div className="bg-white border border-gray-200 rounded-lg p-2 mb-3 grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] text-gray-400 block mb-0.5">Date</label>
+                <input type="date" value={dateFilter} onChange={e => { setDateFilter(e.target.value); setClientPage(1); }}
+                  className="w-full px-1.5 py-1 border border-gray-300 rounded text-[10px] outline-none focus:border-gray-500 bg-white" />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-400 block mb-0.5">Trip</label>
+                <MultiSelectFilter options={getOptionsFor("tripNumber")} selected={tripFilter} onChange={setFilter(setTripFilter)} placeholder="All" />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-400 block mb-0.5">Vendor</label>
+                <MultiSelectFilter options={getOptionsFor("vendorName")} selected={vendorFilter} onChange={setFilter(setVendorFilter)} placeholder="All" />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-400 block mb-0.5">Driver</label>
+                <MultiSelectFilter options={getOptionsFor("driverName")} selected={driverFilter} onChange={setFilter(setDriverFilter)} placeholder="All" />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-400 block mb-0.5">Vehicle</label>
+                <MultiSelectFilter options={getOptionsFor("vehicleNumber")} selected={vehicleFilter} onChange={setFilter(setVehicleFilter)} placeholder="All" />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-400 block mb-0.5">Delivery</label>
+                <SimpleSelect value={deliveryFilter} onChange={setFilter(setDeliveryFilter)}
+                  options={[{ value: "", label: "All" }, { value: "delivered", label: "Delivered" }, { value: "notDelivered", label: "Not Delivered" }]} />
+              </div>
+              <div className="col-span-2">
+                <label className="text-[10px] text-gray-400 block mb-0.5">Challan</label>
+                <SimpleSelect value={challanFilter} onChange={setFilter(setChallanFilter)}
+                  options={[{ value: "", label: "All" }, { value: "received", label: "All Received" }, { value: "notReceived", label: "Not Received" }]} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              {paginatedRows.map((t, i) => <MobileTripCard key={i} t={t} onView={setSelectedTrip} />)}
+            </div>
+          </div>
+
+        ) : (
+
+          /* ════ DESKTOP — single scroll ════ */
+          <div className="h-full flex flex-col mx-3 my-2">
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden flex flex-col flex-1">
+              <div className="overflow-auto flex-1">
+                <table className="w-full border-collapse text-xs min-w-[700px]">
+                  <thead className="sticky top-0 z-20">
+                    {/* Column headers */}
+                    <tr className="bg-gray-800 text-white text-left">
+                      {["Date","Trip Number","Vendor","Driver","Vehicle","Point","Delivery","Challan","Action"].map(h => (
+                        <th key={h} className="px-2 py-2.5 font-normal text-[10px] uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0">{h}</th>
                       ))}
                     </tr>
-                    {/* Inline filter row — only on desktop */}
-                    {showFilters && (
-                      <tr className="bg-gray-50 border-b-2 border-gray-200 sticky top-[41px] z-20">
-                        <th className="p-1 border-r border-gray-200">
-                          <input type="date"
-                            className="w-full px-1.5 py-1 border border-gray-300 rounded text-[10px] outline-none focus:border-gray-500 bg-white"
-                            value={dateFilter} onChange={e => { setDateFilter(e.target.value); setClientPage(1); }} />
-                        </th>
-                        <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("tripNumber")}    selected={tripFilter}    onChange={setFilter(setTripFilter)}    placeholder="All" /></th>
-                        <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("vendorName")}    selected={vendorFilter}  onChange={setFilter(setVendorFilter)}  placeholder="All" /></th>
-                        <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("driverName")}    selected={driverFilter}  onChange={setFilter(setDriverFilter)}  placeholder="All" /></th>
-                        <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("vehicleNumber")} selected={vehicleFilter} onChange={setFilter(setVehicleFilter)} placeholder="All" /></th>
-                        <th className="p-1 border-r border-gray-200" />
-                        <th className="p-1 border-r border-gray-200">
-                          <SimpleSelect value={deliveryFilter} onChange={setFilter(setDeliveryFilter)} options={[
-                            { value: "", label: "All" },
-                            { value: "delivered", label: "All Delivered" },
-                            { value: "notDelivered", label: "Not Delivered" },
-                          ]} />
-                        </th>
-                        <th className="p-1 border-r border-gray-200">
-                          <SimpleSelect value={challanFilter} onChange={setFilter(setChallanFilter)} options={[
-                            { value: "", label: "All" },
-                            { value: "received", label: "All Received" },
-                            { value: "notReceived", label: "Not Received" },
-                          ]} />
-                        </th>
-                        <th className="p-1" />
-                      </tr>
-                    )}
+                    {/* Filter row — always visible */}
+                    <tr className="bg-gray-50 border-b-2 border-gray-200">
+                      <th className="p-1 border-r border-gray-200">
+                        <input type="date" value={dateFilter} onChange={e => { setDateFilter(e.target.value); setClientPage(1); }}
+                          className="w-full px-1.5 py-1 border border-gray-300 rounded text-[10px] outline-none focus:border-gray-500 bg-white" />
+                      </th>
+                      <th className="p-1 border-r border-gray-200">
+                        <MultiSelectFilter options={getOptionsFor("tripNumber")} selected={tripFilter} onChange={setFilter(setTripFilter)} />
+                      </th>
+                      <th className="p-1 border-r border-gray-200">
+                        <MultiSelectFilter options={getOptionsFor("vendorName")} selected={vendorFilter} onChange={setFilter(setVendorFilter)} />
+                      </th>
+                      <th className="p-1 border-r border-gray-200">
+                        <MultiSelectFilter options={getOptionsFor("driverName")} selected={driverFilter} onChange={setFilter(setDriverFilter)} />
+                      </th>
+                      <th className="p-1 border-r border-gray-200">
+                        <MultiSelectFilter options={getOptionsFor("vehicleNumber")} selected={vehicleFilter} onChange={setFilter(setVehicleFilter)} />
+                      </th>
+                      <th className="p-1 border-r border-gray-200" />
+                      <th className="p-1 border-r border-gray-200">
+                        <SimpleSelect value={deliveryFilter} onChange={setFilter(setDeliveryFilter)}
+                          options={[{ value: "", label: "All" }, { value: "delivered", label: "All Delivered" }, { value: "notDelivered", label: "Not Delivered" }]} />
+                      </th>
+                      <th className="p-1 border-r border-gray-200">
+                        <SimpleSelect value={challanFilter} onChange={setFilter(setChallanFilter)}
+                          options={[{ value: "", label: "All" }, { value: "received", label: "All Received" }, { value: "notReceived", label: "Not Received" }]} />
+                      </th>
+                      <th className="p-1" />
+                    </tr>
                   </thead>
                   <tbody>
                     {paginatedRows.map((t, i) => {
@@ -1161,9 +1107,9 @@ const TripInventoryPage = () => {
                           <td className="px-2 py-1.5">
                             <span className="text-xs bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 font-mono">{t.tripNumber}</span>
                           </td>
-                          <td className="px-2 py-1.5 text-gray-700 text-xs text-left max-w-[130px] truncate">{t.vendorName}</td>
-                          <td className="px-2 py-1.5 text-gray-700 text-xs text-left max-w-[110px] truncate">{t.driverName}</td>
-                          <td className="px-2 py-1.5 text-[11px] text-gray-600 uppercase whitespace-nowrap">{t.vehicleNumber}</td>
+                          <td className="px-2 py-1.5 text-gray-700 text-xs text-left max-w-[130px] truncate" title={t.vendorName}>{t.vendorName}</td>
+                          <td className="px-2 py-1.5 text-gray-700 text-xs text-left max-w-[110px] truncate" title={t.driverName}>{t.driverName}</td>
+                          <td className="px-2 py-1.5 text-[11px] text-gray-600 uppercase whitespace-nowrap" title={t.vehicleNumber}>{t.vehicleNumber}</td>
                           <td className="px-2 py-1.5 font-semibold text-xs">{t.challanQty}</td>
                           <td className="px-2 py-1.5">
                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${allDelivered ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
@@ -1187,40 +1133,33 @@ const TripInventoryPage = () => {
                   </tbody>
                 </table>
               </div>
-            </div>
 
-            {/* ── Pagination ── */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 bg-white border border-gray-200 rounded-lg mt-2 shadow-sm flex-wrap gap-2">
-                <p className="text-xs text-gray-500">
-                  {(clientPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(clientPage * ITEMS_PER_PAGE, filteredRows.length)} / {filteredRows.length}
-                </p>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setClientPage(p => Math.max(1, p - 1))}
-                    disabled={clientPage === 1}
-                    className="px-2.5 sm:px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >← Prev</button>
-                  {pageNumbers.map((p, i) =>
-                    p === "..." ? (
-                      <span key={i} className="px-2 text-gray-400 text-xs">…</span>
-                    ) : (
-                      <button key={i} onClick={() => setClientPage(p)}
-                        className={`px-2.5 sm:px-3 py-1 text-xs border rounded transition-colors
-                          ${clientPage === p ? "bg-gray-800 text-white border-gray-800" : "border-gray-300 hover:bg-gray-100"}`}>
-                        {p}
-                      </button>
-                    )
-                  )}
-                  <button
-                    onClick={() => setClientPage(p => Math.min(totalPages, p + 1))}
-                    disabled={clientPage === totalPages}
-                    className="px-2.5 sm:px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >Next →</button>
+              {/* Pagination — table এর নিচে, scroll এর বাইরে */}
+              {totalPages > 1 && (
+                <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 border-t border-gray-200 bg-gray-50 flex-wrap gap-2">
+                  <p className="text-xs text-gray-500">
+                    {(clientPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(clientPage * ITEMS_PER_PAGE, filteredRows.length)} / {filteredRows.length}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setClientPage(p => Math.max(1, p - 1))} disabled={clientPage === 1}
+                      className="px-2.5 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 transition-colors">← Prev</button>
+                    {pageNumbers.map((p, i) =>
+                      p === "..." ? (
+                        <span key={i} className="px-2 text-gray-400 text-xs">…</span>
+                      ) : (
+                        <button key={i} onClick={() => setClientPage(p)}
+                          className={`px-2.5 py-1 text-xs border rounded transition-colors ${clientPage === p ? "bg-gray-800 text-white border-gray-800" : "border-gray-300 hover:bg-gray-100"}`}>
+                          {p}
+                        </button>
+                      )
+                    )}
+                    <button onClick={() => setClientPage(p => Math.min(totalPages, p + 1))} disabled={clientPage === totalPages}
+                      className="px-2.5 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 transition-colors">Next →</button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </>
+              )}
+            </div>
+          </div>
         )}
       </div>
 

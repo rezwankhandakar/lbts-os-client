@@ -1550,6 +1550,7 @@
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
+import useRole from "../hooks/useRole";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import Swal from "sweetalert2";
@@ -1661,15 +1662,11 @@ const PayVendorModal = ({ open, onClose, vendor, summary, onPay }) => {
               ))}
             </div>
           </details>
-          {[
-            { label: "Payment Amount (৳) *", type: "number", val: amount, set: setAmount, placeholder: "" },
-          ].map(f => (
-            <div key={f.label}>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">{f.label}</label>
-              <input type={f.type} min="0" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-500"
-                value={f.val} onChange={e => f.set(e.target.value)} />
-            </div>
-          ))}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Payment Amount (৳) *</label>
+            <input type="number" min="0" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-500"
+              value={amount} onChange={e => setAmount(e.target.value)} />
+          </div>
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Date *</label>
             <input type="date" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-500" value={date} onChange={e => setDate(e.target.value)} />
@@ -1804,7 +1801,7 @@ const VendorSummaryTable = ({ vendorMap, onPayVendor }) => {
                 <div><span className="text-gray-400 block">Due</span><span className={`font-bold ${due > 0 ? "text-red-600" : "text-emerald-600"}`}>{due > 0 ? fmt(due) : "✓ Cleared"}</span></div>
               </div>
               {v.totalBill > 0 && <Bar value={cleared} max={v.totalBill} color={due > 0 ? "bg-amber-400" : "bg-emerald-500"} />}
-              {due > 0 && (
+              {due > 0 && onPayVendor && (
                 <button onClick={() => onPayVendor(v.vendor)} className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-lg transition font-semibold">
                   Pay Vendor
                 </button>
@@ -1838,7 +1835,7 @@ const VendorSummaryTable = ({ vendorMap, onPayVendor }) => {
                   {v.totalBill > 0 && <Bar value={cleared} max={v.totalBill} color={due > 0 ? "bg-amber-400" : "bg-emerald-500"} />}
                 </td>
                 <td className="px-3 py-2.5">
-                  {due > 0 && (
+                  {due > 0 && onPayVendor && (
                     <button onClick={() => onPayVendor(v.vendor)} className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded transition font-semibold whitespace-nowrap">Pay</button>
                   )}
                 </td>
@@ -1856,6 +1853,7 @@ const VendorSummaryTable = ({ vendorMap, onPayVendor }) => {
 ══════════════════════════════════════════════════════════════ */
 const AccountsDashboard = () => {
   const axiosSecure = useAxiosSecure();
+  const { role } = useRole();
 
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year,  setYear]  = useState(new Date().getFullYear());
@@ -1999,6 +1997,9 @@ const AccountsDashboard = () => {
   const prevMonthName    = MONTHS[month === 1 ? 11 : month - 2];
   const prevMonthLoading = prevMonthBalance === null;
 
+  /* ── canWrite: শুধু manager সব action করতে পারবে ── */
+  const canWrite = role === 'manager';
+
   /* ── Handlers ── */
   const handlePayVendor = async ({ vendorName, amount, date, note }) => {
     try {
@@ -2137,7 +2138,22 @@ const AccountsDashboard = () => {
     return null;
   })();
 
-  const handleExport = () => {
+  /* ── Export with confirmation ── */
+  const handleExport = async () => {
+    const { isConfirmed } = await Swal.fire({
+      title: "Export করবেন?",
+      html: `<p style="font-size:13px;color:#6b7280">
+        <strong>${MONTHS[month - 1]} ${year}</strong> এর
+        <strong> ${filteredTxs.length} টি</strong> transaction Excel এ export হবে।
+      </p>`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#1f2937",
+      confirmButtonText: "✓ Export করুন",
+      cancelButtonText: "Cancel",
+    });
+    if (!isConfirmed) return;
+
     const rows = filteredTxs.map(t => ({
       Date: t.date || t.createdAt?.slice(0, 10),
       Type: t.source === "auto_advance" ? "Advance (Auto)" : t.source === "manual_advance" ? "Advance (Manual)" : t.source === "vendor_payment" ? "Vendor Payment" : t.type,
@@ -2157,8 +2173,9 @@ const AccountsDashboard = () => {
   ══════════════════════════════════════════════════════════════ */
   return (
     <div className="min-h-screen bg-gray-50">
-      <PayVendorModal open={!!payVendorName} vendor={payVendorName} summary={payingVendorSummary} onClose={() => setPayVendorName(null)} onPay={handlePayVendor} />
-      <ManualTxModal open={manualModal} onClose={() => setManualModal(false)} onSave={handleAddManualTx} />
+      {/* Pay vendor modal শুধু manager দেখবে */}
+      {canWrite && <PayVendorModal open={!!payVendorName} vendor={payVendorName} summary={payingVendorSummary} onClose={() => setPayVendorName(null)} onPay={handlePayVendor} />}
+      {canWrite && <ManualTxModal open={manualModal} onClose={() => setManualModal(false)} onSave={handleAddManualTx} />}
 
       <div className="max-w-full mx-auto p-2 sm:p-3 lg:p-4">
 
@@ -2172,13 +2189,15 @@ const AccountsDashboard = () => {
                 {pendingVendors > 0 && <span className="ml-1.5 text-red-500 font-semibold">· {pendingVendors} pending</span>}
               </p>
             </div>
-            {/* Mobile action icons */}
+            {/* Mobile action icons — শুধু manager */}
             <div className="flex items-center gap-1.5 sm:hidden">
-              <button onClick={() => setManualModal(true)}
-                className="flex items-center gap-1 px-2 py-1.5 text-xs rounded bg-emerald-600 text-white hover:bg-emerald-500 transition font-medium">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Add
-              </button>
+              {canWrite && (
+                <button onClick={() => setManualModal(true)}
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs rounded bg-emerald-600 text-white hover:bg-emerald-500 transition font-medium">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Add
+                </button>
+              )}
               <button onClick={handleExport}
                 className="flex items-center gap-1 px-2 py-1.5 text-xs rounded bg-gray-800 text-white hover:bg-gray-700 transition">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -2196,11 +2215,14 @@ const AccountsDashboard = () => {
             <input type="number" className="border border-gray-300 px-2 py-1.5 rounded text-xs sm:text-sm bg-white text-gray-700 w-16 focus:outline-none"
               value={year} onChange={e => setYear(parseInt(e.target.value))} />
             <div className="hidden sm:flex items-center gap-2 ml-auto">
-              <button onClick={() => setManualModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm rounded bg-emerald-600 text-white hover:bg-emerald-500 transition font-medium">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Add Transaction
-              </button>
+              {/* Desktop Add button — শুধু manager */}
+              {canWrite && (
+                <button onClick={() => setManualModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm rounded bg-emerald-600 text-white hover:bg-emerald-500 transition font-medium">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Add Transaction
+                </button>
+              )}
               <button onClick={handleExport}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm rounded bg-gray-800 text-white hover:bg-gray-700 transition">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -2212,7 +2234,7 @@ const AccountsDashboard = () => {
 
         {loading || txLoading ? <LoadingSpinner /> : (<>
 
-        {/* ── Stat Cards — 2 cols mobile, 3 sm, 6 lg ── */}
+        {/* ── Stat Cards ── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5 mb-3 sm:mb-4">
           <StatCard label="Total Deposit" value={prevMonthLoading ? "…" : fmt(totalIncome)}
             sub={prevBalancePositive > 0 ? `Manual: ${fmt(manualIncome)} + ${prevMonthName}: ${fmt(prevBalancePositive)}` : `${accountTxs.filter(t => t.type === "income").length} entries`}
@@ -2245,7 +2267,7 @@ const AccountsDashboard = () => {
             onClick={() => setTab("vendors")} />
         </div>
 
-        {/* ── Tabs (scrollable on mobile) ── */}
+        {/* ── Tabs ── */}
         <div className="mb-3 sm:mb-4 overflow-x-auto pb-0.5">
           <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm w-max min-w-full sm:min-w-0 sm:w-fit">
             {[
@@ -2302,9 +2324,9 @@ const AccountsDashboard = () => {
                 </div>
                 <div className="mt-5 pt-4 border-t border-slate-50 grid grid-cols-3 gap-2 text-center">
                   {[
-                    { label: "Trips",   val: trips.length,              bg: "bg-slate-50  border-slate-100",  tc: "text-slate-800" },
+                    { label: "Trips",   val: trips.length,                 bg: "bg-slate-50  border-slate-100",  tc: "text-slate-800" },
                     { label: "Vendors", val: Object.keys(vendorMap).length, bg: "bg-amber-50  border-amber-100", tc: "text-amber-700" },
-                    { label: "Pending", val: pendingVendors,             bg: "bg-red-50    border-red-100",    tc: "text-red-700" },
+                    { label: "Pending", val: pendingVendors,                bg: "bg-red-50    border-red-100",    tc: "text-red-700" },
                   ].map(s => (
                     <div key={s.label} className={`p-2 rounded-xl border ${s.bg}`}>
                       <p className={`text-[9px] font-bold uppercase tracking-tighter mb-0.5 ${s.tc} opacity-70`}>{s.label}</p>
@@ -2332,11 +2354,11 @@ const AccountsDashboard = () => {
                     const maxVal = Math.max(totalIncome, totalExpense, 1);
                     return [
                       ...(prevBalancePositive > 0 ? [{ label: `Opening Bal. (${prevMonthName})`, value: prevBalancePositive, color: "bg-teal-400", sign: "+" }] : []),
-                      { label: "Deposit Money",     value: manualIncome,                     color: "bg-emerald-400", sign: "+" },
-                      ...(prevBalanceNegative > 0 ? [{ label: "Prev Month Deficit",           value: prevBalanceNegative, color: "bg-rose-500", sign: "−" }] : []),
-                      { label: "Operational Exp.",  value: manualExpense,                    color: "bg-rose-400",    sign: "−" },
-                      { label: "Vendor Payout",     value: totalVendorPaid,                  color: "bg-indigo-400", sign: "−" },
-                      { label: "Total Advance",     value: manualAdvanceTotal + totalAdvance, color: "bg-amber-400", sign: "−" },
+                      { label: "Deposit Money",     value: manualIncome,                      color: "bg-emerald-400", sign: "+" },
+                      ...(prevBalanceNegative > 0 ? [{ label: "Prev Month Deficit",            value: prevBalanceNegative, color: "bg-rose-500", sign: "−" }] : []),
+                      { label: "Operational Exp.",  value: manualExpense,                     color: "bg-rose-400",    sign: "−" },
+                      { label: "Vendor Payout",     value: totalVendorPaid,                   color: "bg-indigo-400", sign: "−" },
+                      { label: "Total Advance",     value: manualAdvanceTotal + totalAdvance,  color: "bg-amber-400",  sign: "−" },
                     ].map((item, i) => (
                       <div key={i}>
                         <div className="flex justify-between items-center mb-1">
@@ -2390,10 +2412,13 @@ const AccountsDashboard = () => {
                           <span className="text-sm text-gray-700 flex-1 font-medium truncate min-w-0">{v.vendor}</span>
                           <span className="text-xs text-gray-400 shrink-0 hidden sm:block">{v.trips} trips</span>
                           <span className="font-bold text-red-600 text-sm shrink-0">{fmt(due)}</span>
-                          <button onClick={() => setPayVendorName(v.vendor)}
-                            className="px-2 sm:px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded transition font-semibold shrink-0">
-                            Pay
-                          </button>
+                          {/* শুধু manager Pay button দেখবে */}
+                          {canWrite && (
+                            <button onClick={() => setPayVendorName(v.vendor)}
+                              className="px-2 sm:px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded transition font-semibold shrink-0">
+                              Pay
+                            </button>
+                          )}
                         </div>
                       );
                     })}
@@ -2412,7 +2437,8 @@ const AccountsDashboard = () => {
               </div>
               <span className="text-xs text-gray-400 shrink-0">{trips.length} trips · {Object.keys(vendorMap).length} vendors</span>
             </div>
-            <VendorSummaryTable vendorMap={vendorMap} onPayVendor={setPayVendorName} />
+            {/* canWrite null পাঠালে Pay button লুকিয়ে যাবে */}
+            <VendorSummaryTable vendorMap={vendorMap} onPayVendor={canWrite ? setPayVendorName : null} />
           </div>
         )}
 
@@ -2509,11 +2535,18 @@ const AccountsDashboard = () => {
                         <span className="font-bold text-amber-700">{fmt(r.amount)}</span>
                       </div>
                       {r.note && <p className="text-[10px] text-gray-400 truncate">{r.note}</p>}
-                      {r.type !== "auto" && r._id && (
+                      {/* Mark Paid — শুধু manager */}
+                      {r.type !== "auto" && r._id && canWrite && (
                         <button onClick={() => handleMarkPaid(r._id, r.status)}
                           className={`w-full py-1.5 text-[10px] font-semibold rounded border transition-all ${r.status === "paid" ? "text-emerald-700 bg-emerald-50 border-emerald-300" : "text-gray-600 bg-white border-gray-300"}`}>
                           {r.status === "paid" ? "✓ Paid" : "Mark Paid"}
                         </button>
+                      )}
+                      {/* Read-only status badge for non-manager */}
+                      {r.type !== "auto" && r._id && !canWrite && (
+                        <span className={`inline-block text-[10px] px-2 py-0.5 rounded border ${r.status === "paid" ? "text-emerald-600 border-emerald-200 bg-emerald-50" : "text-gray-400 border-gray-200 bg-gray-50"}`}>
+                          {r.status === "paid" ? "✓ Paid" : "Unpaid"}
+                        </span>
                       )}
                     </div>
                   ))}
@@ -2543,11 +2576,17 @@ const AccountsDashboard = () => {
                             </td>
                             <td className="px-4 py-2 text-right font-bold text-amber-700 whitespace-nowrap">{fmt(r.amount)}</td>
                             <td className="px-4 py-2 text-center">
-                              {r.type === "auto" ? <span className="text-xs text-gray-300">—</span> : (
+                              {r.type === "auto" ? (
+                                <span className="text-xs text-gray-300">—</span>
+                              ) : canWrite ? (
                                 <button onClick={() => handleMarkPaid(r._id, r.status)}
                                   className={`px-2 py-1 text-[10px] font-semibold rounded border transition-all whitespace-nowrap ${r.status === "paid" ? "text-emerald-700 bg-emerald-50 border-emerald-300 hover:bg-emerald-100" : "text-gray-600 bg-white border-gray-300 hover:bg-gray-50"}`}>
                                   {r.status === "paid" ? "✓ Paid" : "Mark Paid"}
                                 </button>
+                              ) : (
+                                <span className={`text-[10px] px-2 py-1 rounded border ${r.status === "paid" ? "text-emerald-600 border-emerald-200 bg-emerald-50" : "text-gray-400 border-gray-200"}`}>
+                                  {r.status === "paid" ? "✓ Paid" : "Unpaid"}
+                                </span>
                               )}
                             </td>
                           </tr>
@@ -2606,7 +2645,8 @@ const AccountsDashboard = () => {
                     <span className="text-[10px] text-gray-400 shrink-0">{t.date || t.createdAt?.slice(0, 10)}</span>
                   </div>
                   {t.note && <p className="text-[10px] text-gray-400 truncate">{t.note}</p>}
-                  {t.source !== "auto_advance" && t._id && !String(t._id).startsWith("adv_") && (
+                  {/* Delete — শুধু manager */}
+                  {canWrite && t.source !== "auto_advance" && t._id && !String(t._id).startsWith("adv_") && (
                     <button onClick={() => handleDeleteTx(t._id)} className="text-gray-300 hover:text-red-500 transition text-xs">✕ Delete</button>
                   )}
                 </div>
@@ -2639,7 +2679,8 @@ const AccountsDashboard = () => {
                         <td className="px-4 py-2 text-xs text-gray-400 max-w-[140px]"><span className="truncate block">{t.note || "—"}</span></td>
                         <td className="px-4 py-2 text-right font-bold text-gray-800 whitespace-nowrap">{fmt(t.amount)}</td>
                         <td className="px-4 py-2 text-center">
-                          {t.source !== "auto_advance" && t._id && !String(t._id).startsWith("adv_") && (
+                          {/* Delete — শুধু manager */}
+                          {canWrite && t.source !== "auto_advance" && t._id && !String(t._id).startsWith("adv_") && (
                             <button onClick={() => handleDeleteTx(t._id)} className="text-gray-300 hover:text-red-500 transition text-sm">✕</button>
                           )}
                         </td>
@@ -2716,11 +2757,13 @@ const AccountsDashboard = () => {
                             <div>
                               {log.isRestored ? (
                                 <span className="text-[10px] font-semibold text-gray-400">✓ Restored</span>
-                              ) : (
+                              ) : canWrite ? (
                                 <button disabled={restoring === log._id} onClick={() => handleRestore(log)}
                                   className="px-3 py-1.5 text-[10px] font-semibold rounded border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition disabled:opacity-50">
                                   {restoring === log._id ? "…" : "↩ Restore"}
                                 </button>
+                              ) : (
+                                <span className="text-[10px] text-gray-300">—</span>
                               )}
                             </div>
                           </div>
@@ -2768,11 +2811,13 @@ const AccountsDashboard = () => {
                                 <td className="px-4 py-2.5 text-center">
                                   {log.isRestored ? (
                                     <span className="px-2 py-1 text-[10px] font-semibold rounded border border-gray-200 text-gray-400 bg-gray-50 whitespace-nowrap">✓ Restored</span>
-                                  ) : (
+                                  ) : canWrite ? (
                                     <button disabled={restoring === log._id} onClick={() => handleRestore(log)}
                                       className="px-2.5 py-1 text-[10px] font-semibold rounded border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition whitespace-nowrap disabled:opacity-50">
                                       {restoring === log._id ? "…" : "↩ Restore"}
                                     </button>
+                                  ) : (
+                                    <span className="text-[10px] text-gray-300">—</span>
                                   )}
                                 </td>
                               </tr>
