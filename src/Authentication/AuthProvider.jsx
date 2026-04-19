@@ -1,77 +1,3 @@
-// import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
-// import React, { useEffect, useState } from 'react';
-// import { auth } from './Firebase.config';
-// import { AuthContext } from './AuthContext';
-
-// const AuthProvider = ({children}) => {
-//      const [user, setUser] = useState(null);
-//   const [loading, setLoading] = useState(true);
-
-
-// const registerUser = ( email, password)=>{
-//     setLoading(true)
-//     return createUserWithEmailAndPassword(auth, email, password)
-//      .then(res => {
-//       setUser(res.user);
-//       return res;
-//     });
-// }
-
-
-// const signInUser = (email,password)=>{
-//     setLoading(true)
-//     return signInWithEmailAndPassword(auth,email, password)
-// }
-
-// const logOut =()=>{
-//     setLoading(true)
-//     return signOut(auth)
-// }
-
-
-// const updateUserProfile = (profile)=>{
-//   return updateProfile(auth.currentUser, profile)
-//   .then(() => {
-//       // 🔥 profile update হলে user state refresh
-//       setUser({ ...auth.currentUser });
-//     });
-// }
-
-
-//   // 🔹 Track Auth State
-//   useEffect(() => {
-//   const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-//     setUser(currentUser); // Firebase থেকে user set করা হচ্ছে
-//     setLoading(false);    // এখন loading শেষ
-//   });
-
-//   return () => unsubscribe();
-// }, []);
-
-// // 🔹 Context value
-//   const authInfo = {
-//     user,
-//     loading,
-//     registerUser,
-//     signInUser,
-//     logOut,
-//     updateUserProfile,
-//   };
-
-
-//     return (
-//             <AuthContext.Provider value={authInfo}>
-//                 {children}
-//             </AuthContext.Provider>
-//     );
-
-// };
-
-// export default AuthProvider;
-
-
-
-
 
 // AuthProvider.jsx — existing code এর মধ্যে import add করো
 import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
@@ -112,24 +38,24 @@ const AuthProvider = ({ children }) => {
       });
   };
 
-  // ── SignIn — existing function, শুধু token add করো ───────────────
+
   const signInUser = (email, password) => {
     setLoading(true);
     return signInWithEmailAndPassword(auth, email, password)
       .then(async (res) => {
-        await saveToken(email); // ← এটা add করো
+        await saveToken(email); 
         return res;
       });
   };
 
-  // ── LogOut — token remove করো ────────────────────────────────────
+
   const logOut = () => {
     setLoading(true);
-    removeToken(); // ← এটা add করো
+    removeToken(); 
     return signOut(auth);
   };
 
-  // ── onAuthStateChanged — existing, কোনো change নেই ───────────────
+  // ── onAuthStateChanged — existing, ─
   useEffect(() => {
   const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
     setUser(currentUser);

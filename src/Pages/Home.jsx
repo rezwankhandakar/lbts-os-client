@@ -210,7 +210,7 @@ const Home = () => {
     <QL to="/all-challan" icon={<FiFileText />} label="Challan Inv." color="text-green-500" iconBg="bg-green-50" />
     <QL to="/add-vendor" icon={<FiTruck />} label="Add Vendor" color="text-purple-500" iconBg="bg-purple-50" />
     <QL to="/create-delivery" icon={<MdOutlineLocalShipping />} label="Create Del." color="text-orange-500" iconBg="bg-orange-50" />
-    <QL to="/deliverd" icon={<FiCheckCircle />} label="Delivered" color="text-orange-500" iconBg="bg-orange-50" />
+    
     <QL to="/trip-inventory" icon={<MdInventory2 />} label="Trip Inv." color="text-orange-500" iconBg="bg-orange-50" />
   </>}
 
@@ -218,9 +218,11 @@ const Home = () => {
   <QL to="/all-vendor" icon={<FiUsers />} label="Vendor DB" color="text-purple-500" iconBg="bg-purple-50" />
 
   {/* শুধু admin */}
-  {role === 'admin' && status === 'approved' && (
-    <QL to="/user-management" icon={<FiUsers />} label="Users" color="text-indigo-500" iconBg="bg-indigo-50" />
-  )}
+  {role === 'admin' && status === 'approved' && <>
+     <QL to="/user-management" icon={<FiUsers />} label="Users" color="text-indigo-500" iconBg="bg-indigo-50" />
+    <QL to="/deliverd" icon={<FiCheckCircle />} label="Delivered" color="text-orange-500" iconBg="bg-orange-50" />
+  </>
+ }
 
   {/* admin + manager + ceo */}
   {isFinanceRole && (

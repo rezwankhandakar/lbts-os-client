@@ -49,7 +49,6 @@ const NAV_SECTIONS = [
     label: 'Delivery',
     items: [
       { to: '/create-delivery', icon: <TbTruckDelivery size={17} />, label: 'Create Delivery', color: 'text-amber-400' },
-      { to: '/deliverd',        icon: <FiPackage size={15} />,       label: 'Delivered',       color: 'text-amber-400' },
       { to: '/trip-inventory',  icon: <MdInventory2 size={16} />,    label: 'Trip Inventory',  color: 'text-amber-400' },
     ],
   },
@@ -123,6 +122,18 @@ const RootLayout = () => {
                 <FiShield size={15} />
               </span>
               User Control
+            </>
+          )}
+        </NavLink>
+      </li>
+      <li>
+        <NavLink to="/deliverd" className={linkClass}>
+          {({ isActive }) => (
+            <>
+              <span className={`flex-shrink-0 ${isActive ? 'text-white' : 'text-indigo-400'}`}>
+                 <FiPackage size={15} />
+              </span>
+              Deliverd
             </>
           )}
         </NavLink>
