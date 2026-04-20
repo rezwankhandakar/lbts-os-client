@@ -196,27 +196,6 @@ const RootLayout = () => {
   </div>
 )}
 
-        {/* Vendor role */}
-        {role === 'vendor' && status === 'approved' && (
-          <div>
-            <p className="text-[9px] font-bold text-gray-300 uppercase tracking-widest px-3 mb-1">Vendor</p>
-            <ul className="space-y-0.5">
-              <li>
-                <NavLink to="/all-vendor" className={linkClass}>
-                  {({ isActive }) => (
-                    <>
-                      <span className={`flex-shrink-0 ${isActive ? 'text-white' : 'text-purple-400'}`}>
-                        <FiUsers size={16} />
-                      </span>
-                      Vendor Database
-                    </>
-                  )}
-                </NavLink>
-              </li>
-            </ul>
-          </div>
-        )}
-
         {/* Non-vendor sections */}
         {role !== 'vendor' && NAV_SECTIONS.map((section) => (
           <div key={section.label}>

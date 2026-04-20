@@ -101,7 +101,8 @@ const Home = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5">
 
         {/* ── WAREHOUSE RECEIVING SUMMARY ── */}
-        <div className="lg:col-span-12">
+        {role !== 'vendor' && ( 
+           <div className="lg:col-span-12">
           <div className="bg-white rounded-2xl sm:rounded-[2rem] border border-gray-100 shadow-sm p-4 sm:p-6 overflow-hidden relative">
 
             {/* Header */}
@@ -155,6 +156,8 @@ const Home = () => {
             )}
           </div>
         </div>
+        )}
+       
 
         {/* ── FINANCIALS (Admin/CEO only) ── */}
         {isFinanceRole && (
