@@ -1,6 +1,4 @@
-
-
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import { useSearch } from "../hooks/SearchContext";
 import useRole from "../hooks/useRole";
@@ -193,6 +191,7 @@ const CreateDelivery = () => {
                             <div className="relative">
                                 <FaCarSide className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300 text-xs" />
                                 <input
+                                    ref={el => { if (el) el._vehicleInput = true; }}
                                     type="text"
                                     value={deliveryInfo.vehicleNumber}
                                     placeholder="Metro-1234"
@@ -209,20 +208,34 @@ const CreateDelivery = () => {
                                             setVehicleSuggestions([]);
                                         }
                                     }}
+                                    onBlur={() => setTimeout(() => setVehicleSuggestions([]), 150)}
                                 />
-                                {vehicleSuggestions.length > 0 && (
-                                    <div className="absolute top-full left-0 w-full bg-white border border-slate-200 rounded-xl shadow-xl z-[999] mt-1 max-h-60 overflow-y-auto">
-                                        {vehicleSuggestions.map((v, i) => (
-                                            <div key={i} onClick={() => {
-                                                setDeliveryInfo({ vehicleNumber: v.vehicleNumber, vendorName: v.vendorName, vendorNumber: v.vendorPhone, driverName: v.driverName, driverNumber: v.driverPhone });
-                                                setVehicleSuggestions([]);
-                                            }} className="p-2.5 hover:bg-green-50 cursor-pointer border-b last:border-0 transition-colors">
-                                                <p className="font-black text-xs text-slate-800">{v.vehicleNumber}</p>
-                                                <p className="text-[10px] text-slate-500 font-bold uppercase">{v.vendorName} • {v.driverName}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                                {vehicleSuggestions.length > 0 && (() => {
+                                    const inp = document.querySelector('input[placeholder="Metro-1234"]');
+                                    const rect = inp ? inp.getBoundingClientRect() : null;
+                                    return rect ? (
+                                        <div
+                                            style={{
+                                                position: "fixed",
+                                                top: rect.bottom + 4,
+                                                left: rect.left,
+                                                width: rect.width,
+                                                zIndex: 9999,
+                                            }}
+                                            className="bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto"
+                                        >
+                                            {vehicleSuggestions.map((v, i) => (
+                                                <div key={i} onMouseDown={() => {
+                                                    setDeliveryInfo({ vehicleNumber: v.vehicleNumber, vendorName: v.vendorName, vendorNumber: v.vendorPhone, driverName: v.driverName, driverNumber: v.driverPhone });
+                                                    setVehicleSuggestions([]);
+                                                }} className="p-2.5 hover:bg-green-50 cursor-pointer border-b last:border-0 transition-colors">
+                                                    <p className="font-black text-xs text-slate-800">{v.vehicleNumber}</p>
+                                                    <p className="text-[10px] text-slate-500 font-bold uppercase">{v.vendorName} • {v.driverName}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : null;
+                                })()}
                             </div>
                         </div>
 

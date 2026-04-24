@@ -1,8 +1,6 @@
-
-
-
 import React, { useEffect, useState, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
+import usePageParam from "../hooks/usePageParam";
 import { useSearch } from "../hooks/SearchContext";
 import ActionDropdown from "../Component/ActionDropdown";
 import * as XLSX from "xlsx";
@@ -122,7 +120,7 @@ const MobileFilterPanel = ({ onClose, getOptionsFor,
   zoneFilter, setZoneFilter, productFilter, setProductFilter,
   modelFilter, setModelFilter, setClientPage }) => {
 
-  const setF = setter => val => { setter(val); setClientPage(1); };
+  const setF = setter => val => { setter(val); };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:hidden" onClick={onClose}>
@@ -136,7 +134,7 @@ const MobileFilterPanel = ({ onClose, getOptionsFor,
           <div className="grid grid-cols-2 gap-2">
             {[
               { label: "Trip DO",  el: <MultiSelectFilter options={getOptionsFor("tripDo")}       selected={tripDoFilter}   onChange={setF(setTripDoFilter)}   placeholder="All" /> },
-              { label: "Date",     el: <input type="date" className="w-full px-2 py-1 border border-gray-300 rounded text-xs outline-none focus:border-gray-500 bg-white" value={tripDateFilter} onChange={e => { setTripDateFilter(e.target.value); setClientPage(1); }} /> },
+              { label: "Date",     el: <input type="date" className="w-full px-2 py-1 border border-gray-300 rounded text-xs outline-none focus:border-gray-500 bg-white" value={tripDateFilter} onChange={e => { setTripDateFilter(e.target.value); }} /> },
               { label: "Customer", el: <MultiSelectFilter options={getOptionsFor("customerName")} selected={customerFilter}  onChange={setF(setCustomerFilter)}  placeholder="All" /> },
               { label: "CSD",      el: <MultiSelectFilter options={getOptionsFor("csd")}          selected={csdFilter}      onChange={setF(setCsdFilter)}      placeholder="All" /> },
               { label: "Unit",     el: <MultiSelectFilter options={getOptionsFor("unit")}         selected={unitFilter}     onChange={setF(setUnitFilter)}     placeholder="All" /> },
@@ -167,7 +165,7 @@ const AllGatePass = () => {
   const axiosSecure = useAxiosSecure();
   const [gatePasses, setGatePasses] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [clientPage, setClientPage] = useState(1);
+  const [clientPage, setClientPage] = usePageParam("page");
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -194,7 +192,7 @@ const AllGatePass = () => {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const setFilter = (setter) => (val) => { setter(val); setClientPage(1); };
+  const setFilter = (setter) => (val) => { setter(val); };
 
   const fetchGatePasses = async (m, y, search) => {
     setLoading(true);
@@ -208,10 +206,10 @@ const AllGatePass = () => {
     setLoading(false);
   };
 
-  useEffect(() => { setClientPage(1); fetchGatePasses(month, year, searchText); }, [month, year, searchText]);
+  useEffect(() => { fetchGatePasses(month, year, searchText); }, [month, year, searchText]);
 
   const handleResetAll = () => {
-    setMonth(new Date().getMonth() + 1); setYear(new Date().getFullYear()); setClientPage(1);
+    setMonth(new Date().getMonth() + 1); setYear(new Date().getFullYear());
     if (setSearchText) setSearchText("");
     setTripDoFilter([]); setCustomerFilter([]); setCsdFilter([]);
     setUnitFilter([]); setVehicleFilter([]); setZoneFilter([]);
@@ -254,15 +252,15 @@ const AllGatePass = () => {
   };
 
   const activeFilterGroups = [
-    { label: "Trip DO",  values: tripDoFilter,   clear: () => { setTripDoFilter([]);   setClientPage(1); } },
-    { label: "Customer", values: customerFilter,  clear: () => { setCustomerFilter([]); setClientPage(1); } },
-    { label: "CSD",      values: csdFilter,       clear: () => { setCsdFilter([]);      setClientPage(1); } },
-    { label: "Unit",     values: unitFilter,      clear: () => { setUnitFilter([]);     setClientPage(1); } },
-    { label: "Vehicle",  values: vehicleFilter,   clear: () => { setVehicleFilter([]);  setClientPage(1); } },
-    { label: "Zone",     values: zoneFilter,      clear: () => { setZoneFilter([]);     setClientPage(1); } },
-    { label: "Product",  values: productFilter,   clear: () => { setProductFilter([]);  setClientPage(1); } },
-    { label: "Model",    values: modelFilter,     clear: () => { setModelFilter([]);    setClientPage(1); } },
-    ...(tripDateFilter ? [{ label: "Date", values: [tripDateFilter], clear: () => { setTripDateFilter(""); setClientPage(1); } }] : []),
+    { label: "Trip DO",  values: tripDoFilter,   clear: () => { setTripDoFilter([]); } },
+    { label: "Customer", values: customerFilter,  clear: () => { setCustomerFilter([]); } },
+    { label: "CSD",      values: csdFilter,       clear: () => { setCsdFilter([]); } },
+    { label: "Unit",     values: unitFilter,      clear: () => { setUnitFilter([]); } },
+    { label: "Vehicle",  values: vehicleFilter,   clear: () => { setVehicleFilter([]); } },
+    { label: "Zone",     values: zoneFilter,      clear: () => { setZoneFilter([]); } },
+    { label: "Product",  values: productFilter,   clear: () => { setProductFilter([]); } },
+    { label: "Model",    values: modelFilter,     clear: () => { setModelFilter([]); } },
+    ...(tripDateFilter ? [{ label: "Date", values: [tripDateFilter], clear: () => { setTripDateFilter(""); } }] : []),
   ].filter(f => f.values.length > 0);
 
   const totalActiveFilters = activeFilterGroups.reduce((s, f) => s + f.values.length, 0);
@@ -363,7 +361,7 @@ const AllGatePass = () => {
 
           {/* Month */}
           <select className="border border-gray-300 px-2 py-1 rounded text-xs bg-white text-gray-700 focus:outline-none shrink-0"
-            value={month} onChange={e => { setMonth(parseInt(e.target.value)); setClientPage(1); }}>
+            value={month} onChange={e => { setMonth(parseInt(e.target.value)); }}>
             {MONTHS_FULL.map((m, i) => (
               <option key={i} value={i + 1}>{isMobile ? MONTHS_SHORT[i] : m}</option>
             ))}
@@ -372,7 +370,7 @@ const AllGatePass = () => {
           {/* Year */}
           <input type="number"
             className="border border-gray-300 px-2 py-1 rounded text-xs bg-white text-gray-700 w-16 focus:outline-none shrink-0"
-            value={year} onChange={e => { setYear(parseInt(e.target.value)); setClientPage(1); }} />
+            value={year} onChange={e => { setYear(parseInt(e.target.value)); }} />
 
           {/* Reset */}
           <button onClick={handleResetAll}
@@ -446,7 +444,7 @@ const AllGatePass = () => {
                       </th>
                       <th className="p-1 border-r border-gray-200">
                         <input type="date" className="w-full px-1 py-1 border border-gray-300 rounded text-[10px] outline-none focus:border-gray-500 bg-white"
-                          value={tripDateFilter} onChange={e => { setTripDateFilter(e.target.value); setClientPage(1); }} />
+                          value={tripDateFilter} onChange={e => { setTripDateFilter(e.target.value); }} />
                       </th>
                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("customerName")} selected={customerFilter} onChange={setFilter(setCustomerFilter)} placeholder="All" /></th>
                       <th className="p-1 border-r border-gray-200"><MultiSelectFilter options={getOptionsFor("csd")}          selected={csdFilter}      onChange={setFilter(setCsdFilter)}      placeholder="All" /></th>

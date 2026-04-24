@@ -1,4 +1,3 @@
-
 // ═══════════════════════════════════════════════════════════════════
 // AuthProvider.jsx — Secure Firebase Authentication (v2)
 // ═══════════════════════════════════════════════════════════════════
@@ -72,6 +71,14 @@ const AuthProvider = ({ children }) => {
       if (status === 401 || status === 400) {
         removeToken();
       }
+
+      // 403 errors (e.g. EMAIL_NOT_VERIFIED, account suspended) must reach
+      // the caller so it can show the correct UI. Re-throw with the original
+      // response attached so Login.jsx can read error?.response?.data?.code.
+      if (status === 403) {
+        throw err;
+      }
+
       return null;
     }
   };
@@ -87,15 +94,10 @@ const AuthProvider = ({ children }) => {
   const registerUser = async (email, password) => {
     setLoading(true);
     try {
+      // No saveToken or setUser here — newly created users have unverified
+      // emails. onAuthStateChanged will fire but skip them (emailVerified=false).
+      // Register.jsx handles everything: photo upload, DB save, signOut.
       const res = await createUserWithEmailAndPassword(auth, email, password);
-      const tokenResult = await saveToken(res.user);
-
-      if (!tokenResult) {
-        await signOut(auth).catch(() => {});
-        throw new Error('Registration succeeded but token exchange failed');
-      }
-
-      if (isMounted.current) setUser(res.user);
       return res;
     } finally {
       if (isMounted.current) setLoading(false);
@@ -106,7 +108,17 @@ const AuthProvider = ({ children }) => {
     setLoading(true);
     try {
       const res = await signInWithEmailAndPassword(auth, email, password);
-      const tokenResult = await saveToken(res.user);
+
+      let tokenResult;
+      try {
+        tokenResult = await saveToken(res.user);
+      } catch (tokenErr) {
+        // saveToken re-throws 403 (EMAIL_NOT_VERIFIED, etc.) — sign the user
+        // out of Firebase so they're not in a half-logged-in state, then
+        // propagate the original error so Login.jsx gets error?.response?.data?.code.
+        await signOut(auth).catch(() => {});
+        throw tokenErr;
+      }
 
       if (!tokenResult) {
         await signOut(auth).catch(() => {});
@@ -133,7 +145,11 @@ const AuthProvider = ({ children }) => {
 
   const updateUserProfile = async (profile) => {
     await updateProfile(auth.currentUser, profile);
-    if (isMounted.current) setUser({ ...auth.currentUser });
+    // Force Firebase to flush its internal cache so getters return the new
+    // values immediately. Without reload(), auth.currentUser.displayName may
+    // still return the old value right after updateProfile() resolves.
+    await auth.currentUser.reload();
+    if (isMounted.current) setUser(auth.currentUser);
   };
 
   // ─────────────────────────────────────────────────────────────
@@ -148,6 +164,19 @@ const AuthProvider = ({ children }) => {
       const myRequestId = ++latestAuthRequestId.current;
 
       if (currentUser) {
+        // Skip saveToken for unverified emails — /jwt will 403 them anyway,
+        // and during registration Register.jsx will signOut() immediately after.
+        // Trying saveToken here causes a race: the 403 re-throw becomes an
+        // unhandled error inside the observer callback.
+        if (!currentUser.emailVerified) {
+          if (myRequestId !== latestAuthRequestId.current || !isMounted.current) return;
+          // Treat as logged-out until they verify — no app JWT issued
+          removeToken();
+          setUser(null);
+          if (isMounted.current) setLoading(false);
+          return;
+        }
+
         const tokenResult = await saveToken(currentUser);
 
         // Check if we are still the latest request & component is mounted
@@ -179,19 +208,68 @@ const AuthProvider = ({ children }) => {
   }, []);
 
   // ─────────────────────────────────────────────────────────────
-  // Proactive App-JWT Refresh (every 6 days — JWT expires at 7d)
+  // Session-expired handler (fired by useAxiosSecure on 401)
+  // Cleanly signs out so PrivateRoute redirects to /login —
+  // no hard reload, React state and unsaved form data preserved
+  // for components that guard against it.
+  // ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleExpired = () => {
+      removeToken();
+      signOut(auth).catch(() => {});
+      if (isMounted.current) setUser(null);
+    };
+    window.addEventListener('auth:session-expired', handleExpired);
+    return () => window.removeEventListener('auth:session-expired', handleExpired);
+  }, []);
+
+  // ─────────────────────────────────────────────────────────────
+  // Proactive App-JWT Refresh
+  // ─────────────────────────────────────────────────────────────
+  // JWT expires at 7d. We refresh when the token is >= 5 days old.
+  // Two triggers:
+  //   1. setInterval every 6h — catches active tabs reliably
+  //   2. visibilitychange — catches tabs that were inactive/suspended
+  //      and missed the interval entirely (common on mobile and laptops
+  //      that sleep). On tab focus we decode the token age from its
+  //      iat claim and refresh only if needed — no unnecessary calls.
   // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) return;
 
-    const SIX_DAYS = 6 * 24 * 60 * 60 * 1000;
-    const interval = setInterval(async () => {
-      if (auth.currentUser && isMounted.current) {
+    const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+    const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+
+    function getTokenAgeMs() {
+      const token = localStorage.getItem('access-token');
+      if (!token) return Infinity;
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        return Date.now() - payload.iat * 1000;
+      } catch {
+        return Infinity;
+      }
+    }
+
+    async function maybeRefresh() {
+      if (!auth.currentUser || !isMounted.current) return;
+      if (getTokenAgeMs() >= FIVE_DAYS_MS) {
         await saveToken(auth.currentUser);
       }
-    }, SIX_DAYS);
+    }
 
-    return () => clearInterval(interval);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') maybeRefresh();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    const interval = setInterval(maybeRefresh, SIX_HOURS_MS);
+    maybeRefresh();
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      clearInterval(interval);
+    };
   }, [user]);
 
   // ─────────────────────────────────────────────────────────────

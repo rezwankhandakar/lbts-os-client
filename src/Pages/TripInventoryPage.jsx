@@ -1,7 +1,6 @@
-
-
 import React, { useEffect, useState, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
+import usePageParam from "../hooks/usePageParam";
 import { useSearch } from "../hooks/SearchContext";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -177,7 +176,7 @@ const TripInventoryPage = () => {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const setFilter = (setter) => (val) => { setter(val); setClientPage(1); };
+  const setFilter = (setter) => (val) => { setter(val); };
 
   const fetchDeliveries = async (m, y, search) => {
     setLoading(true);
@@ -192,7 +191,6 @@ const TripInventoryPage = () => {
   };
 
   useEffect(() => {
-    setClientPage(1);
     fetchDeliveries(month, year, searchText);
   }, [month, year, searchText]);
 
@@ -257,7 +255,6 @@ const TripInventoryPage = () => {
   const handleReset = () => {
     setMonth(new Date().getMonth() + 1);
     setYear(new Date().getFullYear());
-    setClientPage(1);
     if (setSearchText) setSearchText("");
     setTripFilter([]); setVendorFilter([]); setDriverFilter([]);
     setVehicleFilter([]); setDateFilter(""); setDeliveryFilter(""); setChallanFilter("");
@@ -265,13 +262,13 @@ const TripInventoryPage = () => {
   };
 
   const activeFilterGroups = [
-    { label: "Trip",     values: tripFilter,    clear: () => { setTripFilter([]);    setClientPage(1); } },
-    { label: "Vendor",   values: vendorFilter,  clear: () => { setVendorFilter([]);  setClientPage(1); } },
-    { label: "Driver",   values: driverFilter,  clear: () => { setDriverFilter([]);  setClientPage(1); } },
-    { label: "Vehicle",  values: vehicleFilter, clear: () => { setVehicleFilter([]); setClientPage(1); } },
-    ...(dateFilter     ? [{ label: "Date",     values: [dateFilter],     clear: () => { setDateFilter("");     setClientPage(1); } }] : []),
-    ...(deliveryFilter ? [{ label: "Delivery", values: [deliveryFilter], clear: () => { setDeliveryFilter(""); setClientPage(1); } }] : []),
-    ...(challanFilter  ? [{ label: "Challan",  values: [challanFilter],  clear: () => { setChallanFilter("");  setClientPage(1); } }] : []),
+    { label: "Trip",     values: tripFilter,    clear: () => { setTripFilter([]); } },
+    { label: "Vendor",   values: vendorFilter,  clear: () => { setVendorFilter([]); } },
+    { label: "Driver",   values: driverFilter,  clear: () => { setDriverFilter([]); } },
+    { label: "Vehicle",  values: vehicleFilter, clear: () => { setVehicleFilter([]); } },
+    ...(dateFilter     ? [{ label: "Date",     values: [dateFilter],     clear: () => { setDateFilter(""); } }] : []),
+    ...(deliveryFilter ? [{ label: "Delivery", values: [deliveryFilter], clear: () => { setDeliveryFilter(""); } }] : []),
+    ...(challanFilter  ? [{ label: "Challan",  values: [challanFilter],  clear: () => { setChallanFilter(""); } }] : []),
   ].filter(f => f.values.length > 0);
 
   const handleExportExcel = async () => {
@@ -370,7 +367,7 @@ const TripInventoryPage = () => {
 
           {/* Month */}
           <select className="border border-gray-300 px-2 py-1 rounded text-xs bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400 shrink-0"
-            value={month} onChange={e => { setMonth(parseInt(e.target.value)); setClientPage(1); }}>
+            value={month} onChange={e => { setMonth(parseInt(e.target.value)); }}>
             {MONTHS_FULL.map((m, i) => (
               <option key={i} value={i + 1}>{isMobile ? MONTHS_SHORT[i] : m}</option>
             ))}
@@ -379,7 +376,7 @@ const TripInventoryPage = () => {
           {/* Year */}
           <input type="number"
             className="border border-gray-300 px-2 py-1 rounded text-xs bg-white text-gray-700 w-16 focus:outline-none focus:ring-1 focus:ring-gray-400 shrink-0"
-            value={year} onChange={e => { setYear(parseInt(e.target.value)); setClientPage(1); }} />
+            value={year} onChange={e => { setYear(parseInt(e.target.value)); }} />
 
           {/* Reset */}
           <button onClick={handleReset}
@@ -418,7 +415,7 @@ const TripInventoryPage = () => {
             <div className="bg-white border border-gray-200 rounded-lg p-2 mb-3 grid grid-cols-2 gap-2">
               <div>
                 <label className="text-[10px] text-gray-400 block mb-0.5">Date</label>
-                <input type="date" value={dateFilter} onChange={e => { setDateFilter(e.target.value); setClientPage(1); }}
+                <input type="date" value={dateFilter} onChange={e => { setDateFilter(e.target.value); }}
                   className="w-full px-1.5 py-1 border border-gray-300 rounded text-[10px] outline-none focus:border-gray-500 bg-white" />
               </div>
               <div>
@@ -470,7 +467,7 @@ const TripInventoryPage = () => {
                     {/* Filter row — always visible */}
                     <tr className="bg-gray-50 border-b-2 border-gray-200">
                       <th className="p-1 border-r border-gray-200">
-                        <input type="date" value={dateFilter} onChange={e => { setDateFilter(e.target.value); setClientPage(1); }}
+                        <input type="date" value={dateFilter} onChange={e => { setDateFilter(e.target.value); }}
                           className="w-full px-1.5 py-1 border border-gray-300 rounded text-[10px] outline-none focus:border-gray-500 bg-white" />
                       </th>
                       <th className="p-1 border-r border-gray-200">

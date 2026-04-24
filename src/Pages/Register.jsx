@@ -1,17 +1,16 @@
-// Register
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router";
 import toast from "react-hot-toast";
 import { deleteUser, sendEmailVerification, signOut } from "firebase/auth";
+import axios from "axios";
 import useAuth from "../hooks/useAuth";
-import useAxiosSecure from "../hooks/useAxiosSecure";
 import { auth } from "../Authentication/Firebase.config";
 
 const Register = () => {
   const navigate = useNavigate();
   const { registerUser, updateUserProfile } = useAuth();
-  const axiosSecure = useAxiosSecure();
+  const API = import.meta.env.VITE_API_URL;
   const [loading, setLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
 
@@ -50,7 +49,7 @@ const Register = () => {
         // Step 2: Upload photo
         const imgFormData = new FormData();
         imgFormData.append("image", data.photo[0]);
-        const imageRes = await axiosSecure.post("/upload-image", imgFormData, {
+        const imageRes = await axios.post(`${API}/upload-image`, imgFormData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
         const photoURL = imageRes.data?.url;
@@ -59,8 +58,11 @@ const Register = () => {
         // Step 3: Update Firebase profile
         await updateUserProfile({ displayName: data.name, photoURL });
 
-        // Step 4: Save to DB
-        const dbRes = await axiosSecure.post("/users", {
+        // Step 4: Save to DB via /register (uses Firebase ID token directly —
+        // no app JWT needed, so /jwt never needs to bypass email verification)
+        const idToken = await createdUser.getIdToken();
+        const dbRes = await axios.post(`${API}/register`, {
+          idToken,
           displayName: data.name,
           photoURL,
         });
@@ -85,16 +87,32 @@ const Register = () => {
         );
         navigate("/login");
       } catch (innerErr) {
-        // Rollback on failure
         console.error("Post-registration step failed:", innerErr);
+
         if (firebaseUserCreated && createdUser) {
+          // Best-effort: remove from DB if Step 4 already saved it
+          try {
+            const idToken = await createdUser.getIdToken();
+            await axios.delete(`${API}/users/self`, { headers: { Authorization: `Bearer ${idToken}` } });
+          } catch (_) {}
+
           try {
             await deleteUser(createdUser);
-            console.log("Rolled back Firebase user due to failure");
           } catch (rollbackErr) {
-            console.error("Rollback failed:", rollbackErr);
+            console.error("Firebase rollback failed:", rollbackErr);
+            // Rollback failed — orphan account exists in Firebase.
+            // Tell the user explicitly so they don't get stuck in a loop.
+            toast.error(
+              "Registration failed and we couldn't fully clean up. " +
+              "Please contact support or try logging in — your account may already exist.",
+              { duration: 10000 }
+            );
+            setLoading(false);
+            navigate("/login");
+            return;
           }
         }
+
         throw innerErr;
       }
     } catch (error) {

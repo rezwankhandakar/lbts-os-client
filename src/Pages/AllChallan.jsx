@@ -1,6 +1,3 @@
-
-
-
 import React, { useEffect, useState, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import { useSearch } from "../hooks/SearchContext";
@@ -481,12 +478,12 @@ const AllChallan = () => {
 
               {/* Table */}
               <div className="overflow-auto flex-1">
-                <table className="w-full border-collapse text-xs" style={{ minWidth: "900px" }}>
+                <table className="border-collapse" style={{ tableLayout: "auto", width: "100%", minWidth: "900px" }}>
                   <thead className="sticky top-0 z-20">
                     {/* Column headers */}
                     <tr className="bg-gray-800 text-white text-left">
                       {["Date","Status","Customer","Address","Thana","District","Receiver No","Zone","Product","Model","Qty","Action"].map(h => (
-                        <th key={h} className="px-2 lg:px-3 py-2 font-normal text-[10px] lg:text-xs uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0">{h}</th>
+                        <th key={h} className="px-2 py-2 font-normal text-[11px] uppercase tracking-wide whitespace-nowrap border-r border-white/10 last:border-r-0">{h}</th>
                       ))}
                     </tr>
                     {/* Filter row — always visible */}
@@ -518,22 +515,22 @@ const AllChallan = () => {
                   </thead>
                   <tbody>
                     {paginatedRows.map(({ c, p }, idx) => (
-                      <tr key={`${c._id}-${idx}`} className={`border-b border-gray-100 transition-colors
-                        ${c.status === "delivered" ? "bg-green-50/40 hover:bg-green-50" : "hover:bg-amber-50 even:bg-gray-50/50"}`}>
-                        <td className="px-2 py-1.5 text-gray-500 text-[9px] lg:text-[10px] whitespace-nowrap">
+                      <tr key={`${c._id}-${idx}`} className={`border-b border-gray-100 transition-colors text-[12px]
+                        ${c.status === "delivered" ? "bg-green-50/40 hover:bg-green-50" : "hover:bg-amber-50 even:bg-gray-50/40"}`}>
+                        <td className="px-2 py-1.5 text-gray-500 text-gray-500 whitespace-nowrap">
                           {c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-GB") : "—"}
                         </td>
                         <td className="px-2 py-1.5"><StatusBadge status={c.status} tripNumber={c.tripNumber} /></td>
-                        <td className="px-2 py-1.5 font-medium text-gray-800 text-[9px] lg:text-[10px] whitespace-nowrap">{c.customerName}</td>
-                        <td className="px-2 py-1.5 text-gray-600 text-[9px] lg:text-[10px] max-w-[110px] truncate" title={c.address}>{c.address}</td>
-                        <td className="px-2 py-1.5 text-gray-500 text-[9px] lg:text-[10px]">{c.thana || "—"}</td>
-                        <td className="px-2 py-1.5 text-gray-500 text-[9px] lg:text-[10px]">{c.district || "—"}</td>
-                        <td className="px-2 py-1.5 text-[9px] lg:text-[10px]">{c.receiverNumber}</td>
-                        <td className="px-2 py-1.5 text-gray-600 text-[9px] lg:text-[10px]">{c.zone}</td>
-                        <td className="px-2 py-1.5 text-[9px] lg:text-[10px] whitespace-nowrap">{p.productName || "—"}</td>
-                        <td className="px-2 py-1.5 text-gray-500 text-[9px] lg:text-[10px] whitespace-nowrap font-mono">{p.model?.toUpperCase()}</td>
-                        <td className="px-2 py-1.5 text-center font-semibold text-[9px] lg:text-[10px]">{p.quantity}</td>
-                        <td className="px-2 lg:px-3 py-1.5">
+                        <td className="px-2 py-1.5 font-medium text-gray-800 text-gray-500 whitespace-nowrap">{c.customerName}</td>
+                        <td className="px-2 py-1.5 text-gray-600 overflow-hidden" title={c.address}>{c.address}</td>
+                        <td className="px-2 py-1.5 text-gray-500 text-gray-500">{c.thana || "—"}</td>
+                        <td className="px-2 py-1.5 text-gray-500 text-gray-500">{c.district || "—"}</td>
+                        <td className="px-2 py-1.5 text-gray-500">{c.receiverNumber}</td>
+                        <td className="px-2 py-1.5 text-gray-600 text-gray-500">{c.zone}</td>
+                        <td className="px-2 py-1.5 text-gray-500 whitespace-nowrap">{p.productName || "—"}</td>
+                        <td className="px-2 py-1.5 text-gray-500 whitespace-nowrap font-mono">{p.model?.toUpperCase()}</td>
+                        <td className="px-2 py-1.5 text-center font-semibold text-gray-500">{p.quantity}</td>
+                        <td className="px-2 py-1.5">
                           <ChallanActionDropdown challan={c} product={p} axiosSecure={axiosSecure} setChallans={setChallans} />
                         </td>
                       </tr>

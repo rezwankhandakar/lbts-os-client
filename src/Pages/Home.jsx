@@ -70,12 +70,12 @@ const Home = () => {
               <FiBox className="animate-bounce" size={12} />
               <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.3em]">System Overview</span>
             </div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-white leading-none">
-              Welcome,{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-200">
-                {user?.displayName?.split(' ')[0] || 'User'}
-              </span>{' '}👋
-            </h1>
+<h1 className="text-xl sm:text-2xl md:text-3xl font-black text-white leading-none">
+  Welcome,{' '}
+  <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-200">
+    {user?.displayName || 'User'}
+  </span>{' '}👋
+</h1>
             <p className="text-slate-400 text-[11px] sm:text-xs font-medium max-w-xs">
               Monitor logistics for <span className="text-slate-200">{monthName}</span>.
             </p>

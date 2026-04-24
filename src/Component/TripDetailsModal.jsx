@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import Swal from "sweetalert2";
@@ -7,6 +6,26 @@ import {
   Plus, Trash2, Pencil, Check, RotateCcw, StickyNote, Save, Wallet, ChevronDown
 } from "lucide-react";
 import useAuth from "../hooks/useAuth";
+
+/* ── বাংলায় টাকার পরিমাণ ── */
+const _ones = ["","এক","দুই","তিন","চার","পাঁচ","ছয়","সাত","আট","নয়",
+               "দশ","এগারো","বারো","তেরো","চৌদ্দ","পনেরো","ষোলো","সতেরো","আঠারো","উনিশ"];
+const _tens = ["","","বিশ","ত্রিশ","চল্লিশ","পঞ্চাশ","ষাট","সত্তর","আশি","নব্বই"];
+function _b100(n){if(n<20)return _ones[n];return _tens[Math.floor(n/10)]+(n%10?" "+_ones[n%10]:"");}
+function _b1000(n){if(n<100)return _b100(n);return _ones[Math.floor(n/100)]+" শত"+(n%100?" "+_b100(n%100):"");}
+function takaInWords(amount){
+  const n=Math.round(Math.abs(Number(amount)));
+  if(!n||isNaN(n))return null;
+  let r=n, parts=[];
+  const cr=Math.floor(r/10000000); r%=10000000;
+  const lk=Math.floor(r/100000);   r%=100000;
+  const hz=Math.floor(r/1000);     r%=1000;
+  if(cr) parts.push(_b1000(cr)+" কোটি");
+  if(lk) parts.push(_b1000(lk)+" লক্ষ");
+  if(hz) parts.push(_b1000(hz)+" হাজার");
+  if(r)  parts.push(_b1000(r));
+  return parts.join(" ")+" টাকা";
+}
 
 /* ─── Field ─── */
 const Field = ({ label, value, onChange }) => (
@@ -593,6 +612,9 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                           <Save size={10} /> {savingAdvance ? "…" : "Save"}
                         </button>
                       </div>
+                      {advance !== "" && advance != null && takaInWords(advance) && (
+                        <p className="text-[9px] text-violet-300 font-medium mt-1 pl-0.5">{takaInWords(advance)}</p>
+                      )}
                     </div>
                   </div>
 
@@ -800,7 +822,12 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                 <div className="flex items-center gap-1 px-2 py-0.5 bg-violet-50 border border-violet-200 rounded-lg shrink-0">
                   <Wallet size={10} className="text-violet-500 shrink-0" />
                   <span className="text-[9px] sm:text-[10px] text-violet-600 font-semibold">Adv:</span>
-                  <span className="text-[9px] sm:text-[10px] font-black text-violet-700">৳{Number(trip.advance).toLocaleString()}</span>
+                  <div>
+                    <span className="text-[9px] sm:text-[10px] font-black text-violet-700">৳{Number(trip.advance).toLocaleString()}</span>
+                    {takaInWords(trip.advance) && (
+                      <p className="text-[8px] text-violet-400 font-medium leading-none mt-0.5">{takaInWords(trip.advance)}</p>
+                    )}
+                  </div>
                 </div>
               )}
             </span>

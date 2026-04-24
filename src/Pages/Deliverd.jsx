@@ -1,6 +1,6 @@
-
 import React, { useEffect, useState, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
+import usePageParam from "../hooks/usePageParam";
 import { useSearch } from "../hooks/SearchContext";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -141,7 +141,7 @@ const DeliveredPage = () => {
 
   const [deliveries,        setDeliveries]        = useState([]);
   const [loading,           setLoading]           = useState(false);
-  const [clientPage,        setClientPage]        = useState(1);
+  const [clientPage, setClientPage] = usePageParam("page");
   const [isMobile,          setIsMobile]          = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
@@ -167,7 +167,7 @@ const DeliveredPage = () => {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const setFilter = (setter) => (val) => { setter(val); setClientPage(1); };
+  const setFilter = (setter) => (val) => { setter(val); };
 
   const fetchDeliveries = async (m, y, search) => {
     setLoading(true);
@@ -181,10 +181,10 @@ const DeliveredPage = () => {
     setLoading(false);
   };
 
-  useEffect(() => { setClientPage(1); fetchDeliveries(month, year, searchText); }, [month, year, searchText]);
+  useEffect(() => { fetchDeliveries(month, year, searchText); }, [month, year, searchText]);
 
   const handleResetAll = () => {
-    setMonth(new Date().getMonth() + 1); setYear(new Date().getFullYear()); setClientPage(1);
+    setMonth(new Date().getMonth() + 1); setYear(new Date().getFullYear());
     if (setSearchText) setSearchText("");
     setCustomerFilter([]); setZoneFilter([]); setDistrictFilter([]);
     setThanaFilter([]); setProductFilter([]); setModelFilter([]);
@@ -265,17 +265,17 @@ const DeliveredPage = () => {
   };
 
   const activeFilterGroups = [
-    { label: "Customer", values: customerFilter, clear: () => { setCustomerFilter([]); setClientPage(1); } },
-    { label: "Zone",     values: zoneFilter,     clear: () => { setZoneFilter([]);     setClientPage(1); } },
-    { label: "Address",  values: addressFilter,  clear: () => { setAddressFilter([]);  setClientPage(1); } },
-    { label: "Receiver", values: receiverFilter, clear: () => { setReceiverFilter([]); setClientPage(1); } },
-    { label: "District", values: districtFilter, clear: () => { setDistrictFilter([]); setClientPage(1); } },
-    { label: "Thana",    values: thanaFilter,    clear: () => { setThanaFilter([]);    setClientPage(1); } },
-    { label: "Product",  values: productFilter,  clear: () => { setProductFilter([]);  setClientPage(1); } },
-    { label: "Model",    values: modelFilter,    clear: () => { setModelFilter([]);    setClientPage(1); } },
-    ...(dateFilter ? [{ label: "Date", values: [dateFilter], clear: () => { setDateFilter(""); setClientPage(1); } }] : []),
-    ...(typeFilter ? [{ label: "Type", values: [typeFilter], clear: () => { setTypeFilter(""); setClientPage(1); } }] : []),
-    { label: "Note",     values: noteFilter,     clear: () => { setNoteFilter([]);     setClientPage(1); } },
+    { label: "Customer", values: customerFilter, clear: () => { setCustomerFilter([]); } },
+    { label: "Zone",     values: zoneFilter,     clear: () => { setZoneFilter([]); } },
+    { label: "Address",  values: addressFilter,  clear: () => { setAddressFilter([]); } },
+    { label: "Receiver", values: receiverFilter, clear: () => { setReceiverFilter([]); } },
+    { label: "District", values: districtFilter, clear: () => { setDistrictFilter([]); } },
+    { label: "Thana",    values: thanaFilter,    clear: () => { setThanaFilter([]); } },
+    { label: "Product",  values: productFilter,  clear: () => { setProductFilter([]); } },
+    { label: "Model",    values: modelFilter,    clear: () => { setModelFilter([]); } },
+    ...(dateFilter ? [{ label: "Date", values: [dateFilter], clear: () => { setDateFilter(""); } }] : []),
+    ...(typeFilter ? [{ label: "Type", values: [typeFilter], clear: () => { setTypeFilter(""); } }] : []),
+    { label: "Note",     values: noteFilter,     clear: () => { setNoteFilter([]); } },
   ].filter(f => f.values.length > 0);
 
   const activeFilterCount = activeFilterGroups.reduce((n, f) => n + f.values.length, 0);
@@ -412,7 +412,7 @@ const DeliveredPage = () => {
 
           {/* Month */}
           <select className="border border-gray-300 px-2 py-1 rounded text-xs bg-white text-gray-700 focus:outline-none shrink-0"
-            value={month} onChange={e => { setMonth(parseInt(e.target.value)); setClientPage(1); }}>
+            value={month} onChange={e => { setMonth(parseInt(e.target.value)); }}>
             {MONTHS_FULL.map((m, i) => (
               <option key={i} value={i + 1}>{isMobile ? MONTHS_SHORT[i] : m}</option>
             ))}
@@ -421,7 +421,7 @@ const DeliveredPage = () => {
           {/* Year */}
           <input type="number"
             className="border border-gray-300 px-2 py-1 rounded text-xs bg-white text-gray-700 w-16 focus:outline-none shrink-0"
-            value={year} onChange={e => { setYear(parseInt(e.target.value)); setClientPage(1); }} />
+            value={year} onChange={e => { setYear(parseInt(e.target.value)); }} />
 
           {/* Reset */}
           <button onClick={handleResetAll}
@@ -463,7 +463,7 @@ const DeliveredPage = () => {
                   <div>
                     <label className="text-[10px] text-gray-400 block mb-0.5">Date</label>
                     <input type="date" className="w-full px-1.5 py-1 border border-gray-300 rounded text-[10px] outline-none"
-                      value={dateFilter} onChange={e => { setDateFilter(e.target.value); setClientPage(1); }} />
+                      value={dateFilter} onChange={e => { setDateFilter(e.target.value); }} />
                   </div>
                   <div>
                     <label className="text-[10px] text-gray-400 block mb-0.5">Type</label>
@@ -532,7 +532,7 @@ const DeliveredPage = () => {
                     {/* Filter row — always visible */}
                     <tr className="bg-gray-50 border-b-2 border-gray-200">
                       <th className="p-0.5 border-r border-gray-200">
-                        <input type="date" value={dateFilter} onChange={e => { setDateFilter(e.target.value); setClientPage(1); }}
+                        <input type="date" value={dateFilter} onChange={e => { setDateFilter(e.target.value); }}
                           className="w-full px-1 py-0.5 border border-gray-300 rounded text-[10px] outline-none focus:border-gray-500 bg-white" />
                       </th>
                       <th className="p-0.5 border-r border-gray-200">

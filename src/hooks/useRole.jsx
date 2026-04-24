@@ -1,5 +1,3 @@
-
-
 import { useQuery } from '@tanstack/react-query';
 import useAuth from './useAuth';
 import useAxiosSecure from './useAxiosSecure';
@@ -8,7 +6,7 @@ const useRole = () => {
   const { user } = useAuth();
   const axiosSecure = useAxiosSecure();
 
-  const { data } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['user-role', user?.email],
     enabled: !!user?.email,
     queryFn: async () => {
@@ -20,7 +18,9 @@ const useRole = () => {
   return {
     role:       data?.role,
     status:     data?.status,
-    vendorName: data?.vendorName || null,  // ← ADD: vendor user এর linked vendorName
+    vendorName: data?.vendorName || null,
+    isLoading:  !!user?.email && isLoading,  // only loading if query is enabled
+    isError,
   };
 };
 

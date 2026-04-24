@@ -1,5 +1,3 @@
-
-
 import React, { useEffect, useState, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import { useSearch } from "../hooks/SearchContext";
@@ -204,7 +202,9 @@ const CarRentPage = () => {
 
     const handleRentalUpdate = (updatedRental) => {
         setRentals(prev => prev.map(r => r._id === updatedRental._id ? { ...r, ...updatedRental } : r));
-        setSelectedRental(prev => prev ? { ...prev, ...updatedRental } : prev);
+        // Close modal after save — if rentFilter is "missing", the row will
+        // automatically disappear from the list now that rent is filled in.
+        setSelectedRental(null);
     };
 
     const rowMatchesAll = (r, excludeField = null) => {
@@ -558,6 +558,11 @@ const CarRentPage = () => {
                 selectedRental={selectedRental}
                 setSelectedRental={setSelectedRental}
                 onRentalUpdate={handleRentalUpdate}
+                onSaved={() => {
+                    // After saving rent/lebor, auto-filter to "missing"
+                    // so the user sees remaining unpaid trips immediately.
+                    if (!rentFilter) setRentFilter("missing");
+                }}
             />
         </div>
     );
