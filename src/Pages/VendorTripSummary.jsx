@@ -23,40 +23,41 @@ const MultiSelectFilter = ({ options, selected, onChange, placeholder = "All" })
     return () => document.removeEventListener("mousedown", h);
   }, []);
   const filtered = options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
-  const label = selected.length === 0 ? placeholder : selected.length === 1 ? selected[0] : `${selected.length} sel`;
-  const toggle = (v) => onChange(selected.includes(v) ? selected.filter(x => x !== v) : [...selected, v]);
+  const label    = selected.length === 0 ? placeholder : selected.length === 1 ? selected[0] : `${selected.length} sel`;
+  const toggle   = (v) => onChange(selected.includes(v) ? selected.filter(x => x !== v) : [...selected, v]);
   return (
     <div ref={ref} className="relative w-full">
       <button type="button" onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center justify-between gap-1 px-1.5 py-0.5 text-[10px] rounded border transition text-left
-          ${selected.length > 0 ? "border-gray-600 bg-gray-100 text-gray-800" : "border-gray-200 bg-white text-gray-400"}`}>
+        className={`w-full flex items-center justify-between gap-1 px-1.5 py-0.5 text-[10px] rounded-lg border transition text-left ${selected.length > 0 ? "border-slate-700 bg-slate-800 text-white" : "border-slate-200 bg-white text-slate-400"}`}>
         <span className="truncate flex-1">{label}</span>
-        <span className="flex items-center gap-0.5 shrink-0">
-          {selected.length > 0 && <span className="text-gray-400 hover:text-gray-700 cursor-pointer" onClick={e => { e.stopPropagation(); onChange([]); }}>✕</span>}
+        <span className="flex items-center gap-0.5 flex-shrink-0">
+          {selected.length > 0 && <span className="text-slate-400 hover:text-white cursor-pointer" onClick={e => { e.stopPropagation(); onChange([]); }}>✕</span>}
           <svg width="7" height="5" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d={open ? "M1 5L5 1L9 5" : "M1 1L5 5L9 1"} /></svg>
         </span>
       </button>
       {open && (
-        <div className="fixed bg-white border border-gray-200 rounded-lg shadow-xl min-w-[140px] w-max max-w-[220px] overflow-hidden"
+        <div className="fixed bg-white border border-slate-200 rounded-xl shadow-2xl min-w-[140px] w-max max-w-[220px] overflow-hidden"
           style={{ zIndex: 9999, top: ref.current ? ref.current.getBoundingClientRect().bottom + 4 : 0, left: ref.current ? ref.current.getBoundingClientRect().left : 0 }}>
           {options.length > 5 && (
-            <div className="p-1.5 border-b border-gray-100">
-              <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…" className="w-full px-2 py-1 text-xs border border-gray-200 rounded outline-none" />
+            <div className="p-1.5 border-b border-slate-100">
+              <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
+                className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none focus:border-orange-400" />
             </div>
           )}
           <div className="max-h-40 overflow-y-auto">
             {filtered.length === 0
-              ? <div className="px-3 py-2 text-xs text-gray-400 text-center">No results</div>
+              ? <div className="px-3 py-2 text-xs text-slate-400 text-center">No results</div>
               : filtered.map(opt => (
-                <label key={opt} className={`flex items-center gap-2 px-2.5 py-1.5 cursor-pointer text-xs hover:bg-gray-50 ${selected.includes(opt) ? "bg-gray-50" : ""}`}>
-                  <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)} className="w-3 h-3 accent-gray-800 shrink-0" />
-                  <span className="truncate">{opt}</span>
+                <label key={opt} className={`flex items-center gap-2 px-2.5 py-1.5 cursor-pointer text-xs hover:bg-slate-50 ${selected.includes(opt) ? "bg-orange-50/50" : ""}`}>
+                  <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)} className="w-3 h-3 accent-orange-500 flex-shrink-0" />
+                  <span className="truncate text-slate-700">{opt}</span>
                 </label>
-              ))}
+              ))
+            }
           </div>
           {selected.length > 0 && (
-            <div className="border-t border-gray-100 p-1">
-              <button onClick={() => onChange([])} className="w-full text-[10px] text-gray-400 uppercase tracking-widest py-0.5 hover:text-gray-700">Clear all</button>
+            <div className="border-t border-slate-100 p-1.5">
+              <button onClick={() => onChange([])} className="w-full text-[10px] text-slate-400 uppercase py-1 hover:text-slate-700">Clear all</button>
             </div>
           )}
         </div>
@@ -67,12 +68,12 @@ const MultiSelectFilter = ({ options, selected, onChange, placeholder = "All" })
 
 const SimpleSelect = ({ value, onChange, options }) => (
   <select value={value} onChange={e => onChange(e.target.value)}
-    className={`w-full px-1.5 py-0.5 text-[10px] rounded border outline-none ${value ? "border-gray-600 bg-gray-100 text-gray-800" : "border-gray-200 bg-white text-gray-400"}`}>
+    className={`w-full px-1.5 py-0.5 text-[10px] rounded-lg border outline-none transition ${value ? "border-slate-700 bg-slate-800 text-white" : "border-slate-200 bg-white text-slate-400"}`}>
     {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
   </select>
 );
 
-/* ── Payment badge helper ── */
+/* ── Payment badge ── */
 const PayBadge = ({ ps, bill }) => {
   if (!ps || bill === 0) return null;
   if (ps.status === "paid")    return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 whitespace-nowrap">✓ Paid</span>;
@@ -82,48 +83,47 @@ const PayBadge = ({ ps, bill }) => {
 
 /* ── Mobile Trip Card ── */
 const TripCard = ({ t, idx, ps, onView }) => {
-  const bill = Number(t.rent || 0) + Number(t.leborBill || 0);
+  const bill      = Number(t.rent || 0) + Number(t.leborBill || 0);
   const tripTotal = (t.rent != null ? Number(t.rent) : 0) + (t.leborBill != null ? Number(t.leborBill) : 0);
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-100">
+    <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100">
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          <span className="text-[10px] font-bold text-gray-400 shrink-0">#{idx + 1}</span>
-          <span className="text-[10px] bg-gray-800 text-white rounded px-1.5 py-0.5 font-mono shrink-0">{t.tripNumber}</span>
+          <span className="text-[10px] font-bold text-slate-400 flex-shrink-0">#{idx + 1}</span>
+          <span className="text-[10px] bg-slate-900 text-white rounded-lg px-1.5 py-0.5 font-mono font-bold flex-shrink-0">{t.tripNumber}</span>
           <PayBadge ps={ps} bill={bill} />
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[10px] text-gray-400 hidden xs:block">{new Date(t.createdAt).toLocaleDateString("en-GB")}</span>
-          <button onClick={() => onView(t)} className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-white text-[10px] font-semibold rounded transition">View</button>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="text-[10px] text-slate-400 hidden xs:block">{new Date(t.createdAt).toLocaleDateString("en-GB")}</span>
+          <button onClick={() => onView(t)} className="px-2.5 py-1 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-bold rounded-lg transition">View</button>
         </div>
       </div>
       <div className="px-3 py-2.5">
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <div>
-            <p className="text-[8px] text-gray-400 uppercase font-bold tracking-widest">Driver</p>
-            <p className="text-xs font-semibold text-gray-800">{t.driverName}</p>
-          </div>
-          <div className="text-center">
-            <p className="text-[8px] text-gray-400 uppercase font-bold tracking-widest">Point</p>
-            <p className="text-xs font-bold text-emerald-700">{t.challans ? t.challans.filter(c => !c.isReturn).length : (t.totalChallan ?? "—")}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-[8px] text-gray-400 uppercase font-bold tracking-widest">Vehicle</p>
-            <p className="text-xs font-semibold text-gray-700 uppercase">{t.vehicleNumber}</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-4 gap-1 pt-2 border-t border-gray-100">
+        <div className="grid grid-cols-3 gap-1 mb-2">
           {[
-            { l: "Rent",    v: t.rent,     fmt: v => `৳${Number(v).toLocaleString()}`, miss: "text-red-400",    ok: "text-green-700" },
-            { l: "Lebor",   v: t.leborBill, fmt: v => `৳${Number(v).toLocaleString()}`, miss: "text-orange-400", ok: "text-green-700" },
-            { l: "Advance", v: t.advance,  fmt: v => `৳${Number(v).toLocaleString()}`, miss: "text-slate-300",  ok: "text-orange-600", allowNull: true },
+            { label: "Driver",  value: t.driverName },
+            { label: "Point",   value: t.challans ? t.challans.filter(c => !c.isReturn).length : (t.totalChallan ?? "—"), color: "text-emerald-600 font-black" },
+            { label: "Vehicle", value: t.vehicleNumber, upper: true },
+          ].map(({ label, value, color, upper }) => (
+            <div key={label} className={label === "Vehicle" ? "text-right" : ""}>
+              <p className="text-[8px] text-slate-400 uppercase font-black tracking-widest">{label}</p>
+              <p className={`text-xs font-semibold text-slate-800 truncate ${color || ""} ${upper ? "uppercase" : ""}`}>{value}</p>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-4 gap-1 pt-2 border-t border-slate-100">
+          {[
+            { l: "Rent",    v: t.rent,      fmt: v => `৳${Number(v).toLocaleString()}`, miss: "text-red-400",    ok: "text-emerald-700" },
+            { l: "Lebor",   v: t.leborBill, fmt: v => `৳${Number(v).toLocaleString()}`, miss: "text-amber-400",  ok: "text-emerald-700" },
+            { l: "Advance", v: t.advance,   fmt: v => `৳${Number(v).toLocaleString()}`, miss: "text-slate-300",  ok: "text-orange-600" },
             { l: "Total",   v: t.rent != null || t.leborBill != null ? tripTotal : null, fmt: v => `৳${Number(v).toLocaleString()}`, miss: "text-slate-300", ok: "text-indigo-700", bg: "bg-indigo-50 rounded-lg px-0.5" },
           ].map((item, i) => (
             <div key={i} className={`text-center ${item.bg || ""}`}>
-              <p className={`text-[8px] uppercase font-bold tracking-wider ${i === 3 ? "text-indigo-400" : "text-gray-400"}`}>{item.l}</p>
+              <p className={`text-[8px] uppercase font-black tracking-wider ${i === 3 ? "text-indigo-400" : "text-slate-400"}`}>{item.l}</p>
               {item.v != null
-                ? <p className={`text-[11px] font-bold ${item.ok}`}>{item.fmt(item.v)}</p>
-                : <p className={`text-[9px] font-bold mt-0.5 ${item.miss}`}>—</p>}
+                ? <p className={`text-[11px] font-black ${item.ok}`}>{item.fmt(item.v)}</p>
+                : <p className={`text-[9px] font-bold mt-0.5 ${item.miss}`}>—</p>
+              }
             </div>
           ))}
         </div>
@@ -132,20 +132,22 @@ const TripCard = ({ t, idx, ps, onView }) => {
   );
 };
 
-/* ════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════
+   MAIN
+════════════════════════════════════════════════════════════════ */
 const VendorTripSummary = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
+  const { id }      = useParams();
+  const navigate    = useNavigate();
   const axiosSecure = useAxiosSecure();
 
-  const [vendor,       setVendor]       = useState(null);
+  const [vendor,        setVendor]        = useState(null);
   const [vendorLoading, setVendorLoading] = useState(true);
-  const [tripMonth,    setTripMonth]    = useState(new Date().getMonth() + 1);
-  const [tripYear,     setTripYear]     = useState(new Date().getFullYear());
-  const [trips,        setTrips]        = useState([]);
-  const [tripLoading,  setTripLoading]  = useState(false);
-  const [selectedRental, setSelectedRental] = useState(null);
-  const [accountTxs,   setAccountTxs]  = useState([]);
+  const [tripMonth,     setTripMonth]     = useState(new Date().getMonth() + 1);
+  const [tripYear,      setTripYear]      = useState(new Date().getFullYear());
+  const [trips,         setTrips]         = useState([]);
+  const [tripLoading,   setTripLoading]   = useState(false);
+  const [selectedRental,setSelectedRental]= useState(null);
+  const [accountTxs,    setAccountTxs]   = useState([]);
 
   const [tripFilter,      setTripFilter]      = useState([]);
   const [driverFilter,    setDriverFilter]    = useState([]);
@@ -185,15 +187,16 @@ const VendorTripSummary = () => {
 
   const rowMatch = (t, ex = null) => {
     const chk = (f, fil, v) => f === ex || fil.length === 0 || fil.some(x => v?.toLowerCase() === x.toLowerCase());
-    return chk("tripNumber", tripFilter, t.tripNumber)
-      && chk("driverName", driverFilter, t.driverName)
-      && chk("vehicleNumber", vehicleFilter, t.vehicleNumber)
+    return chk("tripNumber",   tripFilter,    t.tripNumber)
+      && chk("driverName",     driverFilter,  t.driverName)
+      && chk("vehicleNumber",  vehicleFilter, t.vehicleNumber)
       && (ex === "date" || !dateFilter || new Date(t.createdAt).toISOString().slice(0, 10) === dateFilter)
-      && (!rentFilter || (rentFilter === "missing" ? t.rent == null : t.rent != null))
+      && (!rentFilter      || (rentFilter      === "missing" ? t.rent      == null : t.rent      != null))
       && (!leborBillFilter || (leborBillFilter === "missing" ? t.leborBill == null : t.leborBill != null));
   };
 
   const filteredTrips = trips.filter(t => rowMatch(t));
+
   const getOpts = (field) => {
     const map = new Map();
     trips.forEach(t => {
@@ -218,7 +221,7 @@ const VendorTripSummary = () => {
       title: "Export to Excel",
       html: `<div style="text-align:left;padding:8px 0">
         <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer;font-size:13px">
-          <input type="radio" name="et" value="filtered" checked style="accent-color:#374151">
+          <input type="radio" name="et" value="filtered" checked style="accent-color:#f97316">
           <span><b>Filtered</b> (${filteredTrips.length} rows)</span>
         </label>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
@@ -226,7 +229,7 @@ const VendorTripSummary = () => {
           <span><b>Full month</b> — ${MONTHS[tripMonth - 1]} ${tripYear}</span>
         </label>
       </div>`,
-      showCancelButton: true, confirmButtonColor: "#374151", confirmButtonText: "Export", cancelButtonText: "Cancel",
+      showCancelButton: true, confirmButtonColor: "#f97316", confirmButtonText: "Export",
       preConfirm: () => document.querySelector('input[name="et"]:checked')?.value || "filtered",
     });
     if (!et) return;
@@ -242,11 +245,11 @@ const VendorTripSummary = () => {
       const rows = src.map((t, i) => ({
         "#": i + 1, Date: new Date(t.createdAt).toLocaleDateString("en-GB"),
         Trip: t.tripNumber, Driver: t.driverName, Vehicle: t.vehicleNumber,
-        Point: t.challans ? t.challans.filter(c => !c.isReturn).length : t.totalChallan,
-        Rent: t.rent != null ? Number(t.rent) : "",
-        Lebor: t.leborBill != null ? Number(t.leborBill) : "",
-        Advance: t.advance != null ? Number(t.advance) : "",
-        Total: (t.rent != null ? Number(t.rent) : 0) + (t.leborBill != null ? Number(t.leborBill) : 0),
+        Point:   t.challans ? t.challans.filter(c => !c.isReturn).length : t.totalChallan,
+        Rent:    t.rent      != null ? Number(t.rent)      : "",
+        Lebor:   t.leborBill != null ? Number(t.leborBill) : "",
+        Advance: t.advance   != null ? Number(t.advance)   : "",
+        Total:   (t.rent != null ? Number(t.rent) : 0) + (t.leborBill != null ? Number(t.leborBill) : 0),
       }));
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
@@ -266,10 +269,10 @@ const VendorTripSummary = () => {
     for (const t of sorted) {
       const bill = Number(t.rent || 0) + Number(t.leborBill || 0);
       const due  = Math.max(0, bill - Number(t.advance || 0));
-      if (due === 0)           { map[t._id] = { status: "paid",    paidAmount: bill }; }
-      else if (rem >= due)     { map[t._id] = { status: "paid",    paidAmount: due  }; rem -= due; }
-      else if (rem > 0)        { map[t._id] = { status: "partial", paidAmount: rem  }; rem = 0; }
-      else                     { map[t._id] = { status: "unpaid",  paidAmount: 0    }; }
+      if (due === 0)       { map[t._id] = { status: "paid",    paidAmount: bill }; }
+      else if (rem >= due) { map[t._id] = { status: "paid",    paidAmount: due  }; rem -= due; }
+      else if (rem > 0)    { map[t._id] = { status: "partial", paidAmount: rem  }; rem = 0; }
+      else                 { map[t._id] = { status: "unpaid",  paidAmount: 0    }; }
     }
     return map;
   })();
@@ -282,7 +285,7 @@ const VendorTripSummary = () => {
   const totalDue   = Math.max(0, totalBill - totalAdv - totalPaid);
 
   if (vendorLoading) return <LoadingSpinner text="Loading vendor..." />;
-  if (!vendor) return <div className="p-10 text-center text-slate-400">Vendor not found.</div>;
+  if (!vendor)       return <div className="p-10 text-center text-slate-400">Vendor not found.</div>;
 
   const summaryItems = [
     { label: "Rent",    value: fmt(totalRent),  color: "text-indigo-300" },
@@ -293,118 +296,109 @@ const VendorTripSummary = () => {
     { label: "Due",     value: totalDue > 0 ? fmt(totalDue) : "✓ Cleared", color: totalDue > 0 ? "text-rose-400" : "text-emerald-400" },
   ];
 
+  const tbtn = "flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg border transition-all shrink-0 font-semibold";
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full page-enter">
 
-      {/* ══ TOP BAR — single compact row ══ */}
-     {/* ══ TOP BAR — mobile optimized ══ */}
-<div className="flex-shrink-0 pb-2 space-y-1.5">
+      {/* ── TOP BAR ── */}
+      <div className="flex-shrink-0 pb-2 space-y-1.5">
 
-  {/* Row 1: back + vendor info + export */}
-  <div className="flex items-center gap-1.5">
-    <button onClick={() => navigate(-1)}
-      className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-500 transition shrink-0">
-      <ArrowLeft size={14} />
-    </button>
+        {/* Row 1: back + vendor + export */}
+        <div className="flex items-center gap-2">
+          <button onClick={() => navigate(-1)}
+            className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-500 transition flex-shrink-0">
+            <ArrowLeft size={14} />
+          </button>
 
-    {/* Vendor info */}
-    <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 shadow-sm min-w-0 flex-1">
-      <div className="w-6 h-6 rounded-md bg-slate-800 overflow-hidden flex items-center justify-center shrink-0">
-        {vendor.vendorImg
-          ? <img src={vendor.vendorImg} className="w-full h-full object-cover" alt="" />
-          : <Briefcase size={11} className="text-white" />}
-      </div>
-      <div className="min-w-0">
-        <p className="text-[11px] font-black text-slate-800 truncate leading-tight">{vendor.vendorName}</p>
-        <p className="text-[9px] text-slate-400 leading-none">
-          <span className="font-bold">{filteredTrips.length}/{trips.length}</span> trips
-        </p>
-      </div>
-    </div>
+          <div className="flex items-center gap-2 bg-white border border-slate-100 rounded-xl px-3 py-2 shadow-sm min-w-0 flex-1">
+            <div className="w-8 h-8 rounded-xl bg-slate-900 overflow-hidden flex items-center justify-center flex-shrink-0">
+              {vendor.vendorImg
+                ? <img src={vendor.vendorImg} className="w-full h-full object-cover" alt="" />
+                : <Briefcase size={14} className="text-white" />
+              }
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-black text-slate-800 truncate leading-tight">{vendor.vendorName}</p>
+              <p className="text-[10px] text-slate-400">
+                <span className="font-bold">{filteredTrips.length}/{trips.length}</span> trips · {MONTHS[tripMonth - 1]} {tripYear}
+              </p>
+            </div>
+          </div>
 
-    {/* Export — always visible, right side */}
-    <button onClick={handleExport}
-      className="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded bg-gray-800 text-white hover:bg-gray-700 transition shrink-0">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-      <span className="hidden sm:inline text-[10px]">Export</span>
-    </button>
-  </div>
-
-  {/* Row 2: month + year + filter + reset */}
-  <div className="flex items-center gap-1.5">
-    <select
-      className="border border-gray-200 px-2 py-1 rounded text-xs bg-white text-gray-700 focus:outline-none flex-1 min-w-0"
-      value={tripMonth} onChange={e => setTripMonth(parseInt(e.target.value))}>
-      {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-    </select>
-    <input
-      type="number"
-      className="border border-gray-200 px-2 py-1 rounded text-xs bg-white text-gray-700 w-16 focus:outline-none shrink-0"
-      value={tripYear} onChange={e => setTripYear(parseInt(e.target.value))}
-    />
-    <button
-      onClick={() => setShowFilters(f => !f)}
-      className={`flex items-center gap-1 px-2.5 py-1.5 text-xs rounded border transition shrink-0 ${hasFilter ? "border-gray-700 bg-gray-800 text-white" : "border-gray-200 text-gray-600 bg-white"}`}>
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
-      <ChevronDown size={9} className={`transition-transform ${showFilters ? "rotate-180" : ""}`} />
-    </button>
-    <button onClick={handleReset}
-      className="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded border border-red-200 text-red-500 hover:bg-red-500 hover:text-white transition shrink-0">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
-    </button>
-  </div>
-
-  {/* Filter panel — unchanged */}
-  {showFilters && (
-    <div className="p-2.5 bg-white border border-gray-200 rounded-xl shadow-sm">
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        <div>
-          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Date</p>
-          <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
-            className="w-full px-2 py-0.5 border border-gray-200 rounded text-[10px] outline-none bg-white" />
+          <button onClick={handleExport}
+            className={`${tbtn} bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700`}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span className="hidden sm:inline">Export</span>
+          </button>
         </div>
-        <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Trip</p><MultiSelectFilter options={getOpts("tripNumber")} selected={tripFilter} onChange={setTripFilter} /></div>
-        <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Driver</p><MultiSelectFilter options={getOpts("driverName")} selected={driverFilter} onChange={setDriverFilter} /></div>
-        <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Vehicle</p><MultiSelectFilter options={getOpts("vehicleNumber")} selected={vehicleFilter} onChange={setVehicleFilter} /></div>
-        <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Rent</p><SimpleSelect value={rentFilter} onChange={setRentFilter} options={[{ value: "", label: "All" }, { value: "added", label: "✓ Added" }, { value: "missing", label: "✗ Missing" }]} /></div>
-        <div><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Lebor Bill</p><SimpleSelect value={leborBillFilter} onChange={setLeborBillFilter} options={[{ value: "", label: "All" }, { value: "added", label: "✓ Added" }, { value: "missing", label: "✗ Missing" }]} /></div>
-      </div>
-    </div>
-  )}
-</div>
 
-      {/* ══ SUMMARY BAR ══ */}
+        {/* Row 2: month + year + filter + reset */}
+        <div className="flex items-center gap-2">
+          <select className={`${tbtn} border-slate-200 text-slate-700 bg-white focus:outline-none flex-1 min-w-0`}
+            value={tripMonth} onChange={e => setTripMonth(parseInt(e.target.value))}>
+            {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+          </select>
+          <input type="number" className={`${tbtn} border-slate-200 text-slate-700 bg-white w-20 focus:outline-none`}
+            value={tripYear} onChange={e => setTripYear(parseInt(e.target.value))} />
+          <button onClick={() => setShowFilters(f => !f)}
+            className={`${tbtn} ${hasFilter ? "border-slate-700 bg-slate-800 text-white" : "border-slate-200 text-slate-600 bg-white"}`}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            <ChevronDown size={10} className={`transition-transform ${showFilters ? "rotate-180" : ""}`} />
+          </button>
+          <button onClick={handleReset}
+            className={`${tbtn} border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500`}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          </button>
+        </div>
+
+        {/* Filter panel */}
+        {showFilters && (
+          <div className="p-3 bg-white border border-slate-100 rounded-2xl shadow-sm">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              <div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Date</p>
+                <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
+                  className="w-full px-2 py-1 border border-slate-200 rounded-xl text-[10px] outline-none focus:border-orange-400 bg-white" /></div>
+              <div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Trip</p><MultiSelectFilter options={getOpts("tripNumber")} selected={tripFilter} onChange={setTripFilter} /></div>
+              <div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Driver</p><MultiSelectFilter options={getOpts("driverName")} selected={driverFilter} onChange={setDriverFilter} /></div>
+              <div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Vehicle</p><MultiSelectFilter options={getOpts("vehicleNumber")} selected={vehicleFilter} onChange={setVehicleFilter} /></div>
+              <div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Rent</p><SimpleSelect value={rentFilter} onChange={setRentFilter} options={[{ value: "", label: "All" }, { value: "added", label: "✓ Added" }, { value: "missing", label: "✗ Missing" }]} /></div>
+              <div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Lebor Bill</p><SimpleSelect value={leborBillFilter} onChange={setLeborBillFilter} options={[{ value: "", label: "All" }, { value: "added", label: "✓ Added" }, { value: "missing", label: "✗ Missing" }]} /></div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── SUMMARY BAR ── */}
       {filteredTrips.length > 0 && (
-        <div className="flex-shrink-0 bg-slate-800 rounded-xl px-3 py-2 mb-2">
-          {/* Mobile 3-col grid */}
-          <div className="grid grid-cols-3 gap-x-2 gap-y-1 sm:hidden">
+        <div className="flex-shrink-0 bg-slate-900 rounded-2xl px-4 py-2.5 mb-2">
+          <div className="grid grid-cols-3 gap-2 sm:hidden">
             {summaryItems.map((item, i) => (
               <div key={i} className="text-center">
-                <p className="text-[7px] text-slate-400 uppercase font-black tracking-widest leading-none mb-0.5">{item.label}</p>
-                <p className={`text-[10px] font-black ${item.color} leading-none`}>{item.value}</p>
+                <p className="text-[8px] text-slate-400 uppercase font-black tracking-widest leading-none mb-0.5">{item.label}</p>
+                <p className={`text-[11px] font-black ${item.color}`}>{item.value}</p>
               </div>
             ))}
           </div>
-          {/* Desktop inline — compact */}
-          <div className="hidden sm:flex flex-wrap items-center gap-x-3 gap-y-1">
-            <div className="flex items-center gap-2">
+          <div className="hidden sm:flex flex-wrap items-center gap-x-4 gap-y-1">
+            <div className="flex items-center gap-3">
               {summaryItems.slice(0, 3).map((item, i) => (
                 <React.Fragment key={i}>
                   <div>
-                    <p className="text-[7px] text-slate-400 uppercase font-black tracking-widest leading-none mb-0.5">{item.label}</p>
+                    <p className="text-[8px] text-slate-500 uppercase font-black tracking-widest leading-none mb-0.5">{item.label}</p>
                     <p className={`text-xs font-black ${item.color}`}>{item.value}</p>
                   </div>
-                  {i < 2 && <span className="text-slate-600 font-bold text-xs">{i === 1 ? "=" : "+"}</span>}
+                  {i < 2 && <span className="text-slate-600 font-bold">{i === 1 ? "=" : "+"}</span>}
                 </React.Fragment>
               ))}
             </div>
-            <div className="h-5 w-px bg-slate-600" />
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="h-5 w-px bg-slate-700" />
+            <div className="flex items-center gap-3 ml-auto">
               {summaryItems.slice(3).map((item, i) => (
                 <React.Fragment key={i}>
-                  {i > 0 && <span className="text-slate-600 text-xs">→</span>}
+                  {i > 0 && <span className="text-slate-600">→</span>}
                   <div>
-                    <p className="text-[7px] text-slate-400 uppercase font-black tracking-widest leading-none mb-0.5">{item.label}</p>
+                    <p className="text-[8px] text-slate-500 uppercase font-black tracking-widest leading-none mb-0.5">{item.label}</p>
                     <p className={`text-xs font-black ${item.color}`}>{item.value}</p>
                   </div>
                 </React.Fragment>
@@ -414,43 +408,43 @@ const VendorTripSummary = () => {
         </div>
       )}
 
-      {/* ══ TRIPS CONTAINER ══ */}
-      <div className="flex-1 min-h-0 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+      {/* ── TRIPS CONTAINER ── */}
+      <div className="flex-1 min-h-0 bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden flex flex-col">
 
-        {/* Section header */}
-        <div className="flex-shrink-0 px-3 py-2 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
+        {/* Header */}
+        <div className="flex-shrink-0 px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+          <div className="flex items-center gap-2">
             <ReceiptText size={13} className="text-slate-600" />
-            <span className="text-[11px] font-black text-slate-700 uppercase tracking-widest">Trips</span>
+            <span className="text-[11px] font-black text-slate-700 uppercase tracking-widest">Trip Records</span>
           </div>
-          <span className="text-[9px] text-slate-400">{MONTHS[tripMonth - 1]} {tripYear}</span>
+          <span className="text-[10px] text-slate-400 font-medium">{MONTHS[tripMonth - 1]} {tripYear}</span>
         </div>
 
         {tripLoading ? (
-          <div className="flex-1 flex items-center justify-center text-slate-400 italic text-sm">Loading trips…</div>
+          <div className="flex-1 flex items-center justify-center"><LoadingSpinner text="Loading trips…" /></div>
         ) : trips.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-2 opacity-30">
-            <Truck size={36} />
-            <p className="text-xs font-black uppercase tracking-widest italic">No trips found</p>
+          <div className="flex-1 flex flex-col items-center justify-center gap-2 text-slate-300">
+            <Truck size={32} />
+            <p className="text-xs font-black uppercase tracking-widest">No trips found</p>
           </div>
         ) : (
           <>
-            {/* ── MOBILE card list (< sm) ── */}
+            {/* Mobile cards */}
             <div className="flex-1 min-h-0 overflow-auto sm:hidden">
               <div className="p-3 space-y-2.5">
-                {filteredTrips.length === 0 ? (
-                  <div className="py-12 text-center text-gray-400 italic text-sm">No trips match the filter.</div>
-                ) : filteredTrips.map((t, idx) => (
-                  <TripCard key={t._id} t={t} idx={idx} ps={payStatus[t._id]} onView={setSelectedRental} />
-                ))}
-                {/* Mobile totals footer */}
+                {filteredTrips.length === 0
+                  ? <div className="py-12 text-center text-slate-400 text-sm">No trips match the filter.</div>
+                  : filteredTrips.map((t, idx) => (
+                    <TripCard key={t._id} t={t} idx={idx} ps={payStatus[t._id]} onView={setSelectedRental} />
+                  ))
+                }
                 {filteredTrips.length > 0 && (
-                  <div className="bg-slate-800 rounded-xl px-4 py-3 grid grid-cols-4 gap-2 text-center">
+                  <div className="bg-slate-900 rounded-2xl px-4 py-3 grid grid-cols-4 gap-2 text-center">
                     {[
-                      { l: "Rent",    v: `৳${totalRent.toLocaleString()}`,  c: "text-indigo-300" },
-                      { l: "Lebor",   v: `৳${totalLebor.toLocaleString()}`, c: "text-indigo-300" },
-                      { l: "Advance", v: `৳${totalAdv.toLocaleString()}`,   c: "text-orange-300" },
-                      { l: "Total",   v: `৳${totalBill.toLocaleString()}`,  c: "text-emerald-300" },
+                      { l: "Rent",  v: `৳${totalRent.toLocaleString()}`,  c: "text-indigo-300" },
+                      { l: "Lebor", v: `৳${totalLebor.toLocaleString()}`, c: "text-indigo-300" },
+                      { l: "Adv",   v: `৳${totalAdv.toLocaleString()}`,   c: "text-orange-300" },
+                      { l: "Total", v: `৳${totalBill.toLocaleString()}`,  c: "text-emerald-300" },
                     ].map((item, i) => (
                       <div key={i}>
                         <p className="text-[8px] text-slate-400 uppercase font-black tracking-widest leading-none mb-0.5">{item.l}</p>
@@ -462,131 +456,91 @@ const VendorTripSummary = () => {
               </div>
             </div>
 
-            {/* ── SMALL LAPTOP card list (sm → lg) ── */}
-            {/* Shows a condensed card/row layout better than full table but richer than mobile */}
-            <div className="flex-1 min-h-0 overflow-auto hidden sm:block lg:hidden">
-              {filteredTrips.length === 0 ? (
-                <div className="py-12 text-center text-gray-400 italic text-sm">No trips match the filter.</div>
-              ) : (
-                <table className="w-full border-collapse text-xs">
-                  <thead className="sticky top-0 z-20">
-                    <tr className="bg-gray-800 text-white">
-                      {["#", "Date", "Trip", "Driver", "Vehicle", "Rent", "Lebor", "Advance", "Total", "Status", ""].map((h, i) => (
-                        <th key={i} className="px-2 py-2 font-normal text-[9px] uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0 text-left">{h}</th>
-                      ))}
-                    </tr>
-                    {/* Inline filters */}
-                    <tr className="bg-gray-50 border-b-2 border-gray-200">
-                      <th className="px-1 py-1 border-r border-gray-100 w-6" />
-                      <th className="px-1 py-1 border-r border-gray-100" style={{ minWidth: "96px" }}>
-                        <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)} className="w-full px-1 py-0.5 border border-gray-200 rounded text-[9px] outline-none bg-white" />
-                      </th>
-                      <th className="px-1 py-1 border-r border-gray-100" style={{ minWidth: "80px" }}><MultiSelectFilter options={getOpts("tripNumber")} selected={tripFilter} onChange={setTripFilter} /></th>
-                      <th className="px-1 py-1 border-r border-gray-100" style={{ minWidth: "90px" }}><MultiSelectFilter options={getOpts("driverName")} selected={driverFilter} onChange={setDriverFilter} /></th>
-                      <th className="px-1 py-1 border-r border-gray-100" style={{ minWidth: "80px" }}><MultiSelectFilter options={getOpts("vehicleNumber")} selected={vehicleFilter} onChange={setVehicleFilter} /></th>
-                      <th className="px-1 py-1 border-r border-gray-100" style={{ minWidth: "62px" }}><SimpleSelect value={rentFilter} onChange={setRentFilter} options={[{ value: "", label: "All" }, { value: "added", label: "✓" }, { value: "missing", label: "✗" }]} /></th>
-                      <th className="px-1 py-1 border-r border-gray-100" style={{ minWidth: "62px" }}><SimpleSelect value={leborBillFilter} onChange={setLeborBillFilter} options={[{ value: "", label: "All" }, { value: "added", label: "✓" }, { value: "missing", label: "✗" }]} /></th>
-                      <th className="px-1 py-1 border-r border-gray-100 w-16" />
-                      <th className="px-1 py-1 border-r border-gray-100 w-16" />
-                      <th className="px-1 py-1 border-r border-gray-100 w-16" />
-                      <th className="px-1 py-1 w-12" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredTrips.map((t, idx) => {
-                      const tripTotal = (t.rent != null ? Number(t.rent) : 0) + (t.leborBill != null ? Number(t.leborBill) : 0);
-                      const ps = payStatus[t._id];
-                      const bill = Number(t.rent || 0) + Number(t.leborBill || 0);
-                      return (
-                        <tr key={t._id} className="border-b border-gray-100 hover:bg-amber-50 even:bg-gray-50/30 transition-colors">
-                          <td className="px-2 py-2 text-[10px] font-bold text-slate-400 text-center">{idx + 1}</td>
-                          <td className="px-2 py-2 text-[10px] text-slate-500 whitespace-nowrap">{new Date(t.createdAt).toLocaleDateString("en-GB")}</td>
-                          <td className="px-2 py-2"><span className="text-[9px] bg-gray-100 border border-gray-200 rounded px-1 py-0.5 font-mono">{t.tripNumber}</span></td>
-                          <td className="px-2 py-2 text-[10px] text-slate-700 max-w-[100px] truncate">{t.driverName}</td>
-                          <td className="px-2 py-2 text-[10px] text-slate-600 uppercase whitespace-nowrap">{t.vehicleNumber}</td>
-                          <td className="px-2 py-2 text-center whitespace-nowrap">{t.rent != null ? <span className="text-[10px] font-semibold text-green-700">৳{Number(t.rent).toLocaleString()}</span> : <span className="text-[9px] text-red-400">—</span>}</td>
-                          <td className="px-2 py-2 text-center whitespace-nowrap">{t.leborBill != null ? <span className="text-[10px] font-semibold text-green-700">৳{Number(t.leborBill).toLocaleString()}</span> : <span className="text-[9px] text-orange-400">—</span>}</td>
-                          <td className="px-2 py-2 text-center whitespace-nowrap">{t.advance != null ? <span className="text-[10px] font-semibold text-orange-600">৳{Number(t.advance).toLocaleString()}</span> : <span className="text-slate-300">—</span>}</td>
-                          <td className="px-2 py-2 text-center whitespace-nowrap">{t.rent != null || t.leborBill != null ? <span className="text-[10px] font-bold text-indigo-700">৳{tripTotal.toLocaleString()}</span> : <span className="text-slate-300">—</span>}</td>
-                          <td className="px-2 py-2 text-center"><PayBadge ps={ps} bill={bill} /></td>
-                          <td className="px-2 py-2 text-center"><button onClick={() => setSelectedRental(t)} className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-white text-[9px] font-semibold rounded transition">View</button></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot className="sticky bottom-0 z-10">
-                    <tr className="bg-slate-800 text-white">
-                      <td colSpan={5} className="px-2 py-2 text-[9px] font-black uppercase tracking-widest">Total ({filteredTrips.length})</td>
-                      <td className="px-2 py-2 text-center font-black text-indigo-300 whitespace-nowrap text-[10px]">৳{totalRent.toLocaleString()}</td>
-                      <td className="px-2 py-2 text-center font-black text-indigo-300 whitespace-nowrap text-[10px]">৳{totalLebor.toLocaleString()}</td>
-                      <td className="px-2 py-2 text-center font-black text-orange-300 whitespace-nowrap text-[10px]">৳{totalAdv.toLocaleString()}</td>
-                      <td className="px-2 py-2 text-center font-black text-emerald-300 whitespace-nowrap text-[10px]">৳{totalBill.toLocaleString()}</td>
-                      <td /><td />
-                    </tr>
-                  </tfoot>
-                </table>
-              )}
-            </div>
-
-            {/* ── DESKTOP full table (>= lg) ── */}
-            <div className="flex-1 min-h-0 overflow-auto hidden lg:block">
-              {filteredTrips.length === 0 ? (
-                <div className="py-12 text-center text-gray-400 italic text-sm">No trips match the filter.</div>
-              ) : (
-                <table className="w-full border-collapse text-xs" style={{ minWidth: "720px" }}>
-                  <thead className="sticky top-0 z-20">
-                    <tr className="bg-gray-800 text-white">
-                      {["#", "Date", "Trip", "Driver", "Vehicle", "Pt", "Rent", "Lebor Bill", "Advance", "Total", "Payment", "View"].map((h, i) => (
-                        <th key={i} className="px-3 py-2.5 font-normal text-[10px] uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0 text-left">{h}</th>
-                      ))}
-                    </tr>
-                    <tr className="bg-gray-50 border-b-2 border-gray-200">
-                      <th className="px-1 py-1 border-r border-gray-100 w-7" />
-                      <th className="px-1 py-1 border-r border-gray-100" style={{ minWidth: "108px" }}><input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)} className="w-full px-1 py-0.5 border border-gray-200 rounded text-[9px] outline-none bg-white" /></th>
-                      <th className="px-1 py-1 border-r border-gray-100" style={{ minWidth: "88px" }}><MultiSelectFilter options={getOpts("tripNumber")} selected={tripFilter} onChange={setTripFilter} /></th>
-                      <th className="px-1 py-1 border-r border-gray-100" style={{ minWidth: "96px" }}><MultiSelectFilter options={getOpts("driverName")} selected={driverFilter} onChange={setDriverFilter} /></th>
-                      <th className="px-1 py-1 border-r border-gray-100" style={{ minWidth: "88px" }}><MultiSelectFilter options={getOpts("vehicleNumber")} selected={vehicleFilter} onChange={setVehicleFilter} /></th>
-                      <th className="px-1 py-1 border-r border-gray-100 w-8" />
-                      <th className="px-1 py-1 border-r border-gray-100" style={{ minWidth: "70px" }}><SimpleSelect value={rentFilter} onChange={setRentFilter} options={[{ value: "", label: "All" }, { value: "added", label: "✓" }, { value: "missing", label: "✗" }]} /></th>
-                      <th className="px-1 py-1 border-r border-gray-100" style={{ minWidth: "78px" }}><SimpleSelect value={leborBillFilter} onChange={setLeborBillFilter} options={[{ value: "", label: "All" }, { value: "added", label: "✓" }, { value: "missing", label: "✗" }]} /></th>
-                      <th className="px-1 py-1 border-r border-gray-100 w-20" /><th className="px-1 py-1 border-r border-gray-100 w-20" /><th className="px-1 py-1 border-r border-gray-100 w-20" /><th className="px-1 py-1 w-14" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredTrips.map((t, idx) => {
-                      const tripTotal = (t.rent != null ? Number(t.rent) : 0) + (t.leborBill != null ? Number(t.leborBill) : 0);
-                      const ps = payStatus[t._id];
-                      const bill = Number(t.rent || 0) + Number(t.leborBill || 0);
-                      return (
-                        <tr key={t._id} className="border-b border-gray-100 hover:bg-amber-50 even:bg-gray-50/40 transition-colors">
-                          <td className="px-3 py-2 text-[10px] font-bold text-slate-400 text-center">{idx + 1}</td>
-                          <td className="px-3 py-2 text-[10px] text-slate-500 whitespace-nowrap">{new Date(t.createdAt).toLocaleDateString("en-GB")}</td>
-                          <td className="px-3 py-2"><span className="text-[10px] bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 font-mono whitespace-nowrap">{t.tripNumber}</span></td>
-                          <td className="px-3 py-2 text-[11px] text-slate-700 max-w-[110px] truncate">{t.driverName}</td>
-                          <td className="px-3 py-2 text-[10px] text-slate-600 uppercase whitespace-nowrap">{t.vehicleNumber}</td>
-                          <td className="px-3 py-2 text-[11px] font-semibold text-slate-700 text-center">{t.challans ? t.challans.filter(c => !c.isReturn).length : t.totalChallan}</td>
-                          <td className="px-3 py-2 text-center whitespace-nowrap">{t.rent != null ? <span className="text-[11px] font-semibold text-green-700">৳{Number(t.rent).toLocaleString()}</span> : <span className="text-[9px] text-red-400 bg-red-50 border border-red-200 rounded px-1.5 py-0.5">Missing</span>}</td>
-                          <td className="px-3 py-2 text-center whitespace-nowrap">{t.leborBill != null ? <span className="text-[11px] font-semibold text-green-700">৳{Number(t.leborBill).toLocaleString()}</span> : <span className="text-[9px] text-orange-400 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">Missing</span>}</td>
-                          <td className="px-3 py-2 text-center whitespace-nowrap">{t.advance != null ? <span className="text-[11px] font-semibold text-orange-600">৳{Number(t.advance).toLocaleString()}</span> : <span className="text-slate-300">—</span>}</td>
-                          <td className="px-3 py-2 text-center whitespace-nowrap">{t.rent != null || t.leborBill != null ? <span className="text-[11px] font-bold text-indigo-700">৳{tripTotal.toLocaleString()}</span> : <span className="text-slate-300">—</span>}</td>
-                          <td className="px-3 py-2 text-center"><PayBadge ps={ps} bill={bill} /></td>
-                          <td className="px-3 py-2 text-center"><button onClick={() => setSelectedRental(t)} className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-white text-[10px] font-semibold rounded transition whitespace-nowrap">View</button></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot className="sticky bottom-0 z-10">
-                    <tr className="bg-slate-800 text-white">
-                      <td colSpan={6} className="px-3 py-2.5 text-[10px] font-black uppercase tracking-widest">Total ({filteredTrips.length} trips)</td>
-                      <td className="px-3 py-2.5 text-center font-black text-indigo-300 whitespace-nowrap">৳{totalRent.toLocaleString()}</td>
-                      <td className="px-3 py-2.5 text-center font-black text-indigo-300 whitespace-nowrap">৳{totalLebor.toLocaleString()}</td>
-                      <td className="px-3 py-2.5 text-center font-black text-orange-300 whitespace-nowrap">৳{totalAdv.toLocaleString()}</td>
-                      <td className="px-3 py-2.5 text-center font-black text-emerald-300 whitespace-nowrap">৳{totalBill.toLocaleString()}</td>
-                      <td /><td />
-                    </tr>
-                  </tfoot>
-                </table>
-              )}
+            {/* Desktop table */}
+            <div className="flex-1 min-h-0 overflow-auto hidden sm:block">
+              {filteredTrips.length === 0
+                ? <div className="py-12 text-center text-slate-400 italic text-sm">No trips match the filter.</div>
+                : (
+                  <table className="w-full border-collapse text-xs" style={{ minWidth: "720px" }}>
+                    <thead className="sticky top-0 z-20">
+                      <tr className="bg-slate-900 text-left">
+                        {["#","Date","Trip","Driver","Vehicle","Pt","Rent","Lebor Bill","Advance","Total","Payment","View"].map((h, i) => (
+                          <th key={i} className="px-2.5 py-2.5 text-[10px] font-black text-slate-400 uppercase tracking-wide whitespace-nowrap border-r border-white/5 last:border-0">{h}</th>
+                        ))}
+                      </tr>
+                      <tr className="bg-slate-50 border-b-2 border-slate-200">
+                        <th className="p-1 border-r border-slate-200 w-8" />
+                        <th className="p-1 border-r border-slate-200" style={{ minWidth: "108px" }}>
+                          <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
+                            className="w-full px-1.5 py-0.5 border border-slate-200 rounded-lg text-[9px] outline-none focus:border-orange-400 bg-white" />
+                        </th>
+                        <th className="p-1 border-r border-slate-200" style={{ minWidth: "88px" }}><MultiSelectFilter options={getOpts("tripNumber")}    selected={tripFilter}    onChange={setTripFilter} /></th>
+                        <th className="p-1 border-r border-slate-200" style={{ minWidth: "96px" }}><MultiSelectFilter options={getOpts("driverName")}    selected={driverFilter}  onChange={setDriverFilter} /></th>
+                        <th className="p-1 border-r border-slate-200" style={{ minWidth: "88px" }}><MultiSelectFilter options={getOpts("vehicleNumber")} selected={vehicleFilter} onChange={setVehicleFilter} /></th>
+                        <th className="p-1 border-r border-slate-200 w-8" />
+                        <th className="p-1 border-r border-slate-200" style={{ minWidth: "70px" }}><SimpleSelect value={rentFilter}      onChange={setRentFilter}      options={[{ value: "", label: "All" }, { value: "added", label: "✓" }, { value: "missing", label: "✗" }]} /></th>
+                        <th className="p-1 border-r border-slate-200" style={{ minWidth: "78px" }}><SimpleSelect value={leborBillFilter} onChange={setLeborBillFilter} options={[{ value: "", label: "All" }, { value: "added", label: "✓" }, { value: "missing", label: "✗" }]} /></th>
+                        <th className="p-1 border-r border-slate-200 w-20" />
+                        <th className="p-1 border-r border-slate-200 w-20" />
+                        <th className="p-1 border-r border-slate-200 w-20" />
+                        <th className="p-1 w-14" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredTrips.map((t, idx) => {
+                        const tripTotal = (t.rent != null ? Number(t.rent) : 0) + (t.leborBill != null ? Number(t.leborBill) : 0);
+                        const ps   = payStatus[t._id];
+                        const bill = Number(t.rent || 0) + Number(t.leborBill || 0);
+                        return (
+                          <tr key={t._id} className="border-b border-slate-100 hover:bg-amber-50/30 even:bg-slate-50/40 transition-colors">
+                            <td className="px-2.5 py-2 text-[10px] font-bold text-slate-400 text-center">{idx + 1}</td>
+                            <td className="px-2.5 py-2 text-[10px] text-slate-500 whitespace-nowrap">{new Date(t.createdAt).toLocaleDateString("en-GB")}</td>
+                            <td className="px-2.5 py-2"><span className="text-[10px] bg-slate-100 border border-slate-200 rounded-lg px-1.5 py-0.5 font-mono font-bold">{t.tripNumber}</span></td>
+                            <td className="px-2.5 py-2 text-[11px] text-slate-700 max-w-[110px] truncate">{t.driverName}</td>
+                            <td className="px-2.5 py-2 text-[10px] text-slate-600 uppercase font-mono">{t.vehicleNumber}</td>
+                            <td className="px-2.5 py-2 text-center font-black text-slate-700 text-[11px]">{t.challans ? t.challans.filter(c => !c.isReturn).length : t.totalChallan}</td>
+                            <td className="px-2.5 py-2 text-center">
+                              {t.rent != null
+                                ? <span className="text-[11px] font-semibold text-emerald-700">৳{Number(t.rent).toLocaleString()}</span>
+                                : <span className="text-[9px] text-red-400 bg-red-50 border border-red-200 rounded-lg px-1.5 py-0.5">Missing</span>
+                              }
+                            </td>
+                            <td className="px-2.5 py-2 text-center">
+                              {t.leborBill != null
+                                ? <span className="text-[11px] font-semibold text-emerald-700">৳{Number(t.leborBill).toLocaleString()}</span>
+                                : <span className="text-[9px] text-amber-500 bg-amber-50 border border-amber-200 rounded-lg px-1.5 py-0.5">Missing</span>
+                              }
+                            </td>
+                            <td className="px-2.5 py-2 text-center">
+                              {t.advance != null ? <span className="text-[11px] font-semibold text-orange-600">৳{Number(t.advance).toLocaleString()}</span> : <span className="text-slate-300">—</span>}
+                            </td>
+                            <td className="px-2.5 py-2 text-center">
+                              {t.rent != null || t.leborBill != null ? <span className="text-[11px] font-black text-indigo-700">৳{tripTotal.toLocaleString()}</span> : <span className="text-slate-300">—</span>}
+                            </td>
+                            <td className="px-2.5 py-2 text-center"><PayBadge ps={ps} bill={bill} /></td>
+                            <td className="px-2.5 py-2 text-center">
+                              <button onClick={() => setSelectedRental(t)}
+                                className="px-2.5 py-1 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-black rounded-lg transition">
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot className="sticky bottom-0 z-10">
+                      <tr className="bg-slate-900 text-white">
+                        <td colSpan={6} className="px-3 py-2.5 text-[10px] font-black uppercase tracking-widest">Total ({filteredTrips.length} trips)</td>
+                        <td className="px-3 py-2.5 text-center font-black text-indigo-300 whitespace-nowrap">৳{totalRent.toLocaleString()}</td>
+                        <td className="px-3 py-2.5 text-center font-black text-indigo-300 whitespace-nowrap">৳{totalLebor.toLocaleString()}</td>
+                        <td className="px-3 py-2.5 text-center font-black text-orange-300 whitespace-nowrap">৳{totalAdv.toLocaleString()}</td>
+                        <td className="px-3 py-2.5 text-center font-black text-emerald-300 whitespace-nowrap">৳{totalBill.toLocaleString()}</td>
+                        <td /><td />
+                      </tr>
+                    </tfoot>
+                  </table>
+                )
+              }
             </div>
           </>
         )}

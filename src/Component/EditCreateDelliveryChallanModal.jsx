@@ -1,19 +1,12 @@
-
-
 import React from "react";
-import { FaTimes, FaBoxOpen, FaTrashAlt, FaPlus } from "react-icons/fa";
+import { FaBoxOpen, FaTrashAlt, FaPlus } from "react-icons/fa";
+import { X, Check } from "lucide-react";
 
 const EditCreateDeliveryChallanModal = ({
-  isOpen,
-  editingChallan,
-  setIsEditModalOpen,
-  handleEditChange,
-  handleProductChange,
-  handleDeleteProduct,
-  handleUpdateChallan,
-  setEditingChallan,
+  isOpen, editingChallan, setIsEditModalOpen,
+  handleEditChange, handleProductChange,
+  handleDeleteProduct, handleUpdateChallan, setEditingChallan,
 }) => {
-
   if (!isOpen || !editingChallan) return null;
 
   const handleAddProduct = () => {
@@ -23,52 +16,62 @@ const EditCreateDeliveryChallanModal = ({
     }));
   };
 
-  const inp = "w-full px-3 py-2 border border-gray-200 rounded-md text-sm bg-gray-50 text-gray-900 outline-none focus:border-gray-400 focus:bg-white transition-colors placeholder:text-gray-400";
-  const lbl = "block text-[11px] uppercase tracking-wider text-gray-600 mb-1";
+  const inp = "w-full px-3 py-2.5 text-xs font-semibold bg-white border border-slate-200 rounded-xl outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-500/10 transition-all placeholder-slate-400";
+  const lbl = "block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1";
+  const sec = "text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2 mb-3";
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={{ background: "rgba(2,6,23,0.65)", backdropFilter: "blur(4px)" }}
       onClick={e => e.target === e.currentTarget && setIsEditModalOpen(false)}
     >
-      <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
-
+      <div
+        className="w-full sm:max-w-2xl bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        style={{ maxHeight: "96vh" }}
+      >
         {/* Header */}
-        <div className="bg-gray-800 px-6 py-4 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-white/60 border border-white/20 rounded px-2 py-0.5 font-mono">edit</span>
-            <span className="text-sm text-white">Edit Challan</span>
+        <div className="shrink-0 bg-slate-900 px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="text-[10px] text-white/50 border border-white/20 rounded-lg px-2 py-0.5 font-mono">edit</span>
+            <span className="text-sm font-bold text-white">Edit Challan</span>
           </div>
-          <button
-            onClick={() => setIsEditModalOpen(false)}
-            className="w-7 h-7 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 transition-all"
-          >
-            <FaTimes size={13} />
+          <button onClick={() => setIsEditModalOpen(false)}
+            className="p-2 hover:bg-white/10 rounded-xl text-slate-400 hover:text-white transition">
+            <X size={15} />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-5 overflow-y-auto flex-1">
+        <div className="overflow-y-auto flex-1 px-4 py-4 bg-slate-50 space-y-4">
 
           {/* Customer Info */}
-          <div>
-            <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2.5 flex items-center gap-2 after:flex-1 after:h-px after:bg-gray-100 after:content-['']">Customer Info</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
+            <p className={sec}>
+              <span className="h-1 w-5 rounded-full bg-slate-700 shrink-0" />
+              Customer Info
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2 sm:col-span-1">
                 <label className={lbl}>Customer Name</label>
-                <input name="customerName" value={editingChallan.customerName || ""} onChange={handleEditChange} placeholder="Ex: Rahim & Co" className={inp} />
+                <input name="customerName" value={editingChallan.customerName || ""} onChange={handleEditChange}
+                  placeholder="Ex: Rahim & Co" className={inp} />
               </div>
-              <div>
+              <div className="col-span-2 sm:col-span-1">
                 <label className={lbl}>Receiver Number</label>
-                <input name="receiverNumber" value={editingChallan.receiverNumber || ""} onChange={handleEditChange} placeholder="+880 1XXX-XXXXXX" className={inp} />
+                <input name="receiverNumber" value={editingChallan.receiverNumber || ""} onChange={handleEditChange}
+                  placeholder="+880 1XXX-XXXXXX" className={inp} />
               </div>
             </div>
           </div>
 
           {/* Address */}
-          <div>
-            <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2.5 flex items-center gap-2 after:flex-1 after:h-px after:bg-gray-100 after:content-['']">Delivery Address</p>
-            <div className="grid grid-cols-3 gap-3 mb-3">
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
+            <p className={sec}>
+              <span className="h-1 w-5 rounded-full bg-slate-700 shrink-0" />
+              Delivery Address
+            </p>
+            <div className="grid grid-cols-3 gap-2">
               <div>
                 <label className={lbl}>Zone</label>
                 <input name="zone" value={editingChallan.zone || ""} onChange={handleEditChange} className={inp} />
@@ -89,83 +92,69 @@ const EditCreateDeliveryChallanModal = ({
           </div>
 
           {/* Products */}
-          <div>
-            <div className="flex items-center justify-between mb-2.5">
-              <p className="text-[10px] uppercase tracking-widest text-gray-500 flex items-center gap-2 after:w-8 after:h-px after:bg-gray-100 after:content-['']">Products</p>
-              <button
-                type="button"
-                onClick={handleAddProduct}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-dashed border-gray-300 rounded-md text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-all"
-              >
-                <FaPlus size={9} /> Add Product
+          <div className="bg-white rounded-2xl border border-slate-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className={sec + " mb-0"}>
+                <span className="h-1 w-5 rounded-full bg-slate-700 shrink-0" />
+                Products
+              </p>
+              <button type="button" onClick={handleAddProduct}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold border border-dashed border-slate-300 rounded-xl text-slate-500 hover:border-slate-500 hover:text-slate-700 transition-all">
+                <FaPlus size={9} /> Add
               </button>
             </div>
 
             <div className="space-y-2">
               {editingChallan.products?.map((p, index) => (
-                <div key={index} className="flex gap-2 items-center p-2.5 bg-gray-50 border border-gray-100 rounded-lg hover:border-gray-200 transition-colors">
-                  <div className="flex-[5]">
-                    <label className="text-[10px] uppercase tracking-wider text-gray-500 mb-1 block">Item Name</label>
-                    <input
-                      value={p.productName}
+                <div key={index} className="flex gap-2 items-end p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                  {/* Product name — small */}
+                  <div className="w-[30%] shrink-0">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Item</label>
+                    <input value={p.productName}
                       onChange={e => handleProductChange(index, "productName", e.target.value)}
-                      className="w-full text-sm text-gray-900 outline-none bg-transparent border-b border-gray-200 focus:border-gray-500 pb-0.5 placeholder:text-gray-400"
-                      placeholder="Product name"
-                    />
+                      className="w-full text-xs text-slate-800 outline-none bg-white border border-slate-200 rounded-lg px-2 py-1.5 focus:border-slate-400 placeholder-slate-300"
+                      placeholder="Name" />
                   </div>
-                  <div className="flex-[4]">
-                    <label className="text-[10px] uppercase tracking-wider text-gray-500 mb-1 block">Model</label>
-                    <input
-                      value={p.model}
+                  {/* Model — large */}
+                  <div className="flex-1 min-w-0">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Model</label>
+                    <input value={p.model}
                       onChange={e => handleProductChange(index, "model", e.target.value)}
-                      className="w-full text-sm text-gray-900 outline-none bg-transparent border-b border-gray-200 focus:border-gray-500 pb-0.5 placeholder:text-gray-400"
-                      placeholder="Model"
-                    />
+                      className="w-full text-xs text-slate-800 outline-none bg-white border border-slate-200 rounded-lg px-2 py-1.5 focus:border-slate-400 placeholder-slate-300 uppercase"
+                      placeholder="Model" />
                   </div>
-                  <div className="w-16 shrink-0">
-                    <label className="text-[10px] uppercase tracking-wider text-gray-500 mb-1 block">Qty</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={p.quantity}
+                  {/* Qty */}
+                  <div className="w-12 shrink-0">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Qty</label>
+                    <input type="number" min="1" value={p.quantity}
                       onChange={e => handleProductChange(index, "quantity", e.target.value)}
-                      className="w-full text-sm font-medium text-gray-900 outline-none bg-transparent border-b border-gray-200 focus:border-gray-500 pb-0.5"
-                      placeholder="0"
-                    />
+                      className="w-full text-xs font-black text-center text-slate-800 outline-none bg-white border border-slate-200 rounded-lg px-1 py-1.5 focus:border-slate-400" />
                   </div>
                   {editingChallan.products.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteProduct(index)}
-                      className="shrink-0 w-7 h-7 flex items-center justify-center border border-red-100 rounded text-red-300 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all"
-                    >
-                      <FaTrashAlt size={11} />
+                    <button type="button" onClick={() => handleDeleteProduct(index)}
+                      className="shrink-0 w-7 h-7 flex items-center justify-center border border-red-100 rounded-lg text-red-300 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all">
+                      <FaTrashAlt size={10} />
                     </button>
                   )}
                 </div>
               ))}
             </div>
           </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-end gap-2 pt-1 border-t border-gray-100">
-            <button
-              onClick={() => setIsEditModalOpen(false)}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleUpdateChallan}
-              className="px-5 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded-md transition-colors flex items-center gap-2"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-              Update Challan
-            </button>
-          </div>
         </div>
+
+        {/* Footer */}
+        <div className="shrink-0 px-4 py-3 bg-white border-t border-slate-100 flex gap-2.5">
+          <button onClick={() => setIsEditModalOpen(false)}
+            className="flex-1 py-2.5 text-[13px] font-semibold text-slate-500 border border-slate-200 hover:bg-slate-50 rounded-xl transition">
+            Cancel
+          </button>
+          <button onClick={handleUpdateChallan}
+            className="flex-[2] py-2.5 text-[13px] font-black text-white rounded-xl flex items-center justify-center gap-2 transition active:scale-[0.98] bg-slate-800 hover:bg-slate-700">
+            <Check size={13} /> Update Challan
+          </button>
+        </div>
+
+        <div style={{ height: "env(safe-area-inset-bottom,0px)" }} className="bg-white sm:hidden" />
       </div>
     </div>
   );

@@ -1,5 +1,4 @@
 
-
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import useRole from "../hooks/useRole";
@@ -220,7 +219,7 @@ const ManualTxModal = ({ open, onClose, onSave }) => {
         </div>
         <div className="flex gap-3 px-4 pb-5 pt-1">
           <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50">Cancel</button>
-          <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-gray-800 text-white rounded-lg text-sm font-semibold hover:bg-gray-700 transition disabled:opacity-60">
+          <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-gray-700 transition disabled:opacity-60">
             {saving ? "Saving…" : "Save"}
           </button>
         </div>
@@ -265,7 +264,7 @@ const VendorSummaryTable = ({ vendorMap, onPayVendor }) => {
       {/* Desktop table */}
       <table className="hidden sm:table w-full text-sm border-collapse">
         <thead>
-          <tr className="bg-gray-800 text-white text-left">
+          <tr className="bg-slate-900 text-white text-left">
             {["Vendor","Trips","Total Bill","Advance","Paid","Due",""].map(h => (
               <th key={h} className="px-3 py-2.5 text-xs font-normal uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0">{h}</th>
             ))}
@@ -276,7 +275,7 @@ const VendorSummaryTable = ({ vendorMap, onPayVendor }) => {
             const cleared = v.totalAdvance + v.totalPaid;
             const due = Math.max(0, v.totalBill - cleared);
             return (
-              <tr key={i} className="border-b border-gray-100 hover:bg-amber-50 even:bg-gray-50/40 transition-colors">
+              <tr key={i} className="border-b border-gray-100 hover:bg-amber-50/30 even:bg-slate-50/40 transition-colors">
                 <td className="px-3 py-2.5 font-semibold text-gray-800">{v.vendor}</td>
                 <td className="px-3 py-2.5 text-gray-500 text-center">{v.trips}</td>
                 <td className="px-3 py-2.5 font-semibold text-gray-800">{fmt(v.totalBill)}</td>
@@ -600,7 +599,7 @@ const AccountsDashboard = () => {
       </p>`,
       icon: "question",
       showCancelButton: true,
-      confirmButtonColor: "#1f2937",
+      confirmButtonColor: "#f97316",
       confirmButtonText: "✓ Export করুন",
       cancelButtonText: "Cancel",
     });
@@ -624,7 +623,7 @@ const AccountsDashboard = () => {
      RENDER
   ══════════════════════════════════════════════════════════════ */
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50 page-enter">
       {/* Pay vendor modal শুধু manager দেখবে */}
       {canWrite && <PayVendorModal open={!!payVendorName} vendor={payVendorName} summary={payingVendorSummary} onClose={() => setPayVendorName(null)} onPay={handlePayVendor} />}
       {canWrite && <ManualTxModal open={manualModal} onClose={() => setManualModal(false)} onSave={handleAddManualTx} />}
@@ -635,7 +634,7 @@ const AccountsDashboard = () => {
         <div className="flex flex-col gap-2 mb-3 sm:mb-4">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h1 className="text-base sm:text-lg font-bold text-gray-800">Accounts</h1>
+              <h1 className="text-base sm:text-lg font-black text-slate-900">Accounts</h1>
               <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
                 {MONTHS[month - 1]} {year} · {trips.length} trips
                 {pendingVendors > 0 && <span className="ml-1.5 text-red-500 font-semibold">· {pendingVendors} pending</span>}
@@ -645,13 +644,13 @@ const AccountsDashboard = () => {
             <div className="flex items-center gap-1.5 sm:hidden">
               {canWrite && (
                 <button onClick={() => setManualModal(true)}
-                  className="flex items-center gap-1 px-2 py-1.5 text-xs rounded bg-emerald-600 text-white hover:bg-emerald-500 transition font-medium">
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs rounded bg-emerald-500 text-white hover:bg-emerald-600 transition font-medium">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   Add
                 </button>
               )}
               <button onClick={handleExport}
-                className="flex items-center gap-1 px-2 py-1.5 text-xs rounded bg-gray-800 text-white hover:bg-gray-700 transition">
+                className="flex items-center gap-1 px-2 py-1.5 text-xs rounded bg-slate-900 text-white hover:bg-gray-700 transition">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 XLS
               </button>
@@ -664,19 +663,19 @@ const AccountsDashboard = () => {
               value={month} onChange={e => setMonth(parseInt(e.target.value))}>
               {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
             </select>
-            <input type="number" className="border border-gray-300 px-2 py-1.5 rounded text-xs sm:text-sm bg-white text-gray-700 w-16 focus:outline-none"
+            <input type="number" className="border border-gray-300 px-1 py-1.5 rounded text-xs sm:text-sm bg-white text-gray-700 w-16 focus:outline-none"
               value={year} onChange={e => setYear(parseInt(e.target.value))} />
             <div className="hidden sm:flex items-center gap-2 ml-auto">
               {/* Desktop Add button — শুধু manager */}
               {canWrite && (
                 <button onClick={() => setManualModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm rounded bg-emerald-600 text-white hover:bg-emerald-500 transition font-medium">
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm rounded bg-emerald-500 text-white hover:bg-emerald-600 transition font-medium">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   Add Transaction
                 </button>
               )}
               <button onClick={handleExport}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm rounded bg-gray-800 text-white hover:bg-gray-700 transition">
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm rounded bg-slate-900 text-white hover:bg-gray-700 transition">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Export
               </button>
@@ -721,7 +720,7 @@ const AccountsDashboard = () => {
 
         {/* ── Tabs ── */}
         <div className="mb-3 sm:mb-4 overflow-x-auto pb-0.5">
-          <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm w-max min-w-full sm:min-w-0 sm:w-fit">
+          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm w-max min-w-full sm:min-w-0 sm:w-fit">
             {[
               { id: "overview",     label: "Overview" },
               { id: "vendors",      label: `Vendors${pendingVendors > 0 ? ` (${pendingVendors})` : ""}` },
@@ -732,7 +731,7 @@ const AccountsDashboard = () => {
               <button key={t.id}
                 onClick={() => { setTab(t.id); if (t.id === "audit") fetchAuditLogs(1, auditSearch); }}
                 className={`px-2.5 sm:px-4 py-1.5 text-[11px] sm:text-xs font-semibold rounded transition-all whitespace-nowrap
-                  ${tab === t.id ? "bg-gray-800 text-white" : "text-gray-500 hover:text-gray-800"}`}>
+                  ${tab === t.id ? "bg-slate-900 text-white" : "text-gray-500 hover:text-gray-800"}`}>
                 {t.label}
               </button>
             ))}
@@ -844,7 +843,7 @@ const AccountsDashboard = () => {
             </div>
 
             {/* Pending vendors quick view */}
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-3 sm:p-5 lg:col-span-2">
+            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-3 sm:p-5 lg:col-span-2">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold text-gray-800">Pending Vendors — Quick View</h3>
                 <button onClick={() => setTab("vendors")} className="text-xs text-indigo-600 hover:underline font-semibold shrink-0">View All →</button>
@@ -1227,7 +1226,7 @@ const AccountsDashboard = () => {
                     <div className="hidden sm:block overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)]">
                       <table className="w-full text-sm border-collapse min-w-[700px]">
                         <thead>
-                          <tr className="bg-gray-800 text-white sticky top-0 z-10">
+                          <tr className="bg-slate-900 text-white sticky top-0 z-10">
                             {["সময়","কে Delete করেছে","Type","Description","Amount","কারণ",""].map(h => (
                               <th key={h} className="px-4 py-2.5 text-left text-xs font-normal uppercase tracking-wider whitespace-nowrap border-r border-white/10 last:border-r-0">{h}</th>
                             ))}

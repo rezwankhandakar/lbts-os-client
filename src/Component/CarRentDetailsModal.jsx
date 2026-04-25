@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import useAuth from "../hooks/useAuth";
@@ -5,6 +6,7 @@ import Swal from "sweetalert2";
 import {
   X, Truck, User, Package, PhoneForwarded, Save, Wallet, Pencil, ChevronDown,
 } from "lucide-react";
+import RentSummaryModal from "./RentSummaryModal";
 
 /* ════════════════════════════════════════════════════════════════
    সংখ্যাকে বাংলা কথায় রূপান্তর
@@ -16,32 +18,27 @@ const tens = ["", "", "বিশ", "ত্রিশ", "চল্লিশ", "প
 function toBanglaWords(n) {
   n = Math.round(Math.abs(n));
   if (n === 0) return "শূন্য";
-
   function belowHundred(num) {
     if (num < 20) return ones[num];
     const t = Math.floor(num / 10);
     const o = num % 10;
     return tens[t] + (o ? " " + ones[o] : "");
   }
-
   function belowThousand(num) {
     if (num < 100) return belowHundred(num);
     const h = Math.floor(num / 100);
     const r = num % 100;
     return ones[h] + " শত" + (r ? " " + belowHundred(r) : "");
   }
-
-  const crore  = Math.floor(n / 10000000); n %= 10000000;
-  const lakh   = Math.floor(n / 100000);   n %= 100000;
-  const hazar  = Math.floor(n / 1000);     n %= 1000;
-  const rest   = n;
-
+  const crore = Math.floor(n / 10000000); n %= 10000000;
+  const lakh  = Math.floor(n / 100000);   n %= 100000;
+  const hazar = Math.floor(n / 1000);     n %= 1000;
+  const rest  = n;
   let parts = [];
-  if (crore)  parts.push(belowThousand(crore)  + " কোটি");
-  if (lakh)   parts.push(belowThousand(lakh)   + " লক্ষ");
-  if (hazar)  parts.push(belowThousand(hazar)  + " হাজার");
-  if (rest)   parts.push(belowThousand(rest));
-
+  if (crore) parts.push(belowThousand(crore) + " কোটি");
+  if (lakh)  parts.push(belowThousand(lakh)  + " লক্ষ");
+  if (hazar) parts.push(belowThousand(hazar) + " হাজার");
+  if (rest)  parts.push(belowThousand(rest));
   return parts.join(" ");
 }
 
@@ -52,151 +49,13 @@ function takaInWords(amount) {
   return toBanglaWords(n) + " টাকা";
 }
 
-const RentSummaryModal = ({ rental, rent, leborBill, onConfirm, onCancel, saving }) => {
-  const challans       = rental.challans || [];
-  const normalChallans = challans.filter(c => !c.isReturn);
-  const returnChallans = challans.filter(c =>  c.isReturn);
-
-  /* product summary */
-  const productMap = {};
-  normalChallans.forEach(c =>
-    (c.products || []).forEach(p => {
-      if (!productMap[p.productName]) productMap[p.productName] = 0;
-      productMap[p.productName] += Number(p.quantity || 0);
-    })
-  );
-  const productSummary = Object.entries(productMap);
-
-  const totalPcs = productSummary.reduce((s, [, q]) => s + q, 0);
-  const totalBill = (Number(rent) || 0) + (Number(leborBill) || 0);
-
-  return (
-    <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
-      onClick={onCancel}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="bg-indigo-600 px-5 py-4 flex items-center justify-between">
-          <div>
-            <p className="text-white font-black text-base">{rental.tripNumber}</p>
-            <p className="text-indigo-200 text-xs">{rental.vehicleNumber} · {rental.driverName}</p>
-          </div>
-          <button onClick={onCancel} className="text-white/70 hover:text-white">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="px-5 py-4 space-y-4 text-sm">
-
-          {/* পয়েন্ট */}
-          <div className="flex justify-between items-center py-2 border-b border-slate-100">
-            <span className="text-slate-500 font-medium">মোট পয়েন্ট</span>
-            <span className="font-black text-indigo-700 text-base">
-              {normalChallans.length} টি পয়েন্ট · {totalPcs} পিস
-            </span>
-          </div>
-
-          {/* রিটার্ন (থাকলে) */}
-          {returnChallans.length > 0 && (
-            <div className="flex justify-between items-center py-2 border-b border-orange-100 bg-orange-50 rounded-lg px-3">
-              <span className="text-orange-600 font-medium">রিটার্ন পয়েন্ট</span>
-              <span className="font-black text-orange-700">{returnChallans.length} টি</span>
-            </div>
-          )}
-
-          {/* পণ্যের সারসংক্ষেপ */}
-          {productSummary.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-slate-500 font-medium text-xs uppercase tracking-wide">পণ্যের বিবরণ</p>
-              <div className="bg-slate-50 rounded-xl overflow-hidden border border-slate-100">
-                {productSummary.map(([name, qty], i) => (
-                  <div key={i} className="flex justify-between items-center px-3 py-2 border-b border-slate-100 last:border-0">
-                    <span className="text-slate-700 font-semibold text-xs">{name}</span>
-                    <span className="text-indigo-700 font-black text-xs">{qty} পিস</span>
-                  </div>
-                ))}
-                <div className="flex justify-between items-center px-3 py-2 bg-indigo-50">
-                  <span className="text-indigo-700 font-bold text-xs">মোট</span>
-                  <span className="text-indigo-700 font-black text-xs">{totalPcs} পিস</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* রেন্ট ও লেবার বিল */}
-          <div className="space-y-1.5">
-            <p className="text-slate-500 font-medium text-xs uppercase tracking-wide">বিল</p>
-            <div className="bg-slate-50 rounded-xl overflow-hidden border border-slate-100">
-              <div className="flex justify-between items-center px-3 py-2.5 border-b border-slate-100">
-                <span className="text-slate-600 font-medium">গাড়ি ভাড়া</span>
-                <div className="text-right">
-                  <span className="text-indigo-700 font-black">
-                    {rent !== "" && rent != null ? `৳ ${Number(rent).toLocaleString()}` : "—"}
-                  </span>
-                  {rent !== "" && rent != null && (
-                    <p className="text-[10px] text-indigo-400 font-medium">{takaInWords(rent)}</p>
-                  )}
-                </div>
-              </div>
-              <div className="flex justify-between items-center px-3 py-2.5 border-b border-slate-100">
-                <span className="text-slate-600 font-medium">লেবার বিল</span>
-                <div className="text-right">
-                  <span className="text-sky-700 font-black">
-                    {leborBill !== "" && leborBill != null ? `৳ ${Number(leborBill).toLocaleString()}` : "—"}
-                  </span>
-                  {leborBill !== "" && leborBill != null && (
-                    <p className="text-[10px] text-sky-400 font-medium">{takaInWords(leborBill)}</p>
-                  )}
-                </div>
-              </div>
-              {rent !== "" && leborBill !== "" && (
-                <div className="flex justify-between items-center px-3 py-2.5 bg-emerald-50">
-                  <span className="text-emerald-700 font-bold">মোট বিল</span>
-                  <div className="text-right">
-                    <span className="text-emerald-700 font-black text-base">
-                      ৳ {totalBill.toLocaleString()}
-                    </span>
-                    <p className="text-[10px] text-emerald-500 font-medium">{takaInWords(totalBill)}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Confirm button */}
-        <div className="px-5 pb-5 flex gap-2">
-          <button
-            onClick={onCancel}
-            className="flex-1 py-2.5 text-sm text-slate-500 hover:text-slate-800 border border-slate-200 hover:bg-slate-50 rounded-xl transition font-medium"
-          >
-            বাতিল
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={saving}
-            className="flex-1 py-2.5 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition font-bold flex items-center justify-center gap-1.5 disabled:opacity-50"
-          >
-            <Save size={13} />
-            {saving ? "সংরক্ষণ হচ্ছে…" : "নিশ্চিত করুন"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 /* ════════════════════════════════════════════════════════════════
    CAR RENT DETAILS MODAL
 ════════════════════════════════════════════════════════════════ */
 const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate, onSaved, readOnly = false }) => {
   const axiosSecure = useAxiosSecure();
   const { user } = useAuth();
-  const loggedInUser = user?.displayName || user?.email || "Unknown";
+  const loggedInUser = user?.displayName || "Unknown";
 
   const [rental,      setRental]      = useState(null);
   const [rent,        setRent]        = useState("");
@@ -230,7 +89,6 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
   const totalProducts  = normalChallans.reduce((sum, c) =>
     sum + (c.products?.reduce((s, p) => s + Number(p.quantity || 0), 0) || 0), 0);
 
-  /* product summary map */
   const productMap = {};
   normalChallans.forEach(c =>
     (c.products || []).forEach(p => {
@@ -240,12 +98,8 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
   );
   const productSummary = Object.entries(productMap);
 
-  /* Save click → open summary modal first */
-  const handleSaveClick = () => {
-    setShowSummary(true);
-  };
+  const handleSaveClick = () => setShowSummary(true);
 
-  /* Confirmed in summary modal → actual API call */
   const handleConfirmSave = async () => {
     setSaving(true);
     try {
@@ -281,7 +135,7 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
 
   return (
     <>
-      {/* Summary confirmation modal */}
+      {/* ── RentSummaryModal (imported from Component folder) ── */}
       {showSummary && (
         <RentSummaryModal
           rental={rental}

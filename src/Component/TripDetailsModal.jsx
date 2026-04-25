@@ -279,18 +279,18 @@ const ReturnModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy 
           </div>
           <div className="space-y-2">
             {returnItems.map((r, i) => (
-              <div key={r._id || i} className={`p-3 border rounded-xl ${r.returnQty > 0 ? "bg-orange-50 border-orange-200" : "bg-slate-50 border-slate-100"}`}>
-                <div className="flex gap-2 mb-2">
-                  <input placeholder="Product name" value={r.productName} onChange={e => handleFieldChange(i, "productName", e.target.value)}
-                    className="flex-1 min-w-0 text-xs bg-white border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-orange-400" />
-                  <input placeholder="Model" value={r.model} onChange={e => handleFieldChange(i, "model", e.target.value)}
-                    className="w-16 sm:w-20 text-xs bg-white border border-slate-200 rounded px-2 py-1.5 outline-none uppercase" />
-                  {returnItems.length > 1 && (
-                    <button onClick={() => handleRemoveItem(i)} className="p-1.5 text-red-300 hover:text-red-500 hover:bg-red-50 border border-red-100 rounded-lg transition shrink-0">
-                      <Trash2 size={12} />
-                    </button>
-                  )}
-                </div>
+        <div key={r._id || i} className={`p-3 border rounded-xl ${r.returnQty > 0 ? "bg-orange-50 border-orange-200" : "bg-slate-50 border-slate-100"}`}>
+  <div className="flex gap-2 mb-2">
+    <input placeholder="Product name" value={r.productName} onChange={e => handleFieldChange(i, "productName", e.target.value)}
+      className="w-[35%] text-xs bg-white border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-orange-400" />
+    <input placeholder="Model" value={r.model} onChange={e => handleFieldChange(i, "model", e.target.value)}
+      className="w-[65%] text-xs bg-white border border-slate-200 rounded px-2 py-1.5 outline-none uppercase focus:border-orange-400" />
+    {returnItems.length > 1 && (
+      <button onClick={() => handleRemoveItem(i)} className="p-1.5 text-red-300 hover:text-red-500 hover:bg-red-50 border border-red-100 rounded-lg transition shrink-0">
+        <Trash2 size={12} />
+      </button>
+    )}
+  </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {!r._id?.startsWith("new_") && (
                     <span className="text-[10px] text-slate-500">Delivered: <b className="text-slate-700">{r.deliveredQty} PCS</b></span>
@@ -426,7 +426,7 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
   const updateStatus = async (challanId, status, endpoint, field) => {
     try {
       setLoadingId(`${challanId}-${field}`);
-      await axiosSecure.patch(`/deliveries/${endpoint}`, { tripNumber: trip.tripNumber, challanId, status, operator: "Admin" });
+      await axiosSecure.patch(`/deliveries/${endpoint}`, { tripNumber: trip.tripNumber, challanId, status, operator: loggedInUser  });
       syncTrip({ ...trip, challans: trip.challans.map(c => c.challanId === challanId ? { ...c, [field]: status } : c) });
       Swal.fire({ icon: "success", title: "Updated", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
     } catch { Swal.fire({ icon: "error", title: "Error", text: "Update failed" }); }

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import { useSearch } from "../hooks/SearchContext";
@@ -19,19 +20,12 @@ const CreateDelivery = () => {
     const { user } = useAuth();
 
     const [deliveryInfo, setDeliveryInfo] = useState({
-        vehicleNumber: "",
-        vendorName: "",
-        vendorNumber: "",
-        driverName: "",
-        driverNumber: ""
+        vehicleNumber: "", vendorName: "", vendorNumber: "", driverName: "", driverNumber: ""
     });
-
     const [deliveryQueue, setDeliveryQueue] = useState([]);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingChallan, setEditingChallan] = useState(null);
     const [vehicleSuggestions, setVehicleSuggestions] = useState([]);
-
-    /* mobile: which panel is active — "challans" | "queue" */
     const [mobileTab, setMobileTab] = useState("challans");
 
     const handleDeliveryInfoChange = (e) => {
@@ -46,11 +40,8 @@ const CreateDelivery = () => {
             const res = await axiosSecure.get(`/challans?search=${encodeURIComponent(search)}&page=1&limit=5000`);
             const all = res.data.data || res.data || [];
             setChallans(all.filter(c => c.status !== "delivered"));
-        } catch (err) {
-            console.error("Error fetching challans:", err);
-        } finally {
-            setLoading(false);
-        }
+        } catch (err) { console.error(err); }
+        finally { setLoading(false); }
     }, [axiosSecure]);
 
     useEffect(() => {
@@ -60,14 +51,13 @@ const CreateDelivery = () => {
 
     const addToDelivery = (challan) => {
         if (challan.status === "delivered") {
-            return Swal.fire({ icon: "warning", title: "Already Delivered", text: `${challan.customerName} এর challan ইতিমধ্যে deliver হয়ে গেছে।`, timer: 2000, showConfirmButton: false });
+            return Swal.fire({ icon: "warning", title: "Already Delivered", timer: 2000, showConfirmButton: false });
         }
         if (!deliveryQueue.some(item => item._id === challan._id)) {
             setDeliveryQueue([...deliveryQueue, challan]);
-            /* auto-switch to queue tab on mobile */
             setMobileTab("queue");
         } else {
-            Swal.fire({ icon: 'info', title: 'Already Added', text: 'This challan is already in the queue.', timer: 1500, showConfirmButton: false });
+            Swal.fire({ icon: "info", title: "Already Added", timer: 1500, showConfirmButton: false });
         }
     };
 
@@ -97,13 +87,12 @@ const CreateDelivery = () => {
         try {
             const res = await axiosSecure.patch(`/challans/${editingChallan._id}`, editingChallan);
             if (res.data.modifiedCount || res.data.success) {
-                Swal.fire("Updated", "Challan updated successfully", "success");
+                Swal.fire({ icon: "success", title: "Updated", timer: 1500, showConfirmButton: false });
                 fetchChallans(searchText);
                 setDeliveryQueue(prev => prev.map(item => item._id === editingChallan._id ? editingChallan : item));
                 setIsEditModalOpen(false);
             }
         } catch (err) {
-            console.error(err);
             Swal.fire("Error", "Update failed", "error");
         }
     };
@@ -117,20 +106,14 @@ const CreateDelivery = () => {
         }
         const deliveredItems = deliveryQueue.filter(c => c.status === "delivered");
         if (deliveredItems.length > 0) {
-            const names = deliveredItems.map(c => c.customerName).join(", ");
-            return Swal.fire({ icon: "warning", title: "Already Delivered", text: `এই challan গুলো ইতিমধ্যে delivered: ${names}` });
+            return Swal.fire({ icon: "warning", title: "Already Delivered", text: deliveredItems.map(c => c.customerName).join(", ") });
         }
 
         const deliveryData = deliveryQueue.map(c => ({
             ...deliveryInfo,
-            challanId: c._id,
-            customerName: c.customerName,
-            zone: c.zone,
-            address: c.address,
-            thana: c.thana,
-            district: c.district,
-            receiverNumber: c.receiverNumber,
-            products: c.products,
+            challanId: c._id, customerName: c.customerName, zone: c.zone,
+            address: c.address, thana: c.thana, district: c.district,
+            receiverNumber: c.receiverNumber, products: c.products,
             createdBy: user?.displayName || user?.email || "unknown",
         }));
 
@@ -138,8 +121,8 @@ const CreateDelivery = () => {
             const res = await axiosSecure.post("/deliveries", deliveryData);
             if (res.data.success) {
                 Swal.fire({
-                    title: "Dispatch Confirmed",
-                    html: `<p>Delivery created successfully!</p><p class="text-green-600 font-bold">Trip ID: ${res.data.tripNumber}</p>`,
+                    title: "Dispatch Confirmed ✅",
+                    html: `<p>Delivery created successfully!</p><p class="text-emerald-600 font-bold mt-1">Trip ID: ${res.data.tripNumber}</p>`,
                     icon: "success"
                 });
                 setDeliveryQueue([]);
@@ -153,29 +136,33 @@ const CreateDelivery = () => {
         }
     };
 
+    const inp = "w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-orange-400 focus:bg-white transition-all placeholder-slate-400";
+
     return (
-        <div className="min-h-screen bg-[#f8fafc] font-sans antialiased text-slate-900">
+        <div className="min-h-screen bg-slate-50 page-enter">
             <div className="max-w-[1800px] mx-auto px-2 sm:px-3 lg:px-0">
 
                 {/* ── Header & Vehicle Info ── */}
-                <div className="bg-white shadow-sm border border-slate-200 mb-3 rounded-b-xl overflow-hidden">
+                <div className="bg-white shadow-sm border border-slate-200 mb-3 rounded-2xl overflow-hidden">
 
                     {/* Top bar */}
-                    <div className="bg-slate-900 px-3 py-2.5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <div className="bg-slate-950 px-4 py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <div>
-                            <h2 className="text-lg sm:text-2xl font-black text-white flex items-center gap-2">
-                                <FaTruck className="text-green-500 shrink-0" />
-                                DELIVERY <span className="text-green-500">PLANNER</span>
+                            <h2 className="text-lg sm:text-xl font-black text-white flex items-center gap-2.5">
+                                <div className="w-8 h-8 bg-emerald-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                                    <FaTruck className="text-white" size={14} />
+                                </div>
+                                DELIVERY <span className="text-emerald-400">PLANNER</span>
                             </h2>
-                            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-0.5">Operational Control Center</p>
+                            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1 ml-10">Operational Control Center</p>
                         </div>
                         <div className="flex items-center gap-3">
                             <div className="text-left sm:text-right">
-                                <p className="text-slate-400 text-[10px] font-bold uppercase">Search Results</p>
-                                <p className="text-white font-black text-lg leading-tight">{challans.length}</p>
+                                <p className="text-slate-500 text-[10px] font-bold uppercase">Search Results</p>
+                                <p className="text-white font-black text-xl leading-tight">{challans.length}</p>
                             </div>
                             {deliveryQueue.length > 0 && (
-                                <span className="bg-green-500 text-white text-[11px] font-black px-3 py-1 rounded-full uppercase shrink-0">
+                                <span className="bg-emerald-500 text-white text-[11px] font-black px-3 py-1.5 rounded-full uppercase flex-shrink-0">
                                     {deliveryQueue.length} in queue
                                 </span>
                             )}
@@ -183,19 +170,17 @@ const CreateDelivery = () => {
                     </div>
 
                     {/* Vehicle info grid */}
-                    <div className="p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+                    <div className="p-3 sm:p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
 
                         {/* Vehicle Number with autocomplete */}
                         <div className="col-span-2 sm:col-span-1 relative">
-                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1 mb-1 block">Vehicle No.</label>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Vehicle No.</label>
                             <div className="relative">
-                                <FaCarSide className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300 text-xs" />
+                                <FaCarSide className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
                                 <input
-                                    ref={el => { if (el) el._vehicleInput = true; }}
-                                    type="text"
-                                    value={deliveryInfo.vehicleNumber}
+                                    type="text" value={deliveryInfo.vehicleNumber}
                                     placeholder="Metro-1234"
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-green-500 focus:bg-white transition-all"
+                                    className={`${inp} pl-8`}
                                     onChange={async (e) => {
                                         const val = e.target.value;
                                         setDeliveryInfo(prev => ({ ...prev, vehicleNumber: val }));
@@ -203,10 +188,8 @@ const CreateDelivery = () => {
                                             try {
                                                 const res = await axiosSecure.get(`/vehicles/search?search=${val}`);
                                                 setVehicleSuggestions(res.data || []);
-                                            } catch (err) { console.error(err); }
-                                        } else {
-                                            setVehicleSuggestions([]);
-                                        }
+                                            } catch { }
+                                        } else { setVehicleSuggestions([]); }
                                     }}
                                     onBlur={() => setTimeout(() => setVehicleSuggestions([]), 150)}
                                 />
@@ -214,23 +197,15 @@ const CreateDelivery = () => {
                                     const inp = document.querySelector('input[placeholder="Metro-1234"]');
                                     const rect = inp ? inp.getBoundingClientRect() : null;
                                     return rect ? (
-                                        <div
-                                            style={{
-                                                position: "fixed",
-                                                top: rect.bottom + 4,
-                                                left: rect.left,
-                                                width: rect.width,
-                                                zIndex: 9999,
-                                            }}
-                                            className="bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto"
-                                        >
+                                        <div style={{ position: "fixed", top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex: 9999 }}
+                                            className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-h-60 overflow-y-auto">
                                             {vehicleSuggestions.map((v, i) => (
                                                 <div key={i} onMouseDown={() => {
                                                     setDeliveryInfo({ vehicleNumber: v.vehicleNumber, vendorName: v.vendorName, vendorNumber: v.vendorPhone, driverName: v.driverName, driverNumber: v.driverPhone });
                                                     setVehicleSuggestions([]);
-                                                }} className="p-2.5 hover:bg-green-50 cursor-pointer border-b last:border-0 transition-colors">
+                                                }} className="p-2.5 hover:bg-orange-50 cursor-pointer border-b last:border-0 transition-colors">
                                                     <p className="font-black text-xs text-slate-800">{v.vehicleNumber}</p>
-                                                    <p className="text-[10px] text-slate-500 font-bold uppercase">{v.vendorName} • {v.driverName}</p>
+                                                    <p className="text-[10px] text-slate-500 font-bold uppercase">{v.vendorName} · {v.driverName}</p>
                                                 </div>
                                             ))}
                                         </div>
@@ -240,18 +215,19 @@ const CreateDelivery = () => {
                         </div>
 
                         {[
-                            { label: "Vendor Name",  name: "vendorName",   placeholder: "Vendor Ltd." },
-                            { label: "Vendor Phone", name: "vendorNumber", placeholder: "017xxxxxxxx" },
-                            { label: "Driver Name",  name: "driverName",   placeholder: "Mr. Driver" },
-                            { label: "Driver Phone", name: "driverNumber", placeholder: "018xxxxxxxx" },
+                            { label: "Vendor Name",  name: "vendorName",   ph: "Vendor Ltd.", icon: <FaBuilding className="text-slate-400 text-xs" /> },
+                            { label: "Vendor Phone", name: "vendorNumber", ph: "017xxxxxxxx",  icon: <FaPhoneAlt className="text-slate-400 text-xs" /> },
+                            { label: "Driver Name",  name: "driverName",   ph: "Driver Name", icon: <FaIdBadge className="text-slate-400 text-xs" /> },
+                            { label: "Driver Phone", name: "driverNumber", ph: "018xxxxxxxx",  icon: <FaPhoneAlt className="text-slate-400 text-xs" /> },
                         ].map(f => (
                             <div key={f.name}>
-                                <label className="text-[10px] font-black text-slate-400 uppercase ml-1 mb-1 block">{f.label}</label>
-                                <input
-                                    type="text" name={f.name} value={deliveryInfo[f.name]}
-                                    onChange={handleDeliveryInfoChange} placeholder={f.placeholder}
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-green-500 focus:bg-white transition-all"
-                                />
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">{f.label}</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2">{f.icon}</span>
+                                    <input type="text" name={f.name} value={deliveryInfo[f.name]}
+                                        onChange={handleDeliveryInfoChange} placeholder={f.ph}
+                                        className={`${inp} pl-8`} />
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -259,24 +235,22 @@ const CreateDelivery = () => {
 
                 {/* ── Mobile tab switcher ── */}
                 <div className="flex xl:hidden mb-3 rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
-                    <button
-                        onClick={() => setMobileTab("challans")}
+                    <button onClick={() => setMobileTab("challans")}
                         className={`flex-1 py-2.5 text-xs font-black uppercase tracking-wide transition-all flex items-center justify-center gap-2
                             ${mobileTab === "challans" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50"}`}>
                         <FaBoxOpen size={12} /> Challans
                         {challans.length > 0 && (
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${mobileTab === "challans" ? "bg-green-500 text-white" : "bg-slate-200 text-slate-600"}`}>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${mobileTab === "challans" ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-600"}`}>
                                 {challans.length}
                             </span>
                         )}
                     </button>
-                    <button
-                        onClick={() => setMobileTab("queue")}
+                    <button onClick={() => setMobileTab("queue")}
                         className={`flex-1 py-2.5 text-xs font-black uppercase tracking-wide transition-all flex items-center justify-center gap-2
                             ${mobileTab === "queue" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50"}`}>
                         <FaTruck size={12} /> Queue
                         {deliveryQueue.length > 0 && (
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${mobileTab === "queue" ? "bg-green-400 text-white" : "bg-green-100 text-green-700"}`}>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${mobileTab === "queue" ? "bg-emerald-400 text-white" : "bg-emerald-100 text-emerald-700"}`}>
                                 {deliveryQueue.length}
                             </span>
                         )}
@@ -290,72 +264,68 @@ const CreateDelivery = () => {
                     <div className={`xl:col-span-4 flex flex-col gap-3 ${mobileTab !== "challans" ? "hidden xl:flex" : ""}`}>
                         <div className="flex items-center justify-between px-1">
                             <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider">Available Challans</h3>
-                            <span className="text-[10px] bg-slate-200 px-2 py-0.5 rounded font-bold uppercase">{searchText || "Recent"}</span>
+                            <span className="text-[10px] bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg font-bold uppercase text-slate-500">{searchText || "Recent"}</span>
                         </div>
                         <div className="space-y-3 max-h-[70vh] xl:max-h-[75vh] overflow-y-auto pr-1">
-                            {loading ? (
-                                <SkeletonCard />
-                            ) : challans.length === 0 ? (
-                                <EmptyState message="Search for challans to start planning" />
-                            ) : (
-                                challans.map(c => (
+                            {loading
+                                ? <SkeletonCard />
+                                : challans.length === 0
+                                ? <EmptyState message="Search for challans to start planning" />
+                                : challans.map(c => (
                                     <ChallanCard key={c._id} data={c} onAdd={() => addToDelivery(c)} onEdit={() => handleEditClick(c)} />
                                 ))
-                            )}
+                            }
                         </div>
                     </div>
 
                     {/* ══ RIGHT: Queue panel ══ */}
-                    <div className={`xl:col-span-8 bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden
-                        ${mobileTab !== "queue" ? "hidden xl:flex" : "flex"}
-                        min-h-[60vh] xl:min-h-[75vh]`}>
+                    <div className={`xl:col-span-8 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col overflow-hidden min-h-[60vh] xl:min-h-[75vh]
+                        ${mobileTab !== "queue" ? "hidden xl:flex" : "flex"}`}>
 
-                        {/* Queue header */}
-                        <div className="px-3 py-2.5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <div className="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                             <div>
-                                <h3 className="text-base sm:text-lg font-black text-slate-800 uppercase tracking-tight">Delivery Queue</h3>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase">Items ready for dispatch</p>
+                                <h3 className="text-base font-black text-slate-800 uppercase tracking-tight">Delivery Queue</h3>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">Items ready for dispatch</p>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[11px] font-black uppercase">
+                                <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[11px] font-black uppercase">
                                     {deliveryQueue.length} Selected
                                 </span>
                                 {deliveryQueue.length > 0 && (
-                                    <button onClick={() => setDeliveryQueue([])} className="p-2 hover:bg-red-50 text-red-400 rounded-xl transition">
-                                        <FaTrashAlt size={14} />
+                                    <button onClick={() => setDeliveryQueue([])}
+                                        className="p-2 hover:bg-red-50 text-red-400 rounded-xl transition-colors">
+                                        <FaTrashAlt size={13} />
                                     </button>
                                 )}
                             </div>
                         </div>
 
-                        {/* Queue body */}
-                        <div className="p-3 sm:p-5 flex-grow overflow-y-auto bg-[#fafafa]">
+                        <div className="p-3 sm:p-5 flex-grow overflow-y-auto bg-slate-50/30">
                             {deliveryQueue.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center text-slate-300 py-16">
-                                    <FaBoxOpen size={52} className="mb-3 opacity-20" />
-                                    <p className="font-bold uppercase text-xs tracking-widest">No Items in Queue</p>
+                                    <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-3">
+                                        <FaBoxOpen size={28} className="text-slate-300" />
+                                    </div>
+                                    <p className="font-bold uppercase text-xs tracking-widest text-slate-400">No Items in Queue</p>
                                     <p className="text-[10px] text-slate-300 mt-1">Add challans from the left panel</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
                                     {deliveryQueue.map(item => (
-                                        <QueueItem
-                                            key={item._id} item={item}
-                                            onRemove={(id) => setDeliveryQueue(q => q.filter(i => i._id !== id))}
-                                        />
+                                        <QueueItem key={item._id} item={item}
+                                            onRemove={(id) => setDeliveryQueue(q => q.filter(i => i._id !== id))} />
                                     ))}
                                 </div>
                             )}
                         </div>
 
-                        {/* Dispatch button */}
                         {deliveryQueue.length > 0 && (
-                            <div className="p-3 bg-white border-t border-slate-100">
+                            <div className="p-3 sm:p-4 bg-white border-t border-slate-100">
                                 <button onClick={handleConfirmDispatch}
-                                    className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-black text-sm sm:text-base shadow-lg shadow-green-200 flex items-center justify-center gap-3 transition-all active:scale-[0.98]">
-                                    CONFIRM DISPATCH & GENERATE TRIP <FaTruck />
+                                    className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-black text-sm shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-3 transition-all active:scale-[0.98]">
+                                    CONFIRM DISPATCH &amp; GENERATE TRIP <FaTruck size={14} />
                                 </button>
-            </div>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -377,56 +347,44 @@ const CreateDelivery = () => {
 
 /* ── ChallanCard ── */
 const ChallanCard = ({ data, onAdd, onEdit }) => (
-    <div className={`bg-white rounded-xl border overflow-hidden shadow-sm transition-all ${
-        data.status === "delivered"
-            ? "border-green-200 opacity-80"
-            : "border-slate-200 hover:shadow-md"
-    }`}>
-        {/* Card header */}
+    <div className={`bg-white rounded-2xl border overflow-hidden shadow-sm transition-all ${data.status === "delivered" ? "border-emerald-200 opacity-80" : "border-slate-100 hover:shadow-md hover:border-orange-200"}`}>
         <div className="bg-slate-50 px-3 py-2 flex justify-between items-center border-b border-slate-100">
-            <span className="text-[10px] font-bold text-slate-500">
+            <span className="text-[10px] font-semibold text-slate-400">
                 {data.createdAt ? new Date(data.createdAt).toLocaleDateString("en-GB") : "—"}
             </span>
             <div className="flex gap-1.5 items-center">
                 {data.status === "delivered" ? (
-                    <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-black uppercase rounded-lg border border-green-200 flex items-center gap-1">
-                        ✓ Delivered
-                    </span>
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase rounded-full border border-emerald-200">✓ Delivered</span>
                 ) : (
                     <>
-                        <button onClick={onEdit} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
+                        <button onClick={onEdit} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all">
                             <FaUserEdit size={13} />
                         </button>
-                        <button onClick={onAdd} className="bg-green-600 hover:bg-green-700 text-white px-2.5 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-1 transition-all shadow-sm active:scale-95">
+                        <button onClick={onAdd} className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-1 transition-all shadow-sm">
                             <FaPlusCircle size={10} /> Add
                         </button>
                     </>
                 )}
             </div>
         </div>
-
-        {/* Card body */}
         <div className="p-3">
             <h4 className="text-sm font-black text-slate-800 uppercase leading-tight mb-0.5">{data.customerName}</h4>
-            <p className="text-[10px] text-green-600 font-black uppercase mb-2 tracking-widest">Zone: {data.zone}</p>
+            <p className="text-[10px] text-emerald-600 font-black uppercase mb-2 tracking-widest">Zone: {data.zone}</p>
             <div className="space-y-0.5 mb-3 text-[11px] text-slate-500">
-                <p className="flex gap-1 flex-wrap"><span className="font-bold text-slate-700">Location:</span><span className="truncate">{data.address}</span></p>
-                <p className="flex gap-1 flex-wrap">
-                    <span className="font-bold text-slate-700">District:</span><span>{data.district}</span>
-                    <span className="font-bold text-slate-700">Thana:</span><span>{data.thana}</span>
-                </p>
-                <p className="flex gap-1"><span className="font-bold text-slate-700">Receiver:</span>{data.receiverNumber}</p>
+                <p className="flex gap-1 flex-wrap"><span className="font-bold text-slate-600">Location:</span><span className="truncate">{data.address}</span></p>
+                <p className="flex gap-1 flex-wrap"><span className="font-bold text-slate-600">District:</span><span>{data.district}</span><span className="font-bold text-slate-600">Thana:</span><span>{data.thana}</span></p>
+                <p className="flex gap-1"><span className="font-bold text-slate-600">Receiver:</span>{data.receiverNumber}</p>
             </div>
-            <div className="bg-slate-50 rounded-lg p-2 border border-slate-100">
+            <div className="bg-slate-50 rounded-xl p-2 border border-slate-100">
                 {data.products?.map((p, i) => (
                     <div key={i} className="flex justify-between text-[10px] py-0.5">
                         <span className="text-slate-600 font-bold truncate pr-3 uppercase">{p.model}</span>
-                        <span className="text-blue-600 font-black shrink-0">{p.quantity} PCS</span>
+                        <span className="text-blue-600 font-black flex-shrink-0">{p.quantity} PCS</span>
                     </div>
                 ))}
             </div>
             {data.status === "delivered" && data.tripNumber && (
-                <p className="mt-1.5 text-[10px] text-green-600 font-bold">Trip: {data.tripNumber}</p>
+                <p className="mt-1.5 text-[10px] text-emerald-600 font-bold">Trip: {data.tripNumber}</p>
             )}
         </div>
     </div>
@@ -434,36 +392,28 @@ const ChallanCard = ({ data, onAdd, onEdit }) => (
 
 /* ── QueueItem ── */
 const QueueItem = ({ item, onRemove }) => (
-    <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm relative group hover:border-green-200 transition-all">
-        <button onClick={() => onRemove(item._id)} className="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-red-500 transition-colors">
-            <FaTimes size={14} />
+    <div className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm relative group hover:border-emerald-200 transition-all">
+        <button onClick={() => onRemove(item._id)} className="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all">
+            <FaTimes size={13} />
         </button>
         <div className="flex flex-col sm:flex-row gap-3">
-            {/* Left: customer info */}
             <div className="sm:w-1/2 pr-6 sm:pr-0">
-                <span className="text-[10px] font-bold text-slate-400">
-                    {item.createdAt ? new Date(item.createdAt).toLocaleDateString("en-GB") : "—"}
-                </span>
+                <span className="text-[10px] font-semibold text-slate-400">{item.createdAt ? new Date(item.createdAt).toLocaleDateString("en-GB") : "—"}</span>
                 <h4 className="font-black text-slate-800 uppercase tracking-tight truncate text-sm">{item.customerName}</h4>
-                <span className="inline-block mt-0.5 px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-black uppercase">Zone: {item.zone}</span>
+                <span className="inline-block mt-0.5 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-lg text-[9px] font-black uppercase">Zone: {item.zone}</span>
                 <div className="mt-2 space-y-0.5 text-[11px] text-slate-500">
-                    <p className="flex gap-1 flex-wrap"><span className="font-bold text-slate-700">Location:</span><span className="truncate">{item.address}</span></p>
-                    <p className="flex gap-1 flex-wrap">
-                        <span className="font-bold text-slate-700">District:</span><span>{item.district}</span>
-                        <span className="font-bold text-slate-700">Thana:</span><span>{item.thana}</span>
-                    </p>
-                    <p className="flex gap-1"><span className="font-bold text-slate-700">Receiver:</span>{item.receiverNumber}</p>
+                    <p className="flex gap-1 flex-wrap"><span className="font-bold text-slate-600">Location:</span><span className="truncate">{item.address}</span></p>
+                    <p className="flex gap-1 flex-wrap"><span className="font-bold text-slate-600">District:</span><span>{item.district}</span><span className="font-bold text-slate-600">Thana:</span><span>{item.thana}</span></p>
+                    <p className="flex gap-1"><span className="font-bold text-slate-600">Receiver:</span>{item.receiverNumber}</p>
                 </div>
             </div>
-
-            {/* Right: products */}
             <div className="sm:w-1/2 border-t sm:border-t-0 sm:border-l border-slate-100 pt-2 sm:pt-0 sm:pl-4">
                 <p className="text-[9px] font-black text-slate-400 uppercase mb-1.5 tracking-widest">Load Details</p>
                 <div className="space-y-1">
                     {item.products?.map((p, i) => (
                         <div key={i} className="flex justify-between items-center text-[11px]">
                             <span className="text-slate-700 font-bold uppercase truncate pr-2">{p.model}</span>
-                            <span className="font-black text-green-600 shrink-0">{p.quantity} <span className="text-[9px] text-slate-400">PCS</span></span>
+                            <span className="font-black text-emerald-600 flex-shrink-0">{p.quantity} <span className="text-[9px] text-slate-400">PCS</span></span>
                         </div>
                     ))}
                 </div>
@@ -474,20 +424,19 @@ const QueueItem = ({ item, onRemove }) => (
 
 /* ── Skeleton ── */
 const SkeletonCard = () => (
-    <div className="bg-white rounded-xl p-3 border border-slate-100 animate-pulse space-y-2">
-        <div className="h-3 bg-slate-100 rounded w-1/3"></div>
-        <div className="h-5 bg-slate-100 rounded w-3/4"></div>
-        <div className="space-y-1.5">
-            <div className="h-2.5 bg-slate-50 rounded"></div>
-            <div className="h-2.5 bg-slate-50 rounded w-5/6"></div>
-        </div>
+    <div className="bg-white rounded-2xl p-3 border border-slate-100 animate-pulse space-y-2">
+        <div className="h-3 bg-slate-100 rounded-lg w-1/3" />
+        <div className="h-5 bg-slate-100 rounded-lg w-3/4" />
+        <div className="space-y-1.5"><div className="h-2.5 bg-slate-50 rounded-lg" /><div className="h-2.5 bg-slate-50 rounded-lg w-5/6" /></div>
     </div>
 );
 
 /* ── Empty state ── */
 const EmptyState = ({ message }) => (
     <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-10 text-center">
-        <FaBoxOpen className="mx-auto text-slate-200 mb-3" size={40} />
+        <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <FaBoxOpen className="text-slate-300" size={28} />
+        </div>
         <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">{message}</p>
     </div>
 );
