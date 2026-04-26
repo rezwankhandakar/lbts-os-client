@@ -95,7 +95,7 @@ const Home = () => {
             <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-white leading-tight">
               Welcome,{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-300">
-                {user?.displayName?.split(' ')[0] || 'User'}
+                {user?.displayName|| 'User'}
               </span>{' '}
               <span className="hidden sm:inline">👋</span>
             </h1>
