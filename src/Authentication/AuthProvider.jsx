@@ -168,14 +168,13 @@ const AuthProvider = ({ children }) => {
         // and during registration Register.jsx will signOut() immediately after.
         // Trying saveToken here causes a race: the 403 re-throw becomes an
         // unhandled error inside the observer callback.
-        if (!currentUser.emailVerified) {
-          if (myRequestId !== latestAuthRequestId.current || !isMounted.current) return;
-          // Treat as logged-out until they verify — no app JWT issued
-          removeToken();
-          setUser(null);
-          if (isMounted.current) setLoading(false);
-          return;
-        }
+  if (!currentUser.emailVerified) {
+  if (myRequestId !== latestAuthRequestId.current || !isMounted.current) return;
+  removeToken();
+  setUser(null);
+  setLoading(false); // ← এটা অবশ্যই থাকতে হবে এই if block এর ভেতরে
+  return;
+}
 
         const tokenResult = await saveToken(currentUser);
 

@@ -45,16 +45,20 @@ const Register = () => {
 
       try {
         const imgFormData = new FormData();
-        imgFormData.append("image", data.photo[0]);
-        const imageRes = await axios.post(`${API}/upload-image`, imgFormData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+imgFormData.append("image", data.photo[0]);
+const idToken = await createdUser.getIdToken();   // ← আগে তুলে আনো
+const imageRes = await axios.post(`${API}/upload-image`, imgFormData, {
+  headers: {
+    "Content-Type": "multipart/form-data",
+    "Authorization": `Bearer ${idToken}`,         // ← এটা যোগ করো
+  },
+});
         const photoURL = imageRes.data?.url;
         if (!photoURL) throw new Error("Photo upload failed — no URL returned");
 
         await updateUserProfile({ displayName: data.name, photoURL });
 
-        const idToken = await createdUser.getIdToken();
+        
         const dbRes = await axios.post(`${API}/register`, {
           idToken,
           displayName: data.name,
@@ -252,13 +256,16 @@ const Register = () => {
                     Click to upload photo
                   </span>
                   <span className="text-[10px] text-slate-400">JPG, PNG, WebP</span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    {...register("photo", { required: true })}
-                    onChange={handleImagePreview}
-                    className="hidden"
-                  />
+            <input
+  type="file"
+  accept="image/jpeg,image/png,image/webp"
+  {...register("photo", { required: true })}
+  onChange={(e) => {
+    register("photo").onChange(e); // react-hook-form কে জানাও
+    handleImagePreview(e);          // preview দেখাও
+  }}
+  className="hidden"
+/>
                 </label>
               </div>
               {errors.photo && <p className="text-xs text-red-500 mt-1 font-medium">Profile photo is required</p>}

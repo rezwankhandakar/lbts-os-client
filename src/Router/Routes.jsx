@@ -7,9 +7,9 @@ import ErrorPage from "../Pages/ErrorPage";
 import PrivateRoute from "./PrivateRoute";
 import RoleRoute from "./RoleRoute";
 import S from "../Component/SuspenseWrapper";
-import CarRentPage from "../Pages/BillPage";
-import VendorTripSummary from "../Pages/VendorTripSummary";
-import AccountsDashboard from "../Pages/AccountsDashboard";
+const CarRentPage = lazy(() => import("../Pages/BillPage"));
+const VendorTripSummary = lazy(() => import("../Pages/VendorTripSummary"));
+const AccountsDashboard = lazy(() => import("../Pages/AccountsDashboard"));
 
 const Home = lazy(() => import("../Pages/Home"));
 const Login = lazy(() => import("../Pages/Login"));
