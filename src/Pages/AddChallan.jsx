@@ -187,7 +187,7 @@ const AddChallan = () => {
                   <div className="relative">
                     <Navigation size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
-                      {...register("thana", { required: true })}
+                      {...register("thana")}
                       onChange={e => handleAutoSearch("thana", "thana", e.target.value)}
                       className={inp} placeholder="Thana"
                     />
@@ -200,7 +200,7 @@ const AddChallan = () => {
                   <div className="relative">
                     <Building size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
-                      {...register("district", { required: true })}
+                      {...register("district")}
                       onChange={e => handleAutoSearch("district", "district", e.target.value)}
                       className={inp} placeholder="District"
                     />

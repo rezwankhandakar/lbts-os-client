@@ -330,21 +330,30 @@ const RootLayout = () => {
                       <p className="text-xs font-bold text-slate-800 truncate">{user?.displayName}</p>
                       <p className="text-[10px] text-slate-400 truncate mt-0.5">{user?.email}</p>
                     </div>
-                    {/* Menu items */}
-                    <div className="p-1.5">
-                      <Link
-                        to="/profile"
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors font-medium"
-                      >
-                        <FiUser size={13} className="text-slate-400" /> My Profile
-                      </Link>
-                      <button
-                        onClick={handleLogOut}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-red-500 hover:bg-red-50 transition-colors font-medium mt-0.5"
-                      >
-                        <FiLogOut size={13} /> Sign Out
-                      </button>
-                    </div>
+                   {/* Menu items */}
+<div className="p-1.5">
+  {user ? (
+    <Link
+      to="/profile"
+      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors font-medium"
+    >
+      <FiUser size={13} className="text-slate-400" /> My Profile
+    </Link>
+  ) : (
+    <Link
+      to="/login"
+      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors font-medium"
+    >
+      <FiUser size={13} className="text-slate-400" /> Login
+    </Link>
+  )}
+  <button
+    onClick={handleLogOut}
+    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-red-500 hover:bg-red-50 transition-colors font-medium mt-0.5"
+  >
+    <FiLogOut size={13} /> Sign Out
+  </button>
+</div>
                   </div>
                 </>
               )}

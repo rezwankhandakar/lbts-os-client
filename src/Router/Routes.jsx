@@ -7,6 +7,7 @@ import ErrorPage from "../Pages/ErrorPage";
 import PrivateRoute from "./PrivateRoute";
 import RoleRoute from "./RoleRoute";
 import S from "../Component/SuspenseWrapper";
+const SuccessPage = lazy(() => import("../Component/SuccessPage"));
 const CarRentPage = lazy(() => import("../Pages/BillPage"));
 const VendorTripSummary = lazy(() => import("../Pages/VendorTripSummary"));
 const AccountsDashboard = lazy(() => import("../Pages/AccountsDashboard"));
@@ -103,6 +104,7 @@ export const router = createBrowserRouter([
         path: "/accounts",
         element: <PrivateRoute><RoleRoute roles={["admin", "manager", "ceo"]}><S><AccountsDashboard /></S></RoleRoute></PrivateRoute>,
       },
+       { path: "/registration-success", element: <S><SuccessPage /></S> },
     ],
   },
 ]);

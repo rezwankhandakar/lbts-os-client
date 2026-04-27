@@ -77,11 +77,7 @@ const imageRes = await axios.post(`${API}/upload-image`, imgFormData, {
 
         await signOut(auth);
 
-        toast.success(
-          "✅ Registration Successful! Please verify your email before logging in.",
-          { duration: 6000 }
-        );
-        navigate("/login");
+       navigate("/registration-success");
       } catch (innerErr) {
         console.error("Post-registration step failed:", innerErr);
 
