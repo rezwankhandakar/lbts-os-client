@@ -1,5 +1,3 @@
-
-
 import { createBrowserRouter } from "react-router";
 import { lazy } from "react";
 import RootLayout from "../Layout/RootLayout";
@@ -11,6 +9,8 @@ const SuccessPage = lazy(() => import("../Component/SuccessPage"));
 const CarRentPage = lazy(() => import("../Pages/BillPage"));
 const VendorTripSummary = lazy(() => import("../Pages/VendorTripSummary"));
 const AccountsDashboard = lazy(() => import("../Pages/AccountsDashboard"));
+const BillTracker = lazy(() => import("../Pages/BillTracker"));
+const LaborBillPage = lazy(() => import("../Pages/LaborBillPage"));
 
 const Home = lazy(() => import("../Pages/Home"));
 const Login = lazy(() => import("../Pages/Login"));
@@ -70,19 +70,19 @@ export const router = createBrowserRouter([
       },
       {
         path: "/all-gate-pass",
-        element: <PrivateRoute><RoleRoute roles={["admin", "manager", "operator"]}><S><AllGatePass /></S></RoleRoute></PrivateRoute>,
+        element: <PrivateRoute><RoleRoute roles={["admin", "manager", "operator","ceo"]}><S><AllGatePass /></S></RoleRoute></PrivateRoute>,
       },
       {
         path: "/add-challan",
-        element: <PrivateRoute><RoleRoute roles={NON_VENDOR}><S><AddChallan /></S></RoleRoute></PrivateRoute>,
+        element: <PrivateRoute><RoleRoute roles={["admin", "manager", "operator"]}><S><AddChallan /></S></RoleRoute></PrivateRoute>,
       },
       {
         path: "/all-challan",
-        element: <PrivateRoute><RoleRoute roles={NON_VENDOR}><S><AllChallan /></S></RoleRoute></PrivateRoute>,
+        element: <PrivateRoute><RoleRoute roles={["admin", "manager", "operator","ceo"]}><S><AllChallan /></S></RoleRoute></PrivateRoute>,
       },
       {
         path: "/add-vendor",
-        element: <PrivateRoute><RoleRoute roles={NON_VENDOR}><S><AddVendor /></S></RoleRoute></PrivateRoute>,
+        element: <PrivateRoute><RoleRoute roles={["admin", "manager", "operator"]}><S><AddVendor /></S></RoleRoute></PrivateRoute>,
       },
       {
         path: "/create-delivery",
@@ -104,7 +104,15 @@ export const router = createBrowserRouter([
         path: "/accounts",
         element: <PrivateRoute><RoleRoute roles={["admin", "manager", "ceo"]}><S><AccountsDashboard /></S></RoleRoute></PrivateRoute>,
       },
+      {
+        path: "/walton-bills",
+        element: <PrivateRoute><RoleRoute roles={["admin", "manager", "ceo"]}><S><BillTracker /></S></RoleRoute></PrivateRoute>,
+      },
        { path: "/registration-success", element: <S><SuccessPage /></S> },
+       {
+  path: "/labor-bill",
+  element: <PrivateRoute><RoleRoute roles={["admin", "manager", "ceo"]}><S><LaborBillPage /></S></RoleRoute></PrivateRoute>,
+}
     ],
   },
 ]);

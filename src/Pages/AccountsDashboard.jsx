@@ -356,59 +356,54 @@ const AccountsDashboard = () => {
     setTxLoading(false);
   }, [fetchWithCache]);
 
-  const calcNetBalanceChain = useCallback(async (targetM, targetY) => {
-    const LOOKBACK = 6;
-    const months = [];
-    for (let i = LOOKBACK; i >= 0; i--) {
-      let m = targetM - i, y = targetY;
-      while (m <= 0) { m += 12; y -= 1; }
-      months.push({ m, y });
-    }
-    let runningBalance = 0;
-    for (const { m, y } of months) {
-      try {
-        const [accData, tripData] = await Promise.all([
-          fetchWithCache(`/accounts?month=${m}&year=${y}`),
-          fetchWithCache(`/car-rents?month=${m}&year=${y}&page=1&limit=5000`),
-        ]);
-        const txs  = accData.data  || [];
-        const trps = tripData.data || [];
-        const inc  = txs.filter(t => t.type === "income").reduce((s, t) => s + num(t.amount), 0);
-        const exp  = txs.filter(t => t.type === "expense").reduce((s, t) => s + num(t.amount), 0);
-        const vadv = txs.filter(t => t.type === "manual_advance").reduce((s, t) => s + num(t.amount), 0);
-        const vpay = txs.filter(t => t.type === "vendor_payment").reduce((s, t) => s + num(t.amount), 0);
-        const aadv = trps.reduce((s, t) => s + num(t.advance), 0);
-        const totalInc = inc + (runningBalance > 0 ? runningBalance : 0);
-        const totalExp = exp + vadv + vpay + aadv + (runningBalance < 0 ? Math.abs(runningBalance) : 0);
-        runningBalance = totalInc - totalExp;
-      } catch { /* no data */ }
-    }
-    return runningBalance;
+  // ── FIX: আগে ছিল LOOKBACK=6 → sequential 14+ API call → amounts দেরিতে আসত
+  // এখন: শুধু আগের মাসের data এক parallel request-এ নেওয়া হচ্ছে (2 call মাত্র)
+  // carry-forward ও একই batch-এ — মোট page load-এ এখন 5 call (আগে ছিল 17+)
+  const calcPrevMonthBalance = useCallback(async (prevM, prevY) => {
+    const [accData, tripData] = await Promise.all([
+      fetchWithCache(`/accounts?month=${prevM}&year=${prevY}`),
+      fetchWithCache(`/car-rents?month=${prevM}&year=${prevY}&page=1&limit=500`),
+    ]);
+    const txs  = accData.data  || [];
+    const trps = tripData.data || [];
+    const inc  = txs.filter(t => t.type === "income").reduce((s, t) => s + num(t.amount), 0);
+    const exp  = txs.filter(t => t.type === "expense").reduce((s, t) => s + num(t.amount), 0);
+    const vadv = txs.filter(t => t.type === "manual_advance").reduce((s, t) => s + num(t.amount), 0);
+    const vpay = txs.filter(t => t.type === "vendor_payment").reduce((s, t) => s + num(t.amount), 0);
+    const aadv = trps.reduce((s, t) => s + num(t.advance), 0);
+    return inc - (exp + vadv + vpay + aadv);
   }, [fetchWithCache]);
 
   useEffect(() => {
+    const prevM = month === 1 ? 12 : month - 1;
+    const prevY = month === 1 ? year - 1 : year;
+
+    // সব fetch একসাথে parallel-এ — loading block করবে না
     fetchTrips(month, year);
     fetchAccountTxs(month, year);
+
     const loadPrevData = async () => {
       setPrevMonthBalance(null);
       try {
-        const prevM = month === 1 ? 12 : month - 1;
-        const prevY = month === 1 ? year - 1 : year;
-        const balance = await calcNetBalanceChain(prevM, prevY);
-        setPrevMonthBalance(balance);
-        const recentMonths = [];
-        for (let i = 1; i <= 3; i++) {
+        // আগের মাস + carry-forward months — সব parallel
+        const carryMonths = [1, 2, 3].map(i => {
           const m2 = month - i <= 0 ? month - i + 12 : month - i;
           const y2 = month - i <= 0 ? year - 1 : year;
-          recentMonths.push({ m2, y2 });
-        }
-        const results = await Promise.all(recentMonths.map(({ m2, y2 }) => fetchWithCache(`/accounts?month=${m2}&year=${y2}`)));
-        const unpaid = results.flatMap(r => (r.data || []).filter(t => t.type === "manual_advance" && t.status !== "paid"));
+          return { m2, y2 };
+        });
+
+        const [balance, ...carryResults] = await Promise.all([
+          calcPrevMonthBalance(prevM, prevY),
+          ...carryMonths.map(({ m2, y2 }) => fetchWithCache(`/accounts?month=${m2}&year=${y2}`)),
+        ]);
+
+        setPrevMonthBalance(balance);
+        const unpaid = carryResults.flatMap(r => (r.data || []).filter(t => t.type === "manual_advance" && t.status !== "paid"));
         setCarryForwardTxs(unpaid);
       } catch { setPrevMonthBalance(0); setCarryForwardTxs([]); }
     };
     loadPrevData();
-  }, [month, year, fetchTrips, fetchAccountTxs, calcNetBalanceChain]);
+  }, [month, year, fetchTrips, fetchAccountTxs, calcPrevMonthBalance, fetchWithCache]);
 
   /* ── Vendor Map ── */
   const vendorMap = {};

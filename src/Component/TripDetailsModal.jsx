@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import Swal from "sweetalert2";
 import {
   X, Truck, User, Package, PhoneForwarded,
-  Plus, Trash2, Pencil, Check, RotateCcw, StickyNote, Save, Wallet, ChevronDown
+  Plus, Trash2, Pencil, Check, RotateCcw, StickyNote, Save, Wallet, ChevronDown,
+  Building2
 } from "lucide-react";
 import useAuth from "../hooks/useAuth";
 
@@ -184,13 +186,13 @@ const EditChallanCard = ({ tripId, challan, onSave, onClose, axiosSecure, update
             </div>
             <div className="space-y-2">
               {products.map((p, i) => (
-                <div key={p._id || i} className="flex gap-2 items-center p-2 bg-slate-50 border border-slate-100 rounded-xl">
+                <div key={p._id || i} className="grid grid-cols-[35%_50%_10%_5%] gap-1.5 items-center p-2 bg-slate-50 border border-slate-100 rounded-xl">
                   <input placeholder="Product name" value={p.productName} onChange={e => handleProductChange(i, "productName", e.target.value)}
-                    className="flex-1 min-w-0 text-xs bg-white border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-indigo-400" />
+                    className="w-full text-xs bg-white border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-indigo-400" />
                   <input placeholder="Model" value={p.model} onChange={e => handleProductChange(i, "model", e.target.value)}
-                    className="w-16 sm:w-20 text-xs bg-white border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-indigo-400 uppercase" />
+                    className="w-full text-xs bg-white border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-indigo-400 uppercase" />
                   <input type="number" min="1" value={p.quantity} onChange={e => handleProductChange(i, "quantity", e.target.value)}
-                    className="w-10 sm:w-12 text-xs bg-white border border-slate-200 rounded px-1 py-1.5 outline-none text-center font-bold" />
+                    className="w-full text-xs bg-white border border-slate-200 rounded px-1 py-1.5 outline-none text-center font-bold" />
                   <button onClick={() => handleDeleteProduct(i)} className="p-1.5 text-red-300 hover:text-red-500 hover:bg-red-50 border border-red-100 rounded-lg transition shrink-0">
                     <Trash2 size={12} />
                   </button>
@@ -338,6 +340,200 @@ const ReturnModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy 
   );
 };
 
+/* ─── RTN + Note Modal ─── */
+const STATUS_LABELS = {
+  confirmed:    "✅ Confirmed",
+  not_received: "❌ Not Received",
+  call_later:   "📞 Call Later",
+  received:     "📦 Received",
+  missing:      "⚠️ Missing",
+};
+const D_STATUSES = ["confirmed", "not_received", "call_later"];
+const C_STATUSES = ["received", "missing"];
+
+const RtnNoteModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy }) => {
+  const [deliveryStatus,      setDeliveryStatus]      = useState(challan.deliveryStatus      || "");
+  const [challanReturnStatus, setChallanReturnStatus] = useState(challan.challanReturnStatus || "");
+  const [note,                setNote]                = useState(challan.note                || "");
+  const [saving,              setSaving]              = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Delivery status update
+      if (deliveryStatus && deliveryStatus !== challan.deliveryStatus) {
+        await axiosSecure.patch(`/deliveries/confirm`, {
+          tripNumber: challan._tripNumber, challanId: challan.challanId,
+          status: deliveryStatus, operator: updatedBy,
+        });
+      }
+      // Challan return status update
+      if (challanReturnStatus && challanReturnStatus !== challan.challanReturnStatus) {
+        await axiosSecure.patch(`/deliveries/challan-return`, {
+          tripNumber: challan._tripNumber, challanId: challan.challanId,
+          status: challanReturnStatus, operator: updatedBy,
+        });
+      }
+      // Note update
+      if (note !== challan.note) {
+        await axiosSecure.patch(
+          `/deliveries/${tripId}/challan/${challan.challanId}/note`,
+          { note, updatedBy }
+        );
+      }
+      Swal.fire({ icon: "success", title: "Saved!", toast: true, position: "top-end", timer: 1200, showConfirmButton: false });
+      onSave({ ...challan, deliveryStatus, challanReturnStatus, note });
+      onClose();
+    } catch (err) {
+      Swal.fire({ icon: "error", title: "Update failed", text: err?.response?.data?.message || "" });
+    }
+    setSaving(false);
+  };
+
+  const StatusBtn = ({ value, active, onClick, color }) => {
+    const colors = {
+      indigo: active ? "bg-indigo-100 border-indigo-400 text-indigo-700" : "bg-slate-50 border-slate-200 text-slate-500 hover:border-indigo-300",
+      amber:  active ? "bg-amber-100  border-amber-400  text-amber-700"  : "bg-slate-50 border-slate-200 text-slate-500 hover:border-amber-300",
+    };
+    return (
+      <button onClick={onClick}
+        className={`px-2 py-1.5 rounded-xl text-[10px] font-bold text-left transition-all border ${colors[color]}`}>
+        {STATUS_LABELS[value] || "— Clear"}
+      </button>
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[100] p-0 sm:p-4">
+      <div className="bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[92vh]">
+        <div className="px-4 py-3 bg-indigo-600 flex items-center justify-between text-white shrink-0">
+          <div>
+            <p className="font-bold text-sm">📋 RTN + Note</p>
+            <p className="text-indigo-200 text-[10px] font-mono">{challan.customerName}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg transition"><X size={16} /></button>
+        </div>
+        <div className="p-4 space-y-4 overflow-y-auto flex-1">
+          {/* Delivery Status */}
+          <div>
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2">Delivery Status</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              <StatusBtn value="" active={!deliveryStatus} onClick={() => setDeliveryStatus("")} color="indigo" />
+              {D_STATUSES.map(s => (
+                <StatusBtn key={s} value={s} active={deliveryStatus === s} onClick={() => setDeliveryStatus(s)} color="indigo" />
+              ))}
+            </div>
+          </div>
+          {/* Challan Return Status */}
+          <div>
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2">Challan Return Status</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              <StatusBtn value="" active={!challanReturnStatus} onClick={() => setChallanReturnStatus("")} color="amber" />
+              {C_STATUSES.map(s => (
+                <StatusBtn key={s} value={s} active={challanReturnStatus === s} onClick={() => setChallanReturnStatus(s)} color="amber" />
+              ))}
+            </div>
+          </div>
+          {/* Note */}
+          <div>
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Note</p>
+            <textarea rows={3} value={note} onChange={e => setNote(e.target.value)}
+              placeholder="Write any note about this challan..."
+              className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-indigo-400 resize-none" />
+          </div>
+        </div>
+        <div className="px-4 py-3 border-t flex items-center justify-end gap-2 bg-slate-50 shrink-0">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-500 hover:bg-slate-100 rounded-lg transition">Cancel</button>
+          <button onClick={handleSave} disabled={saving}
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg transition flex items-center gap-2 disabled:opacity-60">
+            <Check size={13} /> {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ─── Floor / Carrying Modal ─── */
+const FLOORS = Array.from({ length: 15 }, (_, i) => i + 1);
+const FloorCarryingModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy }) => {
+  const [floor,    setFloor]    = useState(challan.floor    ?? "");
+  const [carrying, setCarrying] = useState(challan.carrying ?? "");
+  const [saving,   setSaving]   = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await axiosSecure.patch(
+        `/deliveries/${tripId}/challan/${challan.challanId}/floor-carrying`,
+        {
+          floor:    floor    !== "" ? Number(floor) : null,
+          carrying: carrying !== "" ? carrying.trim() : null,
+        }
+      );
+      Swal.fire({ icon: "success", title: "Saved!", toast: true, position: "top-end", timer: 1200, showConfirmButton: false });
+      onSave({ ...challan, floor: floor !== "" ? Number(floor) : null, carrying: carrying || null });
+      onClose();
+    } catch { Swal.fire({ icon: "error", title: "Failed" }); }
+    setSaving(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[100] p-0 sm:p-4">
+      <div className="bg-white w-full sm:max-w-xs rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[92vh]">
+        <div className="px-4 py-3 bg-emerald-600 flex items-center justify-between text-white shrink-0">
+          <div>
+            <p className="font-bold text-sm flex items-center gap-2"><Building2 size={13} /> Floor / Carrying</p>
+            <p className="text-emerald-200 text-[10px] font-mono">{challan.customerName}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg transition"><X size={16} /></button>
+        </div>
+        <div className="p-4 space-y-4 overflow-y-auto flex-1">
+          {/* Floor grid */}
+          <div>
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2">Floor নম্বর (১–১৫)</p>
+            <div className="grid grid-cols-5 gap-1.5">
+              {["", ...FLOORS].map(f => (
+                <button key={f} onClick={() => setFloor(f === "" ? "" : f)}
+                  className={`py-2 rounded-xl text-[11px] font-black text-center transition-all border
+                    ${(floor === f || (f === "" && floor === ""))
+                      ? "bg-emerald-100 border-emerald-400 text-emerald-700"
+                      : "bg-slate-50 border-slate-200 text-slate-500 hover:border-emerald-300 hover:text-emerald-600"}`}>
+                  {f === "" ? "—" : f}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Carrying input */}
+          <div>
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Carrying (বাহন / ব্যক্তি)</p>
+            <input value={carrying} onChange={e => setCarrying(e.target.value)}
+              placeholder="যেমন: CNF Auto, কুলি, ভ্যান গাড়ি…"
+              className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-emerald-400 transition" />
+          </div>
+          {(challan.floor || challan.carrying) && (
+            <div className="px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl">
+              <p className="text-[9px] text-slate-500 font-bold mb-0.5">বর্তমান মান</p>
+              <p className="text-xs font-bold text-emerald-700">
+                {challan.floor ? `${challan.floor} তলা` : ""}
+                {challan.floor && challan.carrying ? " · " : ""}
+                {challan.carrying || ""}
+              </p>
+            </div>
+          )}
+        </div>
+        <div className="px-4 py-3 border-t flex items-center justify-end gap-2 bg-slate-50 shrink-0">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-500 hover:bg-slate-100 rounded-lg transition">Cancel</button>
+          <button onClick={handleSave} disabled={saving}
+            className="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg transition flex items-center gap-2 disabled:opacity-60">
+            <Check size={13} /> {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ─── Note Modal ─── */
 const NoteModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy }) => {
   const [note, setNote] = useState(challan.note || "");
@@ -389,17 +585,23 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
   const loggedInUser = user?.displayName || user?.email || "Unknown";
   const [trip, setTrip] = useState(selectedTrip);
   const [loadingId, setLoadingId] = useState(null);
-  const [openDropdown, setOpenDropdown] = useState({ id: null, type: null });
   const [editingChallan, setEditingChallan] = useState(null);
   const [editingTripInfo, setEditingTripInfo] = useState(false);
   const [returningChallan, setReturningChallan] = useState(null);
   const [notingChallan, setNotingChallan] = useState(null);
+  const [floorCarryingChallan, setFloorCarryingChallan] = useState(null);
+  const [rtnNoteChallan,       setRtnNoteChallan]       = useState(null);
   const [advance, setAdvance] = useState("");
   const [savingAdvance, setSavingAdvance] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
 
   useEffect(() => {
-    setTrip(selectedTrip);
+    if (!selectedTrip) { setTrip(null); return; }
+    const withTripNum = {
+      ...selectedTrip,
+      challans: (selectedTrip.challans || []).map(c => ({ ...c, _tripNumber: selectedTrip.tripNumber })),
+    };
+    setTrip(withTripNum);
     setAdvance(selectedTrip?.advance ?? "");
   }, [selectedTrip]);
 
@@ -421,7 +623,15 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
     return map[status] || "bg-slate-100 text-slate-600";
   };
 
-  const syncTrip = (updated) => { setTrip(updated); if (onTripUpdate) onTripUpdate(updated); };
+  const syncTrip = (updated) => {
+    // প্রতিটা challan-এ _tripNumber inject করো — RtnNoteModal-এ status update-এ দরকার
+    const withTripNum = {
+      ...updated,
+      challans: (updated.challans || []).map(c => ({ ...c, _tripNumber: updated.tripNumber })),
+    };
+    setTrip(withTripNum);
+    if (onTripUpdate) onTripUpdate(withTripNum);
+  };
 
   const updateStatus = async (challanId, status, endpoint, field) => {
     try {
@@ -685,73 +895,46 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
                           {/* Status badge row */}
                           <div className="flex gap-1 flex-wrap justify-end">
-                            {/* Delivery status dropdown */}
-                            <div className="relative">
-                              <span
-                                onClick={() => setOpenDropdown(prev =>
-                                  prev.id === c.challanId && prev.type === "delivery"
-                                    ? { id: null, type: null }
-                                    : { id: c.challanId, type: "delivery" }
-                                )}
-                                className={`text-[8px] px-1.5 sm:px-2 py-0.5 rounded-full font-bold border uppercase cursor-pointer hover:opacity-80 whitespace-nowrap ${getStatusBadge(c.deliveryStatus)}`}
-                              >
-                                D: {c.deliveryStatus || "Pending"}
-                              </span>
-                              {openDropdown.id === c.challanId && openDropdown.type === "delivery" && (
-                                <div className="absolute right-0 mt-1 w-36 sm:w-40 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
-                                  <div className="px-3 py-1.5 bg-slate-50 border-b text-[9px] text-slate-400 font-bold uppercase">Delivery</div>
-                                  {["confirmed", "not_received", "call_later"].map(s => (
-                                    <button key={s}
-                                      onClick={e => { e.stopPropagation(); updateStatus(c.challanId, s, "confirm", "deliveryStatus"); setOpenDropdown({ id: null, type: null }); }}
-                                      className={`w-full text-left px-3 py-1.5 text-xs font-semibold capitalize hover:bg-slate-50 ${c.deliveryStatus === s ? "text-indigo-600 bg-indigo-50" : ""}`}>
-                                      {s.replace("_", " ")}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            {/* Challan return status dropdown */}
-                            <div className="relative">
-                              <span
-                                onClick={() => setOpenDropdown(prev =>
-                                  prev.id === c.challanId && prev.type === "return"
-                                    ? { id: null, type: null }
-                                    : { id: c.challanId, type: "return" }
-                                )}
-                                className={`text-[8px] px-1.5 sm:px-2 py-0.5 rounded-full font-bold border uppercase cursor-pointer hover:opacity-80 whitespace-nowrap ${getStatusBadge(c.challanReturnStatus)}`}
-                              >
-                                C: {c.challanReturnStatus || "Pending"}
-                              </span>
-                              {openDropdown.id === c.challanId && openDropdown.type === "return" && (
-                                <div className="absolute right-0 mt-1 w-32 sm:w-36 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
-                                  <div className="px-3 py-1.5 bg-slate-50 border-b text-[9px] text-slate-400 font-bold uppercase">Challan</div>
-                                  {["received", "missing"].map(s => (
-                                    <button key={s}
-                                      onClick={e => { e.stopPropagation(); updateStatus(c.challanId, s, "challan-return", "challanReturnStatus"); setOpenDropdown({ id: null, type: null }); }}
-                                      className={`w-full text-left px-3 py-1.5 text-xs font-semibold capitalize hover:bg-slate-50 ${c.challanReturnStatus === s ? "text-indigo-600 bg-indigo-50" : ""}`}>
-                                      {s}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
+                            {/* Delivery status — শুধু display, click disabled */}
+                            <span className={`text-[8px] px-1.5 sm:px-2 py-0.5 rounded-full font-bold border uppercase whitespace-nowrap select-none ${getStatusBadge(c.deliveryStatus)}`}>
+                              D: {c.deliveryStatus || "Pending"}
+                            </span>
+                            {/* Challan return status — শুধু display, click disabled */}
+                            <span className={`text-[8px] px-1.5 sm:px-2 py-0.5 rounded-full font-bold border uppercase whitespace-nowrap select-none ${getStatusBadge(c.challanReturnStatus)}`}>
+                              C: {c.challanReturnStatus || "Pending"}
+                            </span>
                           </div>
 
-                          {/* Action buttons */}
+                          {/* ── Action buttons ── */}
                           <div className="flex items-center gap-1 flex-wrap justify-end">
+                            {/* Edit */}
                             <button onClick={() => setEditingChallan(c)}
                               className="flex items-center gap-1 px-1.5 sm:px-2 py-1 text-[10px] font-semibold text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition">
                               <Pencil size={9} /> Edit
                             </button>
+                            {/* ↩ Return Product */}
                             <button onClick={() => setReturningChallan(c)}
                               className={`flex items-center gap-1 px-1.5 sm:px-2 py-1 text-[10px] font-semibold border rounded-lg transition
-                                ${hasReturn ? "text-orange-600 border-orange-300 bg-orange-50" : "text-orange-500 border-orange-200 hover:bg-orange-50"}`}>
-                              <RotateCcw size={9} /> {hasReturn ? `(${totalReturn})` : "Rtn"}
+                                ${hasReturn
+                                  ? "text-orange-600 border-orange-300 bg-orange-50"
+                                  : "text-orange-500 border-orange-200 hover:bg-orange-50"}`}>
+                              <RotateCcw size={9} /> {hasReturn ? `Rtn(${totalReturn})` : "Rtn"}
                             </button>
-                            <button onClick={() => setNotingChallan(c)}
+                            {/* 📋 RTN + Note — Delivery/Challan status + note একটা modal-এ */}
+                            <button onClick={() => setRtnNoteChallan(c)}
                               className={`flex items-center gap-1 px-1.5 sm:px-2 py-1 text-[10px] font-semibold border rounded-lg transition
-                                ${hasNote ? "text-amber-600 border-amber-300 bg-amber-50" : "text-amber-500 border-amber-200 hover:bg-amber-50"}`}>
-                              <StickyNote size={9} /> Note
+                                ${c.deliveryStatus || c.challanReturnStatus || hasNote
+                                  ? "text-indigo-600 border-indigo-300 bg-indigo-50"
+                                  : "text-slate-500 border-slate-200 hover:bg-slate-50"}`}>
+                              📋 RTN+Note
+                            </button>
+                            {/* 🏢 Floor / Carrying */}
+                            <button onClick={() => setFloorCarryingChallan(c)}
+                              className={`flex items-center gap-1 px-1.5 sm:px-2 py-1 text-[10px] font-semibold border rounded-lg transition
+                                ${c.floor || c.carrying
+                                  ? "text-emerald-700 border-emerald-300 bg-emerald-50"
+                                  : "text-emerald-600 border-emerald-200 hover:bg-emerald-50"}`}>
+                              🏢 {c.floor ? `${c.floor}F` : c.carrying ? "Carry" : "Floor"}
                             </button>
                           </div>
                         </div>
@@ -885,6 +1068,30 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
             challans: trip.challans.map(c => c.challanId === updatedChallan.challanId ? updatedChallan : c),
           })}
           onClose={() => setNotingChallan(null)}
+        />
+      )}
+      {rtnNoteChallan && (
+        <RtnNoteModal
+          tripId={trip._id} challan={rtnNoteChallan} axiosSecure={axiosSecure} updatedBy={loggedInUser}
+          onSave={(updatedChallan) => syncTrip({
+            ...trip,
+            challans: trip.challans.map(c =>
+              c.challanId === updatedChallan.challanId
+                ? { ...c, deliveryStatus: updatedChallan.deliveryStatus, challanReturnStatus: updatedChallan.challanReturnStatus, note: updatedChallan.note }
+                : c
+            ),
+          })}
+          onClose={() => setRtnNoteChallan(null)}
+        />
+      )}
+      {floorCarryingChallan && (
+        <FloorCarryingModal
+          tripId={trip._id} challan={floorCarryingChallan} axiosSecure={axiosSecure} updatedBy={loggedInUser}
+          onSave={(updatedChallan) => syncTrip({
+            ...trip,
+            challans: trip.challans.map(c => c.challanId === updatedChallan.challanId ? { ...c, floor: updatedChallan.floor, carrying: updatedChallan.carrying } : c),
+          })}
+          onClose={() => setFloorCarryingChallan(null)}
         />
       )}
     </>

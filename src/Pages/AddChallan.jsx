@@ -1,11 +1,11 @@
-
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, Edit3, User, MapPin, Phone, Package, Send, History, Globe, Clock, Building, Navigation } from "lucide-react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import useAuth from "../hooks/useAuth";
 import AutoDropdown from "../Component/AutoDropdown";
+import useAutoComplete from "../hooks/useAutoComplete";
 import Swal from "sweetalert2";
 import EditRecentChallanModal from "../Component/EditRecentChallanModal";
 
@@ -14,12 +14,13 @@ const AddChallan = () => {
   const { user }     = useAuth();
   const queryClient  = useQueryClient();
 
-  const [autoData,       setAutoData]       = useState({});
-  const [activeField,    setActiveField]    = useState(null);
   const [editModalOpen,  setEditModalOpen]  = useState(false);
   const [selectedProduct,setSelectedProduct]= useState(null);
   const [showRecent,     setShowRecent]     = useState(false);
-  const debounceRef = useRef(null);
+
+  // FIX: cache + debounce + abort — একই query দ্বিতীয়বার API call করবে না
+  const { autoData, activeField, setActiveField, handleAutoSearch } =
+    useAutoComplete(axiosSecure, "challan");
 
   const { register, control, handleSubmit, reset, setValue, formState: { errors } } = useForm({
     defaultValues: { products: [{ model: "", productName: "", quantity: "" }] },
@@ -35,17 +36,7 @@ const AddChallan = () => {
     staleTime: 30 * 1000,
   });
 
-  const handleAutoSearch = (fieldKey, field, value) => {
-    if (!value) return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      try {
-        const res = await axiosSecure.get(`/autocomplete?collection=challan&field=${field}&search=${value}`);
-        setAutoData(prev => ({ ...prev, [fieldKey]: res.data }));
-        setActiveField(fieldKey);
-      } catch (err) { console.error(err); }
-    }, 400);
-  };
+
 
   const onSubmit = async (data) => {
     try {

@@ -155,7 +155,6 @@ const Profile = () => {
               />
               <div>
                 <h2 className="text-xl font-bold">{user.displayName || "User"}</h2>
-                <p className="text-white/80 text-sm">{user.email}</p>
               </div>
             </div>
             <button

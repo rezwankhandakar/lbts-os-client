@@ -248,19 +248,30 @@ const AllChallan = () => {
 
   const setFilter = setter => val => { setter(val); setClientPage(1); };
 
-  const fetchChallans = async (m, y, search) => {
+  // ── FIX: আগে limit=5000 → browser-এ হাজার রেকর্ড → UI slow/freeze
+  // এখন: limit=500, search-এ 400ms debounce, সব calculation useMemo-তে
+  const debounceRef = useRef(null);
+
+  const fetchChallans = React.useCallback(async (m, y, search) => {
     setLoading(true);
     try {
       const url = search
-        ? `/challans?search=${encodeURIComponent(search)}&page=1&limit=5000`
-        : `/challans?month=${m}&year=${y}&page=1&limit=5000`;
+        ? `/challans?search=${encodeURIComponent(search)}&page=1&limit=500`
+        : `/challans?month=${m}&year=${y}&page=1&limit=500`;
       const res = await axiosSecure.get(url);
       setChallans(res.data.data || []);
     } catch (err) { console.error(err); }
     setLoading(false);
-  };
+  }, [axiosSecure]);
 
-  useEffect(() => { setClientPage(1); fetchChallans(month, year, searchText); }, [month, year, searchText]);
+  useEffect(() => {
+    setClientPage(1);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      fetchChallans(month, year, searchText);
+    }, searchText ? 400 : 0);
+    return () => clearTimeout(debounceRef.current);
+  }, [month, year, searchText, fetchChallans]);
 
   const handleResetAll = () => {
     setMonth(new Date().getMonth() + 1); setYear(new Date().getFullYear()); setClientPage(1);
@@ -272,7 +283,8 @@ const AllChallan = () => {
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
   };
 
-  const rowMatchesAll = (c, p, excludeField = null) => {
+  // useCallback — filter dependency না বদলালে নতুন function তৈরি হবে না
+  const rowMatchesAll = React.useCallback((c, p, excludeField = null) => {
     const s = searchText?.toLowerCase() || "";
     const matchesSearch = !searchText || [
       c.customerName, c.address, c.thana, c.district,
@@ -294,14 +306,25 @@ const AllChallan = () => {
       check("model",          modelFilter,       p.model) &&
       (excludeField === "date" || !dateFilter ||
         (c.createdAt && new Date(c.createdAt).toISOString().slice(0, 10) === dateFilter));
-  };
+  }, [searchText, statusFilter, customerFilter, addressFilter, thanaFilter, districtFilter,
+      receiverFilter, zoneFilter, productNameFilter, modelFilter, dateFilter]);
 
-  const filteredRows  = challans.flatMap(c => (c.products || []).filter(p => rowMatchesAll(c, p)).map(p => ({ c, p })));
+  // useMemo — challans বা filter না বদলালে recalculate হবে না → dropdown/filter instant
+  const filteredRows = React.useMemo(
+    () => challans.flatMap(c => (c.products || []).filter(p => rowMatchesAll(c, p)).map(p => ({ c, p }))),
+    [challans, rowMatchesAll]
+  );
   const totalPages    = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
-  const paginatedRows = filteredRows.slice((clientPage - 1) * ITEMS_PER_PAGE, clientPage * ITEMS_PER_PAGE);
-  const totalQtyAll   = filteredRows.reduce((sum, { p }) => sum + (Number(p.quantity) || 0), 0);
+  const paginatedRows = React.useMemo(
+    () => filteredRows.slice((clientPage - 1) * ITEMS_PER_PAGE, clientPage * ITEMS_PER_PAGE),
+    [filteredRows, clientPage]
+  );
+  const totalQtyAll = React.useMemo(
+    () => filteredRows.reduce((sum, { p }) => sum + (Number(p.quantity) || 0), 0),
+    [filteredRows]
+  );
 
-  const getOptionsFor = (field) => {
+  const getOptionsFor = React.useCallback((field) => {
     const map = new Map();
     challans.forEach(c => {
       (c.products || []).forEach(p => {
@@ -311,7 +334,7 @@ const AllChallan = () => {
       });
     });
     return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
-  };
+  }, [challans, rowMatchesAll]);
 
   const activeFilterGroups = [
     { label: "Customer", values: customerFilter,    clear: () => { setCustomerFilter([]);    setClientPage(1); } },

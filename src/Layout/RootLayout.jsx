@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router';
 import useAuth from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 import useRole from '../hooks/useRole';
-import { useSearch } from '../hooks/SearchContext';
+import { useSearchInput } from '../hooks/SearchContext';
 import {
   FiHome, FiLogOut, FiUser, FiSearch, FiMenu, FiPackage, FiX,
   FiShield, FiDatabase, FiUsers, FiChevronDown
@@ -49,6 +48,7 @@ const NAV_SECTIONS = [
       { to: '/create-delivery', icon: <TbTruckDelivery size={16} />, label: 'Create Delivery', color: 'text-amber-400' },
       { to: '/trip-inventory',  icon: <MdInventory2 size={15} />,    label: 'Trip Inventory',  color: 'text-amber-400' },
       { to: '/deliverd',  icon:<FiPackage size={14} />,    label: 'Deliverd',  color: 'text-amber-400' },
+      { to: '/labor-bill',  icon:<FaFileInvoice size={14} />,    label: 'Labor Bill',  color: 'text-emerald-400' },
     ],
   },
 ];
@@ -87,7 +87,7 @@ const SectionLabel = ({ label }) => (
 const RootLayout = () => {
   const { user, logOut } = useAuth();
   const { role, status } = useRole();
-  const { searchText, setSearchText } = useSearch();
+  const { rawText: searchText, setRawText: setSearchText, resetSearch } = useSearchInput();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -96,7 +96,7 @@ const RootLayout = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
-    setSearchText('');
+    resetSearch();
     setMobileOpen(false);
     setDropdownOpen(false);
   }, [location.pathname]);
@@ -150,8 +150,9 @@ const RootLayout = () => {
           <div>
             <SectionLabel label="Finance" />
             <ul className="space-y-0.5">
-              <li><NavItem to="/accounts"  icon={<IoMdCash size={16} />}   label="Accounts Dashboard" iconColor="text-emerald-400" /></li>
-              <li><NavItem to="/car-rent"  icon={<RiTruckLine size={15} />} label="Car Rent"           iconColor="text-rose-400" /></li>
+              <li><NavItem to="/accounts"     icon={<IoMdCash size={16} />}      label="Accounts Dashboard" iconColor="text-emerald-400" /></li>
+              <li><NavItem to="/car-rent"     icon={<RiTruckLine size={15} />}   label="Car Rent"           iconColor="text-rose-400" /></li>
+              <li><NavItem to="/walton-bills" icon={<FaFileInvoice size={13} />} label="Walton Bill"        iconColor="text-violet-400" /></li>
             </ul>
           </div>
         )}

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import { useSearch } from "../hooks/SearchContext";
@@ -45,8 +44,7 @@ const CreateDelivery = () => {
     }, [axiosSecure]);
 
     useEffect(() => {
-        const t = setTimeout(() => fetchChallans(searchText), 500);
-        return () => clearTimeout(t);
+        fetchChallans(searchText);
     }, [searchText, fetchChallans]);
 
     const addToDelivery = (challan) => {

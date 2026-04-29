@@ -272,6 +272,31 @@ const AuthProvider = ({ children }) => {
   }, [user]);
 
   // ─────────────────────────────────────────────────────────────
+  // Server Warmup — Cold Start এড়াতে
+  // FIX: Vercel serverless function প্রতি ~10 মিনিটে sleep হয়।
+  // User logged-in থাকলে প্রতি 4 মিনিটে /warmup ping করলে
+  // function জেগে থাকে → পরের real request-এ cold start নেই।
+  // /warmup exempt from rate limiting (health check-এর মতো)
+  // ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!user || !BASE_URL) return;
+
+    const ping = () => {
+      fetch(`${BASE_URL}/warmup`, {
+        method: 'GET',
+        headers: localStorage.getItem('access-token')
+          ? { Authorization: `Bearer ${localStorage.getItem('access-token')}` }
+          : {},
+        signal: AbortSignal.timeout(8000), // 8s timeout — fire and forget
+      }).catch(() => {}); // error silently ignore — warmup is best-effort
+    };
+
+    ping(); // login করার সাথে সাথে একবার ping
+    const interval = setInterval(ping, 4 * 60 * 1000); // প্রতি 4 মিনিটে
+    return () => clearInterval(interval);
+  }, [user]);
+
+  // ─────────────────────────────────────────────────────────────
   // Context Value
   // ─────────────────────────────────────────────────────────────
   const authInfo = {
