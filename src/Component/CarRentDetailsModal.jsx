@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import useAuth from "../hooks/useAuth";
 import Swal from "sweetalert2";
 import {
-  X, Truck, User, Package, PhoneForwarded, Save, Wallet, Pencil, ChevronDown,
+  X, Truck, User, Package, PhoneForwarded, Save, Wallet, Pencil, ChevronDown, RotateCcw,
 } from "lucide-react";
 import RentSummaryModal from "./RentSummaryModal";
 
@@ -124,12 +123,12 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case "confirmed":    return "bg-emerald-100 text-emerald-700";
-      case "not_received": return "bg-rose-100 text-rose-700";
-      case "call_later":   return "bg-amber-100 text-amber-700";
-      case "received":     return "bg-indigo-100 text-indigo-700";
-      case "missing":      return "bg-red-100 text-red-700";
-      default:             return "bg-slate-100 text-slate-500";
+      case "confirmed":    return "bg-emerald-100 text-emerald-700 border-emerald-200";
+      case "not_received": return "bg-rose-100 text-rose-700 border-rose-200";
+      case "call_later":   return "bg-amber-100 text-amber-700 border-amber-200";
+      case "received":     return "bg-indigo-100 text-indigo-700 border-indigo-200";
+      case "missing":      return "bg-red-100 text-red-700 border-red-200";
+      default:             return "bg-slate-100 text-slate-500 border-slate-200";
     }
   };
 
@@ -152,7 +151,8 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
         onClick={handleClose}
       >
         <div
-          className="bg-white w-full max-w-5xl max-h-[98vh] sm:max-h-[95vh] overflow-hidden rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col"
+          className="bg-white w-full max-w-5xl overflow-hidden rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col"
+          style={{ maxHeight: "100dvh" }}
           onClick={e => e.stopPropagation()}
         >
 
@@ -163,40 +163,28 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
               onClick={() => setStatsOpen(o => !o)}
             >
               <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
-                {/* Trip number */}
                 <h2 className="text-xs sm:text-sm font-black text-white tracking-tight shrink-0">
                   {rental.tripNumber}
                 </h2>
-                {/* Date */}
                 <span className="text-[10px] text-slate-400 font-medium shrink-0">
                   {new Date(rental.createdAt).toLocaleDateString("en-GB")}
                 </span>
-                {/* Vehicle */}
                 <div className="hidden sm:flex items-center gap-1 shrink-0">
                   <Truck size={10} className="text-indigo-400" />
-                  <span
-                    className="text-[10px] font-bold text-slate-300 truncate max-w-[70px] sm:max-w-[110px]"
-                    title={rental.vehicleNumber}
-                  >
+                  <span className="text-[10px] font-bold text-slate-300 truncate max-w-[70px] sm:max-w-[110px]" title={rental.vehicleNumber}>
                     {rental.vehicleNumber}
                   </span>
                 </div>
-                {/* Driver */}
                 <div className="hidden sm:flex items-center gap-1 shrink-0">
                   <User size={10} className="text-indigo-400" />
-                  <span
-                    className="text-[10px] font-bold text-slate-300 truncate max-w-[100px]"
-                    title={rental.driverName}
-                  >
+                  <span className="text-[10px] font-bold text-slate-300 truncate max-w-[100px]" title={rental.driverName}>
                     {rental.driverName}
                   </span>
                 </div>
-                {/* Points & Pics */}
                 <span className="text-[10px] text-emerald-400 font-black shrink-0">
                   {normalChallans.length || rental.totalChallan || rental.point} Point — {totalProducts} Pics
                 </span>
               </div>
-
               <div className="flex items-center gap-0.5 shrink-0">
                 <ChevronDown size={12} className={`text-slate-500 transition-transform duration-200 ${statsOpen ? "rotate-180" : ""}`} />
                 <button
@@ -212,8 +200,6 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
             {statsOpen && (
               <div className="border-t border-slate-700 px-3 py-3 space-y-3">
                 <div className="flex flex-wrap gap-x-5 gap-y-2">
-
-                  {/* Vehicle */}
                   <div className="flex items-center gap-1.5">
                     <Truck size={13} className="text-indigo-400 shrink-0" />
                     <div>
@@ -221,16 +207,11 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                       <p className="text-xs font-bold text-white">{rental.vehicleNumber}</p>
                     </div>
                   </div>
-
-                  {/* Vendor */}
                   <div className="flex items-center gap-1.5">
                     <Package size={13} className="text-indigo-400 shrink-0" />
                     <div>
                       <p className="text-[8px] text-slate-500 uppercase font-black tracking-widest leading-none">Vendor</p>
-                      <p
-                        className="text-xs font-bold text-white truncate max-w-[150px] sm:max-w-[220px]"
-                        title={rental.vendorName}
-                      >
+                      <p className="text-xs font-bold text-white truncate max-w-[150px] sm:max-w-[220px]" title={rental.vendorName}>
                         {rental.vendorName}
                       </p>
                       {rental.vendorNumber && (
@@ -240,16 +221,11 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                       )}
                     </div>
                   </div>
-
-                  {/* Driver */}
                   <div className="flex items-center gap-1.5">
                     <User size={13} className="text-indigo-400 shrink-0" />
                     <div>
                       <p className="text-[8px] text-slate-500 uppercase font-black tracking-widest leading-none">Driver</p>
-                      <p
-                        className="text-xs font-bold text-white truncate max-w-[140px]"
-                        title={rental.driverName}
-                      >
+                      <p className="text-xs font-bold text-white truncate max-w-[140px]" title={rental.driverName}>
                         {rental.driverName}
                       </p>
                       {rental.driverNumber && (
@@ -259,8 +235,6 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                       )}
                     </div>
                   </div>
-
-                  {/* Created/updated by */}
                   <div className="flex flex-wrap gap-x-3 gap-y-1 items-center">
                     {(rental.currentUser || rental.createdBy) && (
                       <span className="text-[10px] text-slate-400 flex items-center gap-1">
@@ -300,32 +274,24 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                       </div>
                     ))}
                   </div>
-
                   {!readOnly && (
                     <div className="flex items-end gap-1.5 flex-wrap ml-auto">
                       <div className="flex flex-col">
                         <span className="text-[7px] text-slate-500 uppercase font-black tracking-widest mb-0.5 pl-0.5">Rent (৳)</span>
                         <input
-                          type="number"
-                          value={rent}
-                          onChange={e => setRent(e.target.value)}
-                          placeholder="—"
+                          type="number" value={rent} onChange={e => setRent(e.target.value)} placeholder="—"
                           className="w-20 sm:w-24 text-xs font-bold bg-slate-700 border border-slate-600 text-white placeholder-slate-500 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 text-center"
                         />
                       </div>
                       <div className="flex flex-col">
                         <span className="text-[7px] text-slate-500 uppercase font-black tracking-widest mb-0.5 pl-0.5">Lebor Bill (৳)</span>
                         <input
-                          type="number"
-                          value={leborBill}
-                          onChange={e => setLeborBill(e.target.value)}
-                          placeholder="—"
+                          type="number" value={leborBill} onChange={e => setLeborBill(e.target.value)} placeholder="—"
                           className="w-20 sm:w-24 text-xs font-bold bg-slate-700 border border-slate-600 text-white placeholder-slate-500 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 text-center"
                         />
                       </div>
                       <button
-                        onClick={handleSaveClick}
-                        disabled={saving}
+                        onClick={handleSaveClick} disabled={saving}
                         className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition disabled:opacity-50"
                       >
                         <Save size={11} /> Save
@@ -348,114 +314,121 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                   return (
                     <div
                       key={i}
-                      className={`border rounded-xl p-2.5 sm:p-3 md:p-4 transition-all duration-200
+                      className={`border rounded-xl overflow-hidden transition-all duration-200
                         ${isReturnCard
                           ? "bg-orange-50 border-orange-200"
-                          : "bg-white border-slate-200 hover:border-indigo-200 hover:shadow-sm"
-                        }`}
+                          : "bg-white border-slate-200 hover:border-indigo-200 hover:shadow-sm"}`}
                     >
-                      {/* Return challan badge */}
-                      {isReturnCard && (
-                        <div className="flex items-center gap-2 mb-2 pb-2 border-b border-orange-200">
-                          <span className="px-2 py-0.5 bg-orange-600 text-white text-[9px] font-black rounded uppercase">
-                            ↩ Return Challan
-                          </span>
-                          {c.returnedAt && (
-                            <span className="text-[10px] text-orange-600 font-semibold">
-                              {new Date(c.returnedAt).toLocaleDateString("en-GB")}
+
+                      {/* ══ TOP ROW: status badges OR return badge ══ */}
+                      <div className={`flex items-center justify-between gap-2 px-2.5 py-1.5 border-b
+                        ${isReturnCard
+                          ? "bg-orange-100/60 border-orange-200"
+                          : "bg-slate-50 border-slate-100"}`}>
+
+                        {isReturnCard ? (
+                          /* Return badge + date */
+                          <div className="flex items-center gap-1.5">
+                            <span className="flex items-center gap-1 px-2 py-0.5 bg-orange-600 text-white text-[9px] font-black rounded uppercase">
+                              <RotateCcw size={8} /> Return Challan
                             </span>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="space-y-1 min-w-0 flex-1">
-
-                          {/* ── Customer name — larger, fully visible ── */}
-                          <p className="text-xs sm:text-sm text-slate-800 font-bold leading-tight break-words">
-                            {c.customerName}
-                          </p>
-
-                          {/* Zone badge */}
-                          <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded border font-semibold uppercase
-                            ${isReturnCard
-                              ? "bg-orange-100 text-orange-700 border-orange-200"
-                              : "bg-indigo-50 text-indigo-600 border-indigo-100"
-                            }`}>
-                            {c.zone}
-                          </span>
-
-                          {/* Address — truncated with hover tooltip */}
-                          <p
-                            className="text-[11px] text-slate-500 leading-snug truncate cursor-default"
-                            title={c.address}
-                          >
-                            <span className="font-semibold text-slate-600">Addr:</span> {c.address}
-                          </p>
-
-                          {/* District / Thana */}
-                          {(c.district || c.thana) && (
-                            <p className="text-[11px] text-slate-500 leading-snug">
-                              <span className="font-semibold text-slate-600">{c.district}</span>
-                              {c.thana && <span className="text-slate-400"> · {c.thana}</span>}
-                            </p>
-                          )}
-
-                          {/* Receiver number */}
-                          <p className="text-[11px] text-slate-600 font-semibold tracking-wide">
-                            {c.receiverNumber}
-                          </p>
-
-                          {/* Floor / Carrying */}
-                          {!isReturnCard && (c.floor || c.carrying) && (
-                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                              {c.floor && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 border border-emerald-200 rounded-full text-[10px] font-black text-emerald-700">
-                                  🏢 {c.floor} তলা
-                                </span>
-                              )}
-                              {c.carrying && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-200 rounded-full text-[10px] font-semibold text-amber-700">
-                                  🚐 {c.carrying}
-                                </span>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Note */}
-                          {!isReturnCard && c.note?.trim() && (
-                            <p
-                              className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 mt-1 cursor-default"
-                              title={c.note}
-                            >
-                              📝 {c.note.length > 60 ? c.note.slice(0, 60) + "…" : c.note}
-                            </p>
-                          )}
-                          {isReturnCard && c.returnNote && (
-                            <p
-                              className="text-[10px] text-orange-700 bg-orange-100 border border-orange-200 rounded px-2 py-0.5 mt-1 italic cursor-default"
-                              title={c.returnNote}
-                            >
-                              📝 {c.returnNote}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Status badges */}
-                        {!isReturnCard && (
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            <span className={`text-[8px] px-1.5 sm:px-2 py-0.5 rounded-full font-bold border uppercase whitespace-nowrap ${getStatusBadge(c.deliveryStatus)}`}>
+                            {c.returnedAt && (
+                              <span className="text-[10px] text-orange-600 font-medium">
+                                {new Date(c.returnedAt).toLocaleDateString("en-GB")}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          /* D + C status badges */
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold border uppercase whitespace-nowrap ${getStatusBadge(c.deliveryStatus)}`}>
                               D: {c.deliveryStatus || "Pending"}
                             </span>
-                            <span className={`text-[8px] px-1.5 sm:px-2 py-0.5 rounded-full font-bold border uppercase whitespace-nowrap ${getStatusBadge(c.challanReturnStatus)}`}>
+                            <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold border uppercase whitespace-nowrap ${getStatusBadge(c.challanReturnStatus)}`}>
                               C: {c.challanReturnStatus || "Pending"}
                             </span>
                           </div>
                         )}
+
+                        {/* Zone badge — right side of top row */}
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded border font-semibold uppercase shrink-0
+                          ${isReturnCard
+                            ? "bg-orange-100 text-orange-700 border-orange-200"
+                            : "bg-indigo-50 text-indigo-600 border-indigo-100"}`}>
+                          {c.zone}
+                        </span>
                       </div>
 
-                      {/* Product table */}
-                      <div className={`mt-2 sm:mt-3 rounded-xl border overflow-hidden
+                      {/* ══ BODY: full data ══ */}
+                      <div className="p-2.5 sm:p-3 space-y-1">
+
+                        {/* Customer name — full, no truncate */}
+                        <p className="text-xs sm:text-sm text-slate-800 font-bold leading-snug break-words">
+                          {c.customerName}
+                        </p>
+
+                        {/* Address — full, no truncate */}
+                        <p className="text-[10px] text-slate-500 leading-snug break-words">
+                          <span className="font-semibold text-slate-600">Addr:</span> {c.address}
+                        </p>
+
+                        {/* District · Thana */}
+                        {(c.district || c.thana) && (
+                          <p className="text-[10px] leading-snug">
+                            {c.district && (
+                              <span>
+                                <span className="font-semibold text-cyan-800">District:</span>{" "}
+                                <span className="text-slate-600">{c.district}</span>
+                              </span>
+                            )}
+                            {c.district && c.thana && <span className="text-slate-300 mx-1">·</span>}
+                            {c.thana && (
+                              <span>
+                                <span className="font-semibold text-cyan-800">Thana:</span>{" "}
+                                <span className="text-slate-600">{c.thana}</span>
+                              </span>
+                            )}
+                          </p>
+                        )}
+
+                        {/* Receiver number */}
+                        {c.receiverNumber && (
+                          <p className="text-[10px] text-slate-700 font-semibold tracking-wide">
+                            {c.receiverNumber}
+                          </p>
+                        )}
+
+                        {/* Floor / Carrying chips */}
+                        {!isReturnCard && (c.floor || c.carrying) && (
+                          <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                            {c.floor && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 rounded-full text-[9px] font-black text-emerald-700">
+                                🏢 {c.floor} তলা
+                              </span>
+                            )}
+                            {c.carrying && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-50 border border-amber-200 rounded-full text-[9px] font-semibold text-amber-700">
+                                🚐 {c.carrying}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Note — full, no truncate */}
+                        {!isReturnCard && c.note?.trim() && (
+                          <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 break-words">
+                            📝 {c.note}
+                          </p>
+                        )}
+                        {isReturnCard && c.returnNote && (
+                          <p className="text-[10px] text-orange-700 bg-orange-100 border border-orange-200 rounded px-2 py-1 italic break-words">
+                            📝 {c.returnNote}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* ══ Product table ══ */}
+                      <div className={`mx-2.5 mb-2.5 rounded-xl border overflow-hidden
                         ${isReturnCard ? "bg-orange-50 border-orange-100" : "bg-slate-50 border-slate-100"}`}>
                         <table className="w-full text-[10px] sm:text-xs">
                           <thead className={`uppercase text-[9px] sm:text-[10px]
@@ -473,15 +446,10 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                                 className={`border-b last:border-0
                                   ${isReturnCard
                                     ? "border-orange-100 hover:bg-orange-100/50"
-                                    : "border-slate-100 hover:bg-white"
-                                  }`}
+                                    : "border-slate-100 hover:bg-white"}`}
                               >
-                                {/* Product name — truncate on mobile, full on sm+, tooltip on hover */}
-                                <td
-                                  className={`px-2 py-1.5 font-semibold truncate max-w-[90px] sm:max-w-none cursor-default
-                                    ${isReturnCard ? "text-orange-800" : "text-slate-700"}`}
-                                  title={p.productName}
-                                >
+                                <td className={`px-2 py-1.5 font-semibold break-words
+                                  ${isReturnCard ? "text-orange-800" : "text-slate-700"}`}>
                                   {p.productName}
                                 </td>
                                 <td className={`px-2 py-1.5 uppercase text-[10px]
@@ -497,6 +465,7 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                           </tbody>
                         </table>
                       </div>
+
                     </div>
                   );
                 })}

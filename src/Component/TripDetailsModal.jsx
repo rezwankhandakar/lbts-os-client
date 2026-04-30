@@ -67,11 +67,11 @@ const EditTripInfoModal = ({ trip, onSave, onClose, axiosSecure, updatedBy }) =>
 
   return (
     <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[100] p-0 sm:p-4">
-      <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[92vh]">
+      <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: "100dvh" }}>
         <div className="px-4 py-3 bg-slate-800 flex items-center justify-between text-white shrink-0">
           <div>
             <p className="font-bold text-sm">Edit Trip Info</p>
-            <p className="text-slate-400 text-[10px] font-mono">{trip.tripNumber}  </p>
+            <p className="text-slate-400 text-[10px] font-mono">{trip.tripNumber}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition"><X size={16} /></button>
         </div>
@@ -160,7 +160,7 @@ const EditChallanCard = ({ tripId, challan, onSave, onClose, axiosSecure, update
 
   return (
     <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[100] p-0 sm:p-4">
-      <div className="bg-white w-full sm:max-w-xl rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+      <div className="bg-white w-full sm:max-w-xl rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: "100dvh" }}>
         <div className="px-4 py-3 bg-indigo-600 flex items-center justify-between text-white shrink-0">
           <div>
             <p className="font-bold text-sm">Edit Challan</p>
@@ -264,7 +264,7 @@ const ReturnModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy 
 
   return (
     <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[100] p-0 sm:p-4">
-      <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+      <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: "100dvh" }}>
         <div className="px-4 py-3 bg-orange-600 flex items-center justify-between text-white shrink-0">
           <div>
             <p className="font-bold text-sm flex items-center gap-2"><RotateCcw size={13} /> {isEdit ? "Edit Return" : "Product Return"}</p>
@@ -281,18 +281,18 @@ const ReturnModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy 
           </div>
           <div className="space-y-2">
             {returnItems.map((r, i) => (
-        <div key={r._id || i} className={`p-3 border rounded-xl ${r.returnQty > 0 ? "bg-orange-50 border-orange-200" : "bg-slate-50 border-slate-100"}`}>
-  <div className="flex gap-2 mb-2">
-    <input placeholder="Product name" value={r.productName} onChange={e => handleFieldChange(i, "productName", e.target.value)}
-      className="w-[35%] text-xs bg-white border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-orange-400" />
-    <input placeholder="Model" value={r.model} onChange={e => handleFieldChange(i, "model", e.target.value)}
-      className="w-[65%] text-xs bg-white border border-slate-200 rounded px-2 py-1.5 outline-none uppercase focus:border-orange-400" />
-    {returnItems.length > 1 && (
-      <button onClick={() => handleRemoveItem(i)} className="p-1.5 text-red-300 hover:text-red-500 hover:bg-red-50 border border-red-100 rounded-lg transition shrink-0">
-        <Trash2 size={12} />
-      </button>
-    )}
-  </div>
+              <div key={r._id || i} className={`p-3 border rounded-xl ${r.returnQty > 0 ? "bg-orange-50 border-orange-200" : "bg-slate-50 border-slate-100"}`}>
+                <div className="flex gap-2 mb-2">
+                  <input placeholder="Product name" value={r.productName} onChange={e => handleFieldChange(i, "productName", e.target.value)}
+                    className="w-[35%] text-xs bg-white border border-slate-200 rounded px-2 py-1.5 outline-none focus:border-orange-400" />
+                  <input placeholder="Model" value={r.model} onChange={e => handleFieldChange(i, "model", e.target.value)}
+                    className="w-[65%] text-xs bg-white border border-slate-200 rounded px-2 py-1.5 outline-none uppercase focus:border-orange-400" />
+                  {returnItems.length > 1 && (
+                    <button onClick={() => handleRemoveItem(i)} className="p-1.5 text-red-300 hover:text-red-500 hover:bg-red-50 border border-red-100 rounded-lg transition shrink-0">
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {!r._id?.startsWith("new_") && (
                     <span className="text-[10px] text-slate-500">Delivered: <b className="text-slate-700">{r.deliveredQty} PCS</b></span>
@@ -360,21 +360,18 @@ const RtnNoteModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Delivery status update
       if (deliveryStatus && deliveryStatus !== challan.deliveryStatus) {
         await axiosSecure.patch(`/deliveries/confirm`, {
           tripNumber: challan._tripNumber, challanId: challan.challanId,
           status: deliveryStatus, operator: updatedBy,
         });
       }
-      // Challan return status update
       if (challanReturnStatus && challanReturnStatus !== challan.challanReturnStatus) {
         await axiosSecure.patch(`/deliveries/challan-return`, {
           tripNumber: challan._tripNumber, challanId: challan.challanId,
           status: challanReturnStatus, operator: updatedBy,
         });
       }
-      // Note update
       if (note !== challan.note) {
         await axiosSecure.patch(
           `/deliveries/${tripId}/challan/${challan.challanId}/note`,
@@ -405,7 +402,7 @@ const RtnNoteModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy
 
   return (
     <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[100] p-0 sm:p-4">
-      <div className="bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[92vh]">
+      <div className="bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: "100dvh" }}>
         <div className="px-4 py-3 bg-indigo-600 flex items-center justify-between text-white shrink-0">
           <div>
             <p className="font-bold text-sm">📋 RTN + Note</p>
@@ -414,7 +411,6 @@ const RtnNoteModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy
           <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg transition"><X size={16} /></button>
         </div>
         <div className="p-4 space-y-4 overflow-y-auto flex-1">
-          {/* Delivery Status */}
           <div>
             <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2">Delivery Status</p>
             <div className="grid grid-cols-2 gap-1.5">
@@ -424,7 +420,6 @@ const RtnNoteModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy
               ))}
             </div>
           </div>
-          {/* Challan Return Status */}
           <div>
             <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2">Challan Return Status</p>
             <div className="grid grid-cols-2 gap-1.5">
@@ -434,7 +429,6 @@ const RtnNoteModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy
               ))}
             </div>
           </div>
-          {/* Note */}
           <div>
             <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Note</p>
             <textarea rows={3} value={note} onChange={e => setNote(e.target.value)}
@@ -480,7 +474,7 @@ const FloorCarryingModal = ({ tripId, challan, onSave, onClose, axiosSecure, upd
 
   return (
     <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[100] p-0 sm:p-4">
-      <div className="bg-white w-full sm:max-w-xs rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[92vh]">
+      <div className="bg-white w-full sm:max-w-xs rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: "100dvh" }}>
         <div className="px-4 py-3 bg-emerald-600 flex items-center justify-between text-white shrink-0">
           <div>
             <p className="font-bold text-sm flex items-center gap-2"><Building2 size={13} /> Floor / Carrying</p>
@@ -489,7 +483,6 @@ const FloorCarryingModal = ({ tripId, challan, onSave, onClose, axiosSecure, upd
           <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg transition"><X size={16} /></button>
         </div>
         <div className="p-4 space-y-4 overflow-y-auto flex-1">
-          {/* Floor grid */}
           <div>
             <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2">Floor নম্বর (১–১৫)</p>
             <div className="grid grid-cols-5 gap-1.5">
@@ -504,7 +497,6 @@ const FloorCarryingModal = ({ tripId, challan, onSave, onClose, axiosSecure, upd
               ))}
             </div>
           </div>
-          {/* Carrying input */}
           <div>
             <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Carrying (বাহন / ব্যক্তি)</p>
             <input value={carrying} onChange={e => setCarrying(e.target.value)}
@@ -583,17 +575,19 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
   const axiosSecure = useAxiosSecure();
   const { user } = useAuth();
   const loggedInUser = user?.displayName || user?.email || "Unknown";
-  const [trip, setTrip] = useState(selectedTrip);
-  const [loadingId, setLoadingId] = useState(null);
-  const [editingChallan, setEditingChallan] = useState(null);
-  const [editingTripInfo, setEditingTripInfo] = useState(false);
-  const [returningChallan, setReturningChallan] = useState(null);
-  const [notingChallan, setNotingChallan] = useState(null);
+
+  const [trip,                 setTrip]                 = useState(selectedTrip);
+  const [loadingId,            setLoadingId]            = useState(null);
+  const [editingChallan,       setEditingChallan]       = useState(null);
+  const [editingTripInfo,      setEditingTripInfo]      = useState(false);
+  const [returningChallan,     setReturningChallan]     = useState(null);
+  const [notingChallan,        setNotingChallan]        = useState(null);
   const [floorCarryingChallan, setFloorCarryingChallan] = useState(null);
   const [rtnNoteChallan,       setRtnNoteChallan]       = useState(null);
-  const [advance, setAdvance] = useState("");
-  const [savingAdvance, setSavingAdvance] = useState(false);
-  const [statsOpen, setStatsOpen] = useState(false);
+  const [advance,              setAdvance]              = useState("");
+  const [savingAdvance,        setSavingAdvance]        = useState(false);
+  const [statsOpen,            setStatsOpen]            = useState(false);
+  const [openActionMenu,       setOpenActionMenu]       = useState(null); // ← নতুন state
 
   useEffect(() => {
     if (!selectedTrip) { setTrip(null); return; }
@@ -610,7 +604,7 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
   const totalProducts = trip.challans?.reduce((sum, c) =>
     c.isReturn ? sum : sum + (c.products?.reduce((s, p) => s + Number(p.quantity || 0), 0) || 0), 0);
   const deliveryNotConfirmed = trip.challans?.filter(c => !c.isReturn && c.deliveryStatus !== "confirmed").length;
-  const challanNotReceived = trip.challans?.filter(c => !c.isReturn && c.challanReturnStatus !== "received").length;
+  const challanNotReceived   = trip.challans?.filter(c => !c.isReturn && c.challanReturnStatus !== "received").length;
 
   const getStatusBadge = (status) => {
     const map = {
@@ -624,7 +618,6 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
   };
 
   const syncTrip = (updated) => {
-    // প্রতিটা challan-এ _tripNumber inject করো — RtnNoteModal-এ status update-এ দরকার
     const withTripNum = {
       ...updated,
       challans: (updated.challans || []).map(c => ({ ...c, _tripNumber: updated.tripNumber })),
@@ -636,7 +629,7 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
   const updateStatus = async (challanId, status, endpoint, field) => {
     try {
       setLoadingId(`${challanId}-${field}`);
-      await axiosSecure.patch(`/deliveries/${endpoint}`, { tripNumber: trip.tripNumber, challanId, status, operator: loggedInUser  });
+      await axiosSecure.patch(`/deliveries/${endpoint}`, { tripNumber: trip.tripNumber, challanId, status, operator: loggedInUser });
       syncTrip({ ...trip, challans: trip.challans.map(c => c.challanId === challanId ? { ...c, [field]: status } : c) });
       Swal.fire({ icon: "success", title: "Updated", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
     } catch { Swal.fire({ icon: "error", title: "Error", text: "Update failed" }); }
@@ -687,16 +680,17 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
         className="fixed inset-0 bg-slate-900/55 backdrop-blur-[2px] flex justify-center items-end sm:items-center z-50 p-0 sm:p-3 md:p-4"
         onClick={e => { if (e.target === e.currentTarget) setSelectedTrip(null); }}
       >
-        <div className="bg-white w-full max-w-5xl max-h-[98vh] sm:max-h-[95vh] overflow-hidden rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col">
+        <div
+          className="bg-white w-full max-w-5xl overflow-hidden rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col"
+          style={{ maxHeight: "100dvh" }}
+        >
 
           {/* ════ HEADER ════ */}
           <div className="shrink-0 bg-white border-b border-slate-100">
-
-            {/* ── Top row ── */}
             <div className="flex items-center justify-between gap-2 px-3 pt-2.5 pb-2">
               <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-wrap">
                 <h2 className="text-sm sm:text-base font-black text-slate-800 tracking-tight shrink-0">{trip.tripNumber}</h2>
-                <span className="text-[9px] sm:text-[10px] text-slate-400 sm:block shrink-0">{new Date(trip.createdAt).toDateString()}</span>
+                <span className="text-[9px] sm:text-[10px] text-slate-400 shrink-0">{new Date(trip.createdAt).toDateString()}</span>
                 {(trip.currentUser || trip.createdBy) && (
                   <span className="hidden sm:flex items-center gap-1 text-[10px] text-slate-400 shrink-0">
                     <User size={9} /> {trip.currentUser || trip.createdBy}
@@ -731,8 +725,6 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
 
             {/* ── Stats bar ── */}
             <div className="mx-2 sm:mx-3 mb-2.5 bg-slate-800 rounded-xl overflow-hidden">
-
-              {/* Compact summary row (always visible) + toggle button */}
               <div
                 className="flex items-center justify-between px-3 py-1 cursor-pointer"
                 onClick={() => setStatsOpen(o => !o)}
@@ -740,18 +732,15 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
                   <div className="flex items-center gap-1 min-w-0">
                     <Truck size={11} className="text-indigo-400 shrink-0" />
-                    {/* ✅ FIX 1: whitespace-nowrap দিয়ে এক লাইনে রাখা */}
                     <span className="text-[11px] font-bold text-white whitespace-nowrap overflow-hidden text-ellipsis max-w-[100px] sm:max-w-[160px]">
                       {trip.vehicleNumber}
                     </span>
                   </div>
-            
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[10px] text-emerald-400 font-black">
-                      {trip.challans?.filter(c => !c.isReturn).length ?? trip.totalChallan} Points 
-                  </span>
+                      {trip.challans?.filter(c => !c.isReturn).length ?? trip.totalChallan} Points
+                    </span>
                     <span className="text-[10px] text-sky-400 font-black">{totalProducts} Products</span>
-                   
                   </div>
                 </div>
                 <ChevronDown
@@ -760,11 +749,8 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                 />
               </div>
 
-              {/* Expanded detail panel — toggleable on ALL screen sizes */}
               {statsOpen && (
                 <div className="border-t border-slate-700 px-3 py-3 flex flex-wrap items-start gap-x-4 gap-y-3">
-
-                  {/* Vendor */}
                   <div className="flex items-center gap-2">
                     <Package size={14} className="text-indigo-400 shrink-0" />
                     <div>
@@ -775,8 +761,6 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                       )}
                     </div>
                   </div>
-
-                  {/* Driver */}
                   <div className="flex items-center gap-2">
                     <User size={14} className="text-indigo-400 shrink-0" />
                     <div>
@@ -787,23 +771,17 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                       )}
                     </div>
                   </div>
-
-                  {/* Count badges */}
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {[
-                     
-                      { label: "Confarmation Pending",  value: deliveryNotConfirmed, color: "rose"  },
-                      { label: "Challan Not Recived",  value: challanNotReceived,   color: "amber" },
+                      { label: "Confirmation Pending", value: deliveryNotConfirmed, color: "rose"  },
+                      { label: "Challan Not Received", value: challanNotReceived,   color: "amber" },
                     ].map(b => (
-                      <div key={b.label} className={`px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-center`}
-                        style={{ background: `color-mix(in srgb, var(--tw-${b.color}) 10%, transparent)` }}>
+                      <div key={b.label} className="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-center bg-white/5">
                         <p className={`text-[7px] text-${b.color}-400 uppercase font-black leading-none mb-0.5`}>{b.label}</p>
                         <p className={`text-xs sm:text-sm font-black text-${b.color}-400 leading-none`}>{b.value}</p>
                       </div>
                     ))}
                   </div>
-
-                  {/* Advance input */}
                   <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
                     <Wallet size={13} className="text-violet-400 shrink-0" />
                     <div className="flex-1 sm:flex-none">
@@ -827,7 +805,6 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                       )}
                     </div>
                   </div>
-
                 </div>
               )}
             </div>
@@ -836,184 +813,237 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
           {/* ════ CHALLAN GRID ════ */}
           <div className="flex-1 overflow-y-auto p-2 sm:p-2.5 md:p-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 md:gap-3">
-              {trip.challans.map((c, i) => {
-                const isReturnCard = c.isReturn === true;
-                const totalReturn = (c.returnedProducts || []).reduce((s, r) => s + (r.returnQty || 0), 0);
-                const hasReturn = !isReturnCard && totalReturn > 0;
-                const hasNote = !!c.note?.trim();
+             {trip.challans.map((c, i) => {
+  const isReturnCard = c.isReturn === true;
+  const totalReturn  = (c.returnedProducts || []).reduce((s, r) => s + (r.returnQty || 0), 0);
+  const hasReturn    = !isReturnCard && totalReturn > 0;
+  const hasNote      = !!c.note?.trim();
+  const hasFloor     = !!(c.floor || c.carrying);
+  const hasStatus    = !!(c.deliveryStatus || c.challanReturnStatus);
+  const isActionActive = hasReturn || hasNote || hasFloor || hasStatus;
 
-                return (
-                  <div key={i} className={`border rounded-xl p-2.5 sm:p-3 transition-all
-                    ${isReturnCard
-                      ? "bg-orange-50 border-orange-200"
-                      : "bg-white border-slate-200 hover:border-indigo-200 hover:shadow-sm"}`}>
+  return (
+    <div key={i} className={`border rounded-xl overflow-hidden transition-all
+      ${isReturnCard
+        ? "bg-orange-50 border-orange-200"
+        : "bg-white border-slate-200 hover:border-indigo-200 hover:shadow-sm"}`}>
 
-                    {/* Return card header */}
-                    {isReturnCard && (
-                      <div className="flex items-center justify-between mb-2 pb-2 border-b border-orange-200">
-                        <div className="flex items-center gap-1.5">
-                          <span className="flex items-center gap-1 px-2 py-0.5 bg-orange-600 text-white text-[9px] font-black rounded uppercase">
-                            <RotateCcw size={8} /> Return
-                          </span>
-                          {c.returnedAt && (
-                            <span className="text-[10px] text-orange-600">{new Date(c.returnedAt).toLocaleDateString("en-GB")}</span>
-                          )}
-                        </div>
-                        <button onClick={() => handleDeleteChallan(c.challanId, c.customerName)}
-                          className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition">
-                          <Trash2 size={9} /> Delete
-                        </button>
-                      </div>
-                    )}
+      {/* ══ TOP ROW: Status badges + Action button ══ */}
+      <div className={`flex items-center justify-between gap-2 px-2.5 py-1.5 border-b
+        ${isReturnCard ? "bg-orange-100/60 border-orange-200" : "bg-slate-50 border-slate-100"}`}>
 
-                    {/* Info + actions */}
-                    <div className="flex gap-2 justify-between">
-                      {/* Left: customer info */}
-                      <div className="space-y-0.5 min-w-0 flex-1">
-                        <p className="text-xs font-bold text-slate-800 leading-tight">{c.customerName}</p>
-                        <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded border font-semibold uppercase
-                          ${isReturnCard ? "bg-orange-100 text-orange-700 border-orange-200" : "bg-indigo-50 text-indigo-600 border-indigo-100"}`}>
-                          {c.zone}
-                        </span>
-                        <p className="text-[10px] text-slate-500 leading-snug truncate">{c.address}</p>
-                        <p className="text-[10px] text-slate-500 leading-snug"><span className="text-[10px] text-cyan-800 font-semibold">District :</span> {c.district} <span className="text-[10px] text-cyan-800 font-semibold">Thana :</span> {c.thana} <span className="text-[10px] text-slate-600 font-semibold">{c.receiverNumber}</span></p>
-                        <p ></p>
-                        {!isReturnCard && hasNote && (
-                          <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 mt-1">
-                            📝 {c.note.length > 50 ? c.note.slice(0, 50) + "…" : c.note}
-                          </p>
-                        )}
-                        {isReturnCard && c.returnNote && (
-                          <p className="text-[9px] text-orange-700 bg-orange-100 border border-orange-200 rounded px-2 py-0.5 mt-1 italic">
-                            📝 {c.returnNote}
-                          </p>
-                        )}
-                      </div>
+        {/* Return badge OR status badges */}
+        {isReturnCard ? (
+          <div className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-orange-600 text-white text-[9px] font-black rounded uppercase">
+              <RotateCcw size={8} /> Return
+            </span>
+            {c.returnedAt && (
+              <span className="text-[10px] text-orange-600 font-medium">
+                {new Date(c.returnedAt).toLocaleDateString("en-GB")}
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold border uppercase whitespace-nowrap ${getStatusBadge(c.deliveryStatus)}`}>
+              D: {c.deliveryStatus || "Pending"}
+            </span>
+            <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold border uppercase whitespace-nowrap ${getStatusBadge(c.challanReturnStatus)}`}>
+              C: {c.challanReturnStatus || "Pending"}
+            </span>
+          </div>
+        )}
 
-                      {/* Right: status + actions (non-return cards) */}
-                      {!isReturnCard && (
-                        <div className="flex flex-col items-end gap-1.5 shrink-0">
-                          {/* Status badge row */}
-                          <div className="flex gap-1 flex-wrap justify-end">
-                            {/* Delivery status — শুধু display, click disabled */}
-                            <span className={`text-[8px] px-1.5 sm:px-2 py-0.5 rounded-full font-bold border uppercase whitespace-nowrap select-none ${getStatusBadge(c.deliveryStatus)}`}>
-                              D: {c.deliveryStatus || "Pending"}
-                            </span>
-                            {/* Challan return status — শুধু display, click disabled */}
-                            <span className={`text-[8px] px-1.5 sm:px-2 py-0.5 rounded-full font-bold border uppercase whitespace-nowrap select-none ${getStatusBadge(c.challanReturnStatus)}`}>
-                              C: {c.challanReturnStatus || "Pending"}
-                            </span>
-                          </div>
+        {/* Right side: Action button OR Delete (return card) */}
+        {isReturnCard ? (
+          <button
+            onClick={() => handleDeleteChallan(c.challanId, c.customerName)}
+            className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition"
+          >
+            <Trash2 size={9} /> Delete
+          </button>
+        ) : (
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setOpenActionMenu(prev => prev === c.challanId ? null : c.challanId)}
+              className={`flex items-center gap-1 px-2 py-1 text-[10px] font-bold border rounded-lg transition
+                ${isActionActive
+                  ? "text-indigo-700 border-indigo-300 bg-indigo-50 hover:bg-indigo-100"
+                  : "text-slate-600 border-slate-200 bg-white hover:bg-slate-50"}`}
+            >
+              ⚡ Actions
+              <ChevronDown size={9} className={`transition-transform duration-150 ${openActionMenu === c.challanId ? "rotate-180" : ""}`} />
+            </button>
 
-                          {/* ── Action buttons ── */}
-                          <div className="flex items-center gap-1 flex-wrap justify-end">
-                            {/* Edit */}
-                            <button onClick={() => setEditingChallan(c)}
-                              className="flex items-center gap-1 px-1.5 sm:px-2 py-1 text-[10px] font-semibold text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition">
-                              <Pencil size={9} /> Edit
-                            </button>
-                            {/* ↩ Return Product */}
-                            <button onClick={() => setReturningChallan(c)}
-                              className={`flex items-center gap-1 px-1.5 sm:px-2 py-1 text-[10px] font-semibold border rounded-lg transition
-                                ${hasReturn
-                                  ? "text-orange-600 border-orange-300 bg-orange-50"
-                                  : "text-orange-500 border-orange-200 hover:bg-orange-50"}`}>
-                              <RotateCcw size={9} /> {hasReturn ? `Rtn(${totalReturn})` : "Rtn"}
-                            </button>
-                            {/* 📋 RTN + Note — Delivery/Challan status + note একটা modal-এ */}
-                            <button onClick={() => setRtnNoteChallan(c)}
-                              className={`flex items-center gap-1 px-1.5 sm:px-2 py-1 text-[10px] font-semibold border rounded-lg transition
-                                ${c.deliveryStatus || c.challanReturnStatus || hasNote
-                                  ? "text-indigo-600 border-indigo-300 bg-indigo-50"
-                                  : "text-slate-500 border-slate-200 hover:bg-slate-50"}`}>
-                              📋 RTN+Note
-                            </button>
-                            {/* 🏢 Floor / Carrying */}
-                            <button onClick={() => setFloorCarryingChallan(c)}
-                              className={`flex items-center gap-1 px-1.5 sm:px-2 py-1 text-[10px] font-semibold border rounded-lg transition
-                                ${c.floor || c.carrying
-                                  ? "text-emerald-700 border-emerald-300 bg-emerald-50"
-                                  : "text-emerald-600 border-emerald-200 hover:bg-emerald-50"}`}>
-                              🏢 {c.floor ? `${c.floor}F` : c.carrying ? "Carry" : "Floor"}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+            {openActionMenu === c.challanId && (
+              <>
+                <div className="fixed inset-0 z-[60]" onClick={() => setOpenActionMenu(null)} />
+                <div className="absolute right-0 top-full mt-1.5 z-[70] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden min-w-[160px]">
+                  <button
+                    onClick={() => { setEditingChallan(c); setOpenActionMenu(null); }}
+                    className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[11px] font-semibold text-indigo-600 hover:bg-indigo-50 transition text-left"
+                  >
+                    <Pencil size={12} className="shrink-0" /> Edit Challan
+                  </button>
+                  <div className="border-t border-slate-100" />
+                  <button
+                    onClick={() => { setReturningChallan(c); setOpenActionMenu(null); }}
+                    className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[11px] font-semibold hover:bg-orange-50 transition text-left ${hasReturn ? "text-orange-600" : "text-orange-500"}`}
+                  >
+                    <RotateCcw size={12} className="shrink-0" />
+                    {hasReturn ? `Return (${totalReturn} PCS)` : "Product Return"}
+                  </button>
+                  <div className="border-t border-slate-100" />
+                  <button
+                    onClick={() => { setRtnNoteChallan(c); setOpenActionMenu(null); }}
+                    className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[11px] font-semibold hover:bg-indigo-50 transition text-left ${hasStatus || hasNote ? "text-indigo-600" : "text-slate-500"}`}
+                  >
+                    <span className="text-[12px] shrink-0">📋</span> RTN + Note
+                  </button>
+                  <div className="border-t border-slate-100" />
+                  <button
+                    onClick={() => { setFloorCarryingChallan(c); setOpenActionMenu(null); }}
+                    className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[11px] font-semibold hover:bg-emerald-50 transition text-left ${hasFloor ? "text-emerald-700" : "text-emerald-600"}`}
+                  >
+                    <span className="text-[12px] shrink-0">🏢</span>
+                    {c.floor ? `Floor: ${c.floor}তলা` : c.carrying ? `Carry: ${c.carrying}` : "Floor / Carrying"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
-                    {/* Product table */}
-                    <div className={`mt-2 sm:mt-2.5 rounded-lg border overflow-hidden text-[10px]
-                      ${isReturnCard ? "bg-orange-50 border-orange-100" : "bg-slate-50 border-slate-100"}`}>
-                      <table className="w-full">
-                        <thead className={`uppercase text-[9px] ${isReturnCard ? "bg-orange-100 text-orange-600" : "bg-slate-100 text-slate-500"}`}>
-                          <tr>
-                            <th className="px-2 py-1.5 text-left font-bold">Product</th>
-                            <th className="px-2 py-1.5 text-left font-bold">Model</th>
-                            <th className="px-2 py-1.5 text-right font-bold">{isReturnCard ? "Rtn" : "Qty"}</th>
-                            {!isReturnCard && hasReturn && (
-                              <th className="px-2 py-1.5 text-right font-bold text-orange-500">Rtn</th>
-                            )}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {c.products.map((p, idx) => {
-                            const ret = !isReturnCard && c.returnedProducts?.find(r => r._id === p._id);
-                            return (
-                              <tr key={idx} className={`border-b last:border-0 ${isReturnCard ? "border-orange-100" : "border-slate-100"}`}>
-                                <td className={`px-2 py-1.5 font-semibold truncate max-w-[80px] sm:max-w-none ${isReturnCard ? "text-orange-800" : "text-slate-700"}`}>{p.productName}</td>
-                                <td className={`px-2 py-1.5 uppercase text-[9px] ${isReturnCard ? "text-orange-700" : "text-slate-600"}`}>{p.model}</td>
-                                <td className={`px-2 py-1.5 text-right font-bold ${isReturnCard ? "text-orange-700" : "text-slate-900"}`}>{p.quantity}</td>
-                                {!isReturnCard && hasReturn && (
-                                  <td className="px-2 py-1.5 text-right font-bold text-orange-600">{ret?.returnQty || "—"}</td>
-                                )}
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                      {!isReturnCard && hasReturn && c.returnNote && (
-                        <div className="px-2 py-1.5 bg-orange-50 border-t border-orange-100 text-[9px] text-orange-700 italic">
-                          📝 {c.returnNote}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+      {/* ══ BODY: সব data full width ══ */}
+      <div className="p-2.5 sm:p-3 space-y-1">
+
+        {/* Customer name — full, no truncate */}
+        <p className="text-sm font-bold text-slate-800 leading-snug">{c.customerName}</p>
+
+        {/* Zone badge */}
+        <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded border font-semibold uppercase
+          ${isReturnCard ? "bg-orange-100 text-orange-700 border-orange-200" : "bg-indigo-50 text-indigo-600 border-indigo-100"}`}>
+          {c.zone}
+        </span>
+
+        {/* Address — full, no truncate */}
+        <p className="text-[10px] text-slate-500 leading-snug break-words">{c.address}</p>
+
+        {/* District · Thana */}
+        {(c.district || c.thana) && (
+          <p className="text-[10px] leading-snug">
+            {c.district && <span><span className="text-cyan-800 font-semibold">District:</span> <span className="text-slate-600">{c.district}</span></span>}
+            {c.district && c.thana && <span className="text-slate-300 mx-1">·</span>}
+            {c.thana && <span><span className="text-cyan-800 font-semibold">Thana:</span> <span className="text-slate-600">{c.thana}</span></span>}
+          </p>
+        )}
+
+        {/* Receiver number */}
+        {c.receiverNumber && (
+          <p className="text-[10px] font-semibold text-slate-700 tracking-wide">{c.receiverNumber}</p>
+        )}
+
+        {/* Floor / Carrying chips */}
+        {!isReturnCard && (c.floor || c.carrying) && (
+          <div className="flex flex-wrap items-center gap-1 pt-0.5">
+            {c.floor && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 rounded-full text-[9px] font-black text-emerald-700">
+                🏢 {c.floor}তলা
+              </span>
+            )}
+            {c.carrying && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-50 border border-amber-200 rounded-full text-[9px] font-semibold text-amber-700">
+                🚐 {c.carrying}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Note */}
+        {!isReturnCard && hasNote && (
+          <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 break-words">
+            📝 {c.note}
+          </p>
+        )}
+        {isReturnCard && c.returnNote && (
+          <p className="text-[9px] text-orange-700 bg-orange-100 border border-orange-200 rounded px-2 py-1 italic break-words">
+            📝 {c.returnNote}
+          </p>
+        )}
+      </div>
+
+      {/* ══ Product table ══ */}
+      <div className={`mx-2.5 mb-2.5 rounded-lg border overflow-hidden text-[10px]
+        ${isReturnCard ? "bg-orange-50 border-orange-100" : "bg-slate-50 border-slate-100"}`}>
+        <table className="w-full">
+          <thead className={`uppercase text-[9px] ${isReturnCard ? "bg-orange-100 text-orange-600" : "bg-slate-100 text-slate-500"}`}>
+            <tr>
+              <th className="px-2 py-1.5 text-left font-bold">Product</th>
+              <th className="px-2 py-1.5 text-left font-bold">Model</th>
+              <th className="px-2 py-1.5 text-right font-bold">{isReturnCard ? "Rtn" : "Qty"}</th>
+              {!isReturnCard && hasReturn && (
+                <th className="px-2 py-1.5 text-right font-bold text-orange-500">Rtn</th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {c.products.map((p, idx) => {
+              const ret = !isReturnCard && c.returnedProducts?.find(r => r._id === p._id);
+              return (
+                <tr key={idx} className={`border-b last:border-0 ${isReturnCard ? "border-orange-100" : "border-slate-100"}`}>
+                  <td className={`px-2 py-1.5 font-semibold ${isReturnCard ? "text-orange-800" : "text-slate-700"}`}>{p.productName}</td>
+                  <td className={`px-2 py-1.5 uppercase text-[9px] ${isReturnCard ? "text-orange-700" : "text-slate-600"}`}>{p.model}</td>
+                  <td className={`px-2 py-1.5 text-right font-bold ${isReturnCard ? "text-orange-700" : "text-slate-900"}`}>{p.quantity}</td>
+                  {!isReturnCard && hasReturn && (
+                    <td className="px-2 py-1.5 text-right font-bold text-orange-600">{ret?.returnQty || "—"}</td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {!isReturnCard && hasReturn && c.returnNote && (
+          <div className="px-2 py-1.5 bg-orange-50 border-t border-orange-100 text-[9px] text-orange-700 italic">
+            📝 {c.returnNote}
+          </div>
+        )}
+      </div>
+
+    </div>
+  );
+})}
             </div>
           </div>
 
           {/* ════ FOOTER ════ */}
-          {/* ✅ FIX 2: Footer summary মোবাইলে scrollable + proper wrap */}
           <div className="shrink-0 border-t border-slate-100 px-3 py-2 bg-white">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               {productSummary.length > 0 && (
-                <>
-                  {/* <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">Summary:</span> */}
-                  <div className="flex flex-wrap gap-1 flex-1 min-w-0">
-                    {productSummary.map(([name, qty], idx) => (
-                      <div key={idx} className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded-lg shrink-0">
-                        <span className="text-[9px] sm:text-[10px] font-semibold text-slate-700 max-w-[60px] sm:max-w-none truncate">{name}</span>
-                        <span className="text-[9px] sm:text-[10px] font-black text-indigo-600 shrink-0">{qty}</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            <span className="hidden sm:block">
-                {trip.advance != null && (
-                <div className="flex items-center gap-1 px-2 py-0.5 bg-violet-50 border border-violet-200 rounded-lg shrink-0">
-                  <Wallet size={10} className="text-violet-500 shrink-0" />
-                  <span className="text-[9px] sm:text-[10px] text-violet-600 font-semibold">Adv:</span>
-                  <div>
-                    <span className="text-[9px] sm:text-[10px] font-black text-violet-700">৳{Number(trip.advance).toLocaleString()}</span>
-                    {takaInWords(trip.advance) && (
-                      <p className="text-[8px] text-violet-400 font-medium leading-none mt-0.5">{takaInWords(trip.advance)}</p>
-                    )}
-                  </div>
+                <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+                  {productSummary.map(([name, qty], idx) => (
+                    <div key={idx} className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded-lg shrink-0">
+                      <span className="text-[9px] sm:text-[10px] font-semibold text-slate-700 max-w-[60px] sm:max-w-none truncate">{name}</span>
+                      <span className="text-[9px] sm:text-[10px] font-black text-indigo-600 shrink-0">{qty}</span>
+                    </div>
+                  ))}
                 </div>
               )}
-            </span>
+              <span className="hidden sm:block">
+                {trip.advance != null && (
+                  <div className="flex items-center gap-1 px-2 py-0.5 bg-violet-50 border border-violet-200 rounded-lg shrink-0">
+                    <Wallet size={10} className="text-violet-500 shrink-0" />
+                    <span className="text-[9px] sm:text-[10px] text-violet-600 font-semibold">Adv:</span>
+                    <div>
+                      <span className="text-[9px] sm:text-[10px] font-black text-violet-700">৳{Number(trip.advance).toLocaleString()}</span>
+                      {takaInWords(trip.advance) && (
+                        <p className="text-[8px] text-violet-400 font-medium leading-none mt-0.5">{takaInWords(trip.advance)}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </span>
               <button
                 onClick={() => setSelectedTrip(null)}
                 className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition ml-auto shrink-0"
@@ -1099,3 +1129,4 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
 };
 
 export default TripDetailsModal;
+
