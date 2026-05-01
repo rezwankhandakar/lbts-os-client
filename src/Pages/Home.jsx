@@ -118,7 +118,7 @@ const Home = () => {
       </div>
 
       {/* ── FINANCE STATS (admin/manager/ceo) ── */}
-      {isFinanceRole && (
+      {/* {isFinanceRole && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <StatCard
             label="Net Balance"
@@ -143,7 +143,7 @@ const Home = () => {
             bg="bg-rose-50"
           />
         </div>
-      )}
+      )} */}
 
       {/* ── WAREHOUSE RECEIVING SUMMARY ── */}
       {role !== 'vendor' && (

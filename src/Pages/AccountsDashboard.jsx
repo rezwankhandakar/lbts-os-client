@@ -299,6 +299,14 @@ const VendorSummaryTable = ({ vendorMap, onPayVendor }) => {
   );
 };
 
+
+const getPrevMonthYear = (m, y) => ({
+  m: m === 1 ? 12 : m - 1,
+  y: m === 1 ? y - 1 : y,
+});
+
+const LOOKBACK_MONTHS = 12;
+
 /* ══════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════════════════════════ */
@@ -356,23 +364,31 @@ const AccountsDashboard = () => {
     setTxLoading(false);
   }, [fetchWithCache]);
 
-  // ── FIX: আগে ছিল LOOKBACK=6 → sequential 14+ API call → amounts দেরিতে আসত
-  // এখন: শুধু আগের মাসের data এক parallel request-এ নেওয়া হচ্ছে (2 call মাত্র)
-  // carry-forward ও একই batch-এ — মোট page load-এ এখন 5 call (আগে ছিল 17+)
-  const calcPrevMonthBalance = useCallback(async (prevM, prevY) => {
-    const [accData, tripData] = await Promise.all([
-      fetchWithCache(`/accounts?month=${prevM}&year=${prevY}`),
-      fetchWithCache(`/car-rents?month=${prevM}&year=${prevY}&page=1&limit=500`),
-    ]);
-    const txs  = accData.data  || [];
-    const trps = tripData.data || [];
-    const inc  = txs.filter(t => t.type === "income").reduce((s, t) => s + num(t.amount), 0);
-    const exp  = txs.filter(t => t.type === "expense").reduce((s, t) => s + num(t.amount), 0);
-    const vadv = txs.filter(t => t.type === "manual_advance").reduce((s, t) => s + num(t.amount), 0);
-    const vpay = txs.filter(t => t.type === "vendor_payment").reduce((s, t) => s + num(t.amount), 0);
-    const aadv = trps.reduce((s, t) => s + num(t.advance), 0);
-    return inc - (exp + vadv + vpay + aadv);
-  }, [fetchWithCache]);
+ const calcAccumulatedBalance = useCallback(async (m, y, originM, originY) => {
+  const monthsDiff = (originY - y) * 12 + (originM - m);
+  if (monthsDiff > LOOKBACK_MONTHS) return 0;
+
+  const [accData, tripData] = await Promise.all([
+    fetchWithCache(`/accounts?month=${m}&year=${y}`),
+    fetchWithCache(`/car-rents?month=${m}&year=${y}&page=1&limit=500`),
+  ]);
+
+  const txs  = accData.data  || [];
+  const trps = tripData.data || [];
+
+  const inc  = txs.filter(t => t.type === "income").reduce((s, t) => s + num(t.amount), 0);
+  const exp  = txs.filter(t => t.type === "expense").reduce((s, t) => s + num(t.amount), 0);
+  const vadv = txs.filter(t => t.type === "manual_advance").reduce((s, t) => s + num(t.amount), 0);
+  const vpay = txs.filter(t => t.type === "vendor_payment").reduce((s, t) => s + num(t.amount), 0);
+  const aadv = trps.reduce((s, t) => s + num(t.advance), 0);
+
+  const rawBalance = inc - (exp + vadv + vpay + aadv);
+
+  const { m: prevM, y: prevY } = getPrevMonthYear(m, y);
+  const prevBalance = await calcAccumulatedBalance(prevM, prevY, originM, originY);
+
+  return rawBalance + prevBalance;
+}, [fetchWithCache]);
 
   useEffect(() => {
     const prevM = month === 1 ? 12 : month - 1;
@@ -382,28 +398,33 @@ const AccountsDashboard = () => {
     fetchTrips(month, year);
     fetchAccountTxs(month, year);
 
-    const loadPrevData = async () => {
-      setPrevMonthBalance(null);
-      try {
-        // আগের মাস + carry-forward months — সব parallel
-        const carryMonths = [1, 2, 3].map(i => {
-          const m2 = month - i <= 0 ? month - i + 12 : month - i;
-          const y2 = month - i <= 0 ? year - 1 : year;
-          return { m2, y2 };
-        });
+  const loadPrevData = async () => {
+  setPrevMonthBalance(null);
+  try {
+    const prev1 = getPrevMonthYear(month, year);
+    const prev2 = getPrevMonthYear(prev1.m, prev1.y);
+    const prev3 = getPrevMonthYear(prev2.m, prev2.y);
 
-        const [balance, ...carryResults] = await Promise.all([
-          calcPrevMonthBalance(prevM, prevY),
-          ...carryMonths.map(({ m2, y2 }) => fetchWithCache(`/accounts?month=${m2}&year=${y2}`)),
-        ]);
+    const [balance, ...carryResults] = await Promise.all([
+      calcAccumulatedBalance(prev1.m, prev1.y, month, year),
+      fetchWithCache(`/accounts?month=${prev1.m}&year=${prev1.y}`),
+      fetchWithCache(`/accounts?month=${prev2.m}&year=${prev2.y}`),
+      fetchWithCache(`/accounts?month=${prev3.m}&year=${prev3.y}`),
+    ]);
 
-        setPrevMonthBalance(balance);
-        const unpaid = carryResults.flatMap(r => (r.data || []).filter(t => t.type === "manual_advance" && t.status !== "paid"));
-        setCarryForwardTxs(unpaid);
-      } catch { setPrevMonthBalance(0); setCarryForwardTxs([]); }
-    };
+    setPrevMonthBalance(balance);
+    const unpaid = carryResults.flatMap(r =>
+      (r.data || []).filter(t => t.type === "manual_advance" && t.status !== "paid")
+    );
+    setCarryForwardTxs(unpaid);
+  } catch {
+    setPrevMonthBalance(0);
+    setCarryForwardTxs([]);
+  }
+};
+
     loadPrevData();
-  }, [month, year, fetchTrips, fetchAccountTxs, calcPrevMonthBalance, fetchWithCache]);
+  }, [month, year, fetchTrips, fetchAccountTxs, calcAccumulatedBalance, fetchWithCache]);
 
   /* ── Vendor Map ── */
   const vendorMap = {};
