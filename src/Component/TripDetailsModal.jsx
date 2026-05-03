@@ -929,20 +929,20 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
         </span>
 
         {/* Address — full, no truncate */}
-        <p className="text-[10px] text-slate-500 leading-snug break-words">{c.address}</p>
+        <p className="text-[11px] text-black leading-snug break-words">{c.address}</p>
 
         {/* District · Thana */}
         {(c.district || c.thana) && (
-          <p className="text-[10px] leading-snug">
-            {c.district && <span><span className="text-cyan-800 font-semibold">District:</span> <span className="text-slate-600">{c.district}</span></span>}
+          <p className="text-[11px] leading-snug">
+            {c.district && <span><span className="text-cyan-800 font-semibold">District:</span> <span className="text-black font-semibold">{c.district}</span></span>}
             {c.district && c.thana && <span className="text-slate-300 mx-1">·</span>}
-            {c.thana && <span><span className="text-cyan-800 font-semibold">Thana:</span> <span className="text-slate-600">{c.thana}</span></span>}
+            {c.thana && <span><span className="text-cyan-800 font-semibold">Thana:</span> <span className="text-black font-semibold">{c.thana}</span></span>}
           </p>
         )}
 
         {/* Receiver number */}
         {c.receiverNumber && (
-          <p className="text-[10px] font-semibold text-slate-700 tracking-wide">{c.receiverNumber}</p>
+          <p className="text-[11px] font-semibold text-slate-700 tracking-wide">{c.receiverNumber}</p>
         )}
 
         {/* Floor / Carrying chips */}
@@ -993,8 +993,8 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
               const ret = !isReturnCard && c.returnedProducts?.find(r => r._id === p._id);
               return (
                 <tr key={idx} className={`border-b last:border-0 ${isReturnCard ? "border-orange-100" : "border-slate-100"}`}>
-                  <td className={`px-2 py-1.5 font-semibold ${isReturnCard ? "text-orange-800" : "text-slate-700"}`}>{p.productName}</td>
-                  <td className={`px-2 py-1.5 uppercase text-[9px] ${isReturnCard ? "text-orange-700" : "text-slate-600"}`}>{p.model}</td>
+                  <td className={`px-2 py-1.5 text-[10px] font-semibold ${isReturnCard ? "text-orange-800" : "text-black"}`}>{p.productName}</td>
+                  <td className={`px-2 py-1.5 uppercase text-[9px] ${isReturnCard ? "text-orange-700" : "text-black"}`}>{p.model}</td>
                   <td className={`px-2 py-1.5 text-right font-bold ${isReturnCard ? "text-orange-700" : "text-slate-900"}`}>{p.quantity}</td>
                   {!isReturnCard && hasReturn && (
                     <td className="px-2 py-1.5 text-right font-bold text-orange-600">{ret?.returnQty || "—"}</td>

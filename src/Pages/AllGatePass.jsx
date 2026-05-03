@@ -74,25 +74,26 @@ const MobileCard = ({ gp, p, axiosSecure, setGatePasses }) => (
     <div className="flex items-center justify-between mb-1.5">
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-[10px] bg-sky-50 border border-sky-200 rounded-lg px-2 py-0.5 font-mono font-bold text-sky-700 flex-shrink-0">{gp.tripDo}</span>
-        <span className="text-[10px] text-slate-400 truncate">{gp.tripDate ? new Date(gp.tripDate).toLocaleDateString("en-GB") : "—"}</span>
+        <span className="text-[10px] text-black truncate">{gp.tripDate ? new Date(gp.tripDate).toLocaleDateString("en-GB") : "—"}</span>
       </div>
       <ActionDropdown gp={gp} p={p} axiosSecure={axiosSecure} setGatePasses={setGatePasses} currentUser={gp.currentUser} />
     </div>
     <p className="text-xs font-bold text-slate-800 mb-1.5 truncate">{gp.customerName}</p>
     <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-slate-500 mb-2">
-      <span><span className="text-slate-400">CSD </span>{gp.csd?.toUpperCase()}</span>
-      <span><span className="text-slate-400">Unit </span>{gp.unit?.toUpperCase() || "—"}</span>
-      <span><span className="text-slate-400">Veh </span>{gp.vehicleNo?.toUpperCase()}</span>
-      <span><span className="text-slate-400">Zone </span>{gp.zone}</span>
+      <span><span className="text-orange-500"></span>{gp.csd?.toUpperCase()}</span>
+      <span><span className="text-slate-400"></span>{gp.unit?.toUpperCase() || "—"}</span>
+      <span><span className="text-slate-400"> </span>{gp.vehicleNo?.toUpperCase()}</span>
+      <span><span className="text-orange-500">Z-</span>{gp.zone}</span>
     </div>
     <div className="flex items-center justify-between bg-slate-50 rounded-lg px-2.5 py-1.5 border border-slate-100">
       <div className="min-w-0 flex-1">
-        <span className="text-[11px] font-semibold text-slate-800">{p.productName}</span>
-        <span className="text-[9px] text-slate-400 ml-1.5">{p.model?.toUpperCase()}</span>
+        <span className="text-[10px]  text-slate-800 font-semibold">{p.productName}</span>
+        <span className="text-[10px] text-slate-800 ml-1.5">{p.model?.toUpperCase()}</span>
       </div>
       <div className="ml-2 flex-shrink-0">
-        <span className="text-[9px] text-slate-400 mr-1">Qty</span>
-        <span className="text-xs font-black text-slate-800">{p.quantity}</span>
+        
+        <span className="text-[11px] font-black text-orange-500">{p.quantity}</span>
+        
       </div>
     </div>
   </div>
@@ -401,14 +402,14 @@ const AllGatePass = () => {
                         <td className="px-2.5 py-2">
                           <span className="text-[10px] bg-sky-50 border border-sky-200 rounded-lg px-2 py-0.5 font-mono font-bold text-sky-700">{gp.tripDo}</span>
                         </td>
-                        <td className="px-2.5 py-2 text-slate-500 whitespace-nowrap">{gp.tripDate ? new Date(gp.tripDate).toLocaleDateString("en-GB") : "—"}</td>
+                        <td className="px-2.5 py-2 text-black whitespace-nowrap">{gp.tripDate ? new Date(gp.tripDate).toLocaleDateString("en-GB") : "—"}</td>
                         <td className="px-2.5 py-2 font-semibold text-slate-800">{gp.customerName}</td>
-                        <td className="px-2.5 py-2 text-slate-600 font-mono text-[11px]">{gp.csd?.toUpperCase()}</td>
-                        <td className="px-2.5 py-2 text-slate-500">{gp.unit?.toUpperCase() || "—"}</td>
-                        <td className="px-2.5 py-2 text-slate-600 font-mono text-[11px]">{gp.vehicleNo?.toUpperCase()}</td>
-                        <td className="px-2.5 py-2 text-slate-600">{gp.zone}</td>
-                        <td className="px-2.5 py-2 text-slate-700">{p.productName}</td>
-                        <td className="px-2.5 py-2 text-slate-500 font-mono text-[11px]">{p.model?.toUpperCase()}</td>
+                        <td className="px-2.5 py-2 text-black font-mono text-[11px]">{gp.csd?.toUpperCase()}</td>
+                        <td className="px-2.5 py-2 text-black">{gp.unit?.toUpperCase() || "—"}</td>
+                        <td className="px-2.5 py-2 text-black font-mono text-[11px]">{gp.vehicleNo?.toUpperCase()}</td>
+                        <td className="px-2.5 py-2 text-black">{gp.zone}</td>
+                        <td className="px-2.5 py-2 text-black">{p.productName}</td>
+                        <td className="px-2.5 py-2 text-black font-mono text-[11px]">{p.model?.toUpperCase()}</td>
                         <td className="px-2.5 py-2 text-center font-black text-slate-700">{p.quantity}</td>
                         <td className="px-2.5 py-2">
                           <ActionDropdown gp={gp} p={p} axiosSecure={axiosSecure} setGatePasses={setGatePasses} currentUser={gp.currentUser} />

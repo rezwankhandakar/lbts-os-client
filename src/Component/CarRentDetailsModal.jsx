@@ -363,29 +363,29 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                       <div className="p-2.5 sm:p-3 space-y-1">
 
                         {/* Customer name — full, no truncate */}
-                        <p className="text-xs sm:text-sm text-slate-800 font-bold leading-snug break-words">
+                        <p className="text-xs sm:text-sm text-green-800 font-bold leading-snug break-words">
                           {c.customerName}
                         </p>
 
                         {/* Address — full, no truncate */}
-                        <p className="text-[10px] text-slate-500 leading-snug break-words">
-                          <span className="font-semibold text-slate-600">Addr:</span> {c.address}
+                        <p className="text-[11px] text-black leading-snug break-words">
+                          <span className="font-semibold text-orange-500">Addr:</span> {c.address}
                         </p>
 
                         {/* District · Thana */}
                         {(c.district || c.thana) && (
-                          <p className="text-[10px] leading-snug">
+                          <p className="text-[11px] leading-snug">
                             {c.district && (
                               <span>
                                 <span className="font-semibold text-cyan-800">District:</span>{" "}
-                                <span className="text-slate-600">{c.district}</span>
+                                <span className="text-black">{c.district}</span>
                               </span>
                             )}
                             {c.district && c.thana && <span className="text-slate-300 mx-1">·</span>}
                             {c.thana && (
                               <span>
                                 <span className="font-semibold text-cyan-800">Thana:</span>{" "}
-                                <span className="text-slate-600">{c.thana}</span>
+                                <span className="text-black">{c.thana}</span>
                               </span>
                             )}
                           </p>
@@ -393,7 +393,7 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
 
                         {/* Receiver number */}
                         {c.receiverNumber && (
-                          <p className="text-[10px] text-slate-700 font-semibold tracking-wide">
+                          <p className="text-[10px] text-slate-800 font-semibold tracking-wide">
                             {c.receiverNumber}
                           </p>
                         )}
@@ -448,17 +448,17 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                                     ? "border-orange-100 hover:bg-orange-100/50"
                                     : "border-slate-100 hover:bg-white"}`}
                               >
-                                <td className={`px-2 py-1.5 font-semibold break-words
+                                <td className={`px-2 py-1.5 text-[10px] font-semibold break-words
                                   ${isReturnCard ? "text-orange-800" : "text-slate-700"}`}>
                                   {p.productName}
                                 </td>
-                                <td className={`px-2 py-1.5 uppercase text-[10px]
-                                  ${isReturnCard ? "text-orange-700" : "text-slate-600"}`}>
+                                <td className={`px-2 py-1.5 text-[9px] uppercase text-[9px]
+                                  ${isReturnCard ? "text-orange-700" : "text-black"}`}>
                                   {p.model}
                                 </td>
                                 <td className={`px-2 py-1.5 text-right font-bold whitespace-nowrap
                                   ${isReturnCard ? "text-orange-700" : "text-slate-900"}`}>
-                                  {p.quantity} PCS
+                                  {p.quantity}
                                 </td>
                               </tr>
                             ))}

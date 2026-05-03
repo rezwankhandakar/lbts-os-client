@@ -56,7 +56,6 @@ const Home = () => {
   const [stats, setStats]   = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const isFinanceRole = ['admin', 'manager', 'ceo'].includes(role) && status === 'approved';
   const now       = new Date();
   const monthName = MONTHS[now.getMonth()];
   const year      = now.getFullYear();
@@ -70,8 +69,6 @@ const Home = () => {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const netBal = stats?.accounts?.netBalance ?? 0;
 
   return (
     <div className="space-y-4 sm:space-y-5 pb-8 page-enter">
@@ -116,34 +113,6 @@ const Home = () => {
           </div>
         </div>
       </div>
-
-      {/* ── FINANCE STATS (admin/manager/ceo) ── */}
-      {/* {isFinanceRole && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <StatCard
-            label="Net Balance"
-            value={fmt(stats?.accounts?.netBalance)}
-            icon={<FiActivity size={18} />}
-            color={netBal >= 0 ? 'text-emerald-600' : 'text-red-500'}
-            bg={netBal >= 0 ? 'bg-emerald-50' : 'bg-red-50'}
-            sub={`Updated ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
-          />
-          <StatCard
-            label="Total Deposit"
-            value={fmt(stats?.accounts?.income)}
-            icon={<FiTrendingUp size={18} />}
-            color="text-emerald-600"
-            bg="bg-emerald-50"
-          />
-          <StatCard
-            label="Total Expense"
-            value={fmt(stats?.accounts?.totalExpense)}
-            icon={<FiTrendingDown size={18} />}
-            color="text-rose-600"
-            bg="bg-rose-50"
-          />
-        </div>
-      )} */}
 
       {/* ── WAREHOUSE RECEIVING SUMMARY ── */}
       {role !== 'vendor' && (
@@ -232,11 +201,6 @@ const Home = () => {
           {role === 'admin' && status === 'approved' && <>
             <QA to="/user-management" icon={<FiUsers size={15} />}       label="Users"         color="text-indigo-600" bg="bg-indigo-50" />
             <QA to="/deliverd"        icon={<FiCheckCircle size={15} />}  label="Delivered"     color="text-orange-600" bg="bg-orange-50" />
-          </>}
-
-          {isFinanceRole && <>
-            <QA to="/accounts" icon={<IoMdCash size={16} />}             label="Accounts"      color="text-emerald-600" bg="bg-emerald-50" />
-            <QA to="/car-rent"  icon={<RiTruckLine size={15} />}         label="Car Rent"       color="text-rose-600"   bg="bg-rose-50" />
           </>}
         </div>
       </div>

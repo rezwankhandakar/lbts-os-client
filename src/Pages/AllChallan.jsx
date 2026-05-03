@@ -129,21 +129,24 @@ const MobileCard = ({ c, p, axiosSecure, setChallans }) => (
       </div>
       <ChallanActionDropdown challan={c} product={p} axiosSecure={axiosSecure} setChallans={setChallans} />
     </div>
-    <p className="text-xs font-bold text-slate-800 mb-1 truncate">{c.customerName}</p>
-    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-slate-500 mb-2">
-      <span className="truncate max-w-[140px]"><span className="text-slate-400">Addr </span>{c.address}</span>
-      <span><span className="text-slate-400">Thana </span>{c.thana || "—"}</span>
-      <span><span className="text-slate-400">Dist </span>{c.district || "—"}</span>
-      <span><span className="text-slate-400">Zone </span>{c.zone}</span>
-      <span><span className="text-slate-400">Ph </span>{c.receiverNumber}</span>
+    <p className="text-xs font-bold text-slate-800 mb-1">{c.customerName}</p>
+    <div className="truncate gap-x-3 gap-y-0.5 text-[10px] text-black mb-2">
+      <span className=" max-w-[140px]">{c.address}</span>
+    </div>
+    
+    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-black mb-2">
+      
+      <span><span className="text-orange-600 font-semibold">Thana: </span>{c.thana || "—"}</span>
+      <span><span className="text-orange-600 font-semibold">Dist: </span>{c.district || "—"}</span>
+      <span><span className="text-orange-600 font-semibold">Zone: </span>{c.zone}</span>
+      <span><span className="text-orange-600 font-semibold">Ph: </span>{c.receiverNumber}</span>
     </div>
     <div className="flex items-center justify-between bg-slate-50 rounded-lg px-2.5 py-1.5 border border-slate-100">
       <div className="min-w-0 flex-1">
-        <span className="text-[11px] font-semibold text-slate-800">{p.productName || "—"}</span>
-        <span className="text-[9px] text-slate-400 ml-1.5">{p.model?.toUpperCase()}</span>
+        <span className="text-[10px] font-semibold text-slate-800">{p.productName || "—"}</span>
+        <span className="text-[9px] text-black ml-1.5">{p.model?.toUpperCase()}</span>
       </div>
       <div className="ml-2 flex-shrink-0">
-        <span className="text-[9px] text-slate-400 mr-1">Qty</span>
         <span className="text-xs font-black text-slate-800">{p.quantity}</span>
       </div>
     </div>
@@ -576,19 +579,19 @@ const AllChallan = () => {
                             ? "bg-emerald-50/40 hover:bg-emerald-50"
                             : "hover:bg-orange-50/30 even:bg-slate-50/40"
                         }`}>
-                        <td className="px-2.5 py-2 text-slate-500 whitespace-nowrap">
+                        <td className="px-2.5 py-2 text-black whitespace-nowrap">
                           {c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-GB") : "—"}
                         </td>
                         <td className="px-2.5 py-2"><StatusBadge status={c.status} tripNumber={c.tripNumber} /></td>
                         <td className="px-2.5 py-2 font-semibold text-slate-800 whitespace-nowrap">{c.customerName}</td>
-                        <td className="px-2.5 py-2 text-slate-600 max-w-[140px] truncate" title={c.address}>{c.address}</td>
-                        <td className="px-2.5 py-2 text-slate-500">{c.thana || "—"}</td>
-                        <td className="px-2.5 py-2 text-slate-500">{c.district || "—"}</td>
-                        <td className="px-2.5 py-2 text-slate-500">{c.receiverNumber}</td>
-                        <td className="px-2.5 py-2 text-slate-600">{c.zone}</td>
-                        <td className="px-2.5 py-2 text-slate-600 whitespace-nowrap">{p.productName || "—"}</td>
-                        <td className="px-2.5 py-2 text-slate-700 font-mono font-semibold whitespace-nowrap">{p.model?.toUpperCase()}</td>
-                        <td className="px-2.5 py-2 text-center font-black text-slate-700">{p.quantity}</td>
+                        <td className="px-2.5 py-2 text-black max-w-[140px] truncate" title={c.address}>{c.address}</td>
+                        <td className="px-2.5 py-2 text-black">{c.thana || "—"}</td>
+                        <td className="px-2.5 py-2 text-black">{c.district || "—"}</td>
+                        <td className="px-2.5 py-2 text-black">{c.receiverNumber}</td>
+                        <td className="px-2.5 py-2 text-black">{c.zone}</td>
+                        <td className="px-2.5 py-2 text-black whitespace-nowrap">{p.productName || "—"}</td>
+                        <td className="px-2.5 py-2 text-black font-mono font-semibold whitespace-nowrap">{p.model?.toUpperCase()}</td>
+                        <td className="px-2.5 py-2 text-center font-black text-black">{p.quantity}</td>
                         <td className="px-2.5 py-2">
                           <ChallanActionDropdown challan={c} product={p} axiosSecure={axiosSecure} setChallans={setChallans} />
                         </td>

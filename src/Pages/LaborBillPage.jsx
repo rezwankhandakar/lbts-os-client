@@ -261,17 +261,17 @@ const LaborBillPage = () => {
                         <tr key={`${ridx}-${pidx}`}
                           className={`border-b border-slate-100 transition-colors hover:bg-emerald-50/20 ${ridx % 2 === 0 ? "" : "bg-slate-50/40"}`}>
                           {pidx === 0 ? <>
-                            <td className="px-2 py-1.5 text-slate-500 whitespace-nowrap" rowSpan={productRows.length}>{new Date(r.createdAt).toLocaleDateString("en-GB")}</td>
-                            <td className="px-2 py-1.5 text-slate-400 font-mono text-[10px]" rowSpan={productRows.length}>{r.tripNumber}</td>
-                            <td className="px-2 py-1.5 font-semibold text-slate-800 max-w-[100px]" rowSpan={productRows.length}><span className="block truncate">{r.customerName}</span></td>
-                            <td className="px-2 py-1.5 text-slate-600" rowSpan={productRows.length}><span className="block truncate">{r.zone}</span></td>
-                            <td className="px-2 py-1.5 text-slate-500 max-w-[100px]" rowSpan={productRows.length} title={r.address}><span className="block truncate">{r.address}</span></td>
-                            <td className="px-2 py-1.5 text-slate-500" rowSpan={productRows.length}><span className="block truncate">{r.district}</span></td>
-                            <td className="px-2 py-1.5 text-slate-500" rowSpan={productRows.length}><span className="block truncate">{r.thana}</span></td>
-                            <td className="px-2 py-1.5 text-slate-600" rowSpan={productRows.length}><span className="block truncate">{r.receiverNumber}</span></td>
+                            <td className="px-2 py-1.5 text-black whitespace-nowrap" rowSpan={productRows.length}>{new Date(r.createdAt).toLocaleDateString("en-GB")}</td>
+                            <td className="px-2 py-1.5 text-black font-mono text-[10px]" rowSpan={productRows.length}>{r.tripNumber}</td>
+                            <td className="px-2 py-1.5 font-semibold text-slate-800 max-w-[100px]" rowSpan={productRows.length} title={r.customerName}><span className="block truncate">{r.customerName}</span></td>
+                            <td className="px-2 py-1.5 text-black" rowSpan={productRows.length}><span className="block truncate">{r.zone}</span></td>
+                            <td className="px-2 py-1.5 text-black max-w-[100px]" rowSpan={productRows.length} title={r.address}><span className="block truncate">{r.address}</span></td>
+                            <td className="px-2 py-1.5 text-black" rowSpan={productRows.length}><span className="block truncate">{r.district}</span></td>
+                            <td className="px-2 py-1.5 text-black" rowSpan={productRows.length}><span className="block truncate">{r.thana}</span></td>
+                            <td className="px-2 py-1.5 text-black" rowSpan={productRows.length}><span className="block truncate">{r.receiverNumber}</span></td>
                           </> : null}
                           <td className="px-2 py-1.5"><span className="block truncate">{p.productName}</span></td>
-                          <td className="px-2 py-1.5 font-mono text-[11px] text-slate-500 uppercase"><span className="block truncate">{p.model}</span></td>
+                          <td className="px-2 py-1.5 font-mono text-[11px] text-black uppercase"><span className="block truncate">{p.model}</span></td>
                           <td className="px-2 py-1.5 text-center font-black text-slate-700">{p.quantity}</td>
                           {pidx === 0 ? <>
                             <td className="px-2 py-1.5 text-center" rowSpan={productRows.length}>

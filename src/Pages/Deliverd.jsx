@@ -1035,21 +1035,21 @@ const DeliveredPage = () => {
                       const displayNote = isReturn ? returnNote : note;
                       return (
                         <tr key={idx} className={`border-b border-slate-100 transition-colors text-[12px] ${isReturn ? "bg-orange-50/40 hover:bg-orange-50" : "hover:bg-amber-50/30 even:bg-slate-50/40"}`}>
-                          <td className="px-2 py-1.5 text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis">{date.toLocaleDateString("en-GB")}</td>
+                          <td className="px-2 py-1.5 text-black whitespace-nowrap overflow-hidden text-ellipsis">{date.toLocaleDateString("en-GB")}</td>
                           <td className="px-1 py-1.5 overflow-hidden">
                             {isReturn
                               ? <span className="inline-flex px-1.5 py-0.5 bg-orange-100 text-orange-700 border border-orange-200 rounded-full text-[9px] font-bold whitespace-nowrap">↩ Return</span>
                               : <span className="inline-flex px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-[9px] font-bold whitespace-nowrap">↗ Delivery</span>
                             }
                           </td>
-                          <td className="px-2 py-1.5 font-semibold text-slate-800 overflow-hidden"><span className="block truncate">{challan.customerName}</span></td>
-                          <td className="px-2 py-1.5 text-slate-600 overflow-hidden"><span className="block truncate">{challan.zone}</span></td>
-                          <td className="px-2 py-1.5 text-slate-500 overflow-hidden" title={challan.address}><span className="block truncate">{challan.address}</span></td>
-                          <td className="px-2 py-1.5 text-slate-600 overflow-hidden"><span className="block truncate">{challan.receiverNumber}</span></td>
-                          <td className="px-2 py-1.5 text-slate-500 overflow-hidden"><span className="block truncate">{challan.district}</span></td>
-                          <td className="px-2 py-1.5 text-slate-500 overflow-hidden"><span className="block truncate">{challan.thana}</span></td>
+                          <td className="px-2 py-1.5 font-semibold text-slate-800 overflow-hidden"title={challan.customerName}><span className="block truncate">{challan.customerName}</span></td>
+                          <td className="px-2 py-1.5 text-black overflow-hidden"title={challan.zone}><span className="block truncate">{challan.zone}</span></td>
+                          <td className="px-2 py-1.5 text-black overflow-hidden" title={challan.address}><span className="block truncate">{challan.address}</span></td>
+                          <td className="px-2 py-1.5 text-black overflow-hidden"><span className="block truncate">{challan.receiverNumber}</span></td>
+                          <td className="px-2 py-1.5 text-black overflow-hidden"><span className="block truncate">{challan.district}</span></td>
+                          <td className="px-2 py-1.5 text-black overflow-hidden"><span className="block truncate">{challan.thana}</span></td>
                           <td className="px-2 py-1.5 overflow-hidden"><span className="block truncate">{product.productName}</span></td>
-                          <td className="px-2 py-1.5 text-slate-500 uppercase overflow-hidden font-mono text-[11px]"><span className="block truncate">{product.model}</span></td>
+                          <td className="px-2 py-1.5 text-black uppercase overflow-hidden font-mono text-[11px]"title={product.model}><span className="block truncate">{product.model}</span></td>
                           <td className="px-2 py-1.5 text-center font-black text-slate-700">{product.quantity}</td>
                           {/* Note */}
                           <td className="px-2 py-1.5 overflow-hidden" title={displayNote || ""}>
