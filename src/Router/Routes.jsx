@@ -40,7 +40,8 @@ export const router = createBrowserRouter([
     errorElement: <ErrorPage />,
     children: [
       // Public
-      { index: true, path: "/", element: <S><Home /></S> },
+      { index: true, path: "/", 
+        element: <PrivateRoute><S><Home /></S></PrivateRoute> },
       { path: "/register", element: <S><Register /></S> },
       { path: "/login", element: <S><Login /></S> },
       { path: "/profile", element: <S><Profile /></S> },
