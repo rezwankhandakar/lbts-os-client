@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import useAxiosSecure from "../hooks/useAxiosSecure";
@@ -167,7 +166,7 @@ const VendorTripSummary = () => {
   useEffect(() => {
     if (!vendor?.vendorName) return;
     setTripLoading(true);
-    axiosSecure.get(`/car-rents?month=${tripMonth}&year=${tripYear}&page=1&limit=5000`)
+    axiosSecure.get(`/car-rents?month=${tripMonth}&year=${tripYear}`)
       .then(r => setTrips((r.data.data || []).filter(t => t.vendorName?.toLowerCase() === vendor.vendorName?.toLowerCase())))
       .catch(console.error)
       .finally(() => setTripLoading(false));
@@ -237,7 +236,7 @@ const VendorTripSummary = () => {
       let src = et === "filtered" ? filteredTrips : [];
       if (et === "full") {
         Swal.fire({ title: "Fetching…", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-        const r = await axiosSecure.get(`/car-rents?month=${tripMonth}&year=${tripYear}&page=1&limit=5000`);
+        const r = await axiosSecure.get(`/car-rents?month=${tripMonth}&year=${tripYear}`);
         src = (r.data.data || []).filter(t => t.vendorName?.toLowerCase() === vendor.vendorName?.toLowerCase());
         Swal.close();
       }

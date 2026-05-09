@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import { useSearch } from "../hooks/SearchContext";
@@ -151,7 +150,7 @@ const CarRentPage = () => {
     const fetchRentals = async (m, y, search) => {
         setLoading(true);
         try {
-            let url = `/car-rents?month=${m}&year=${y}&page=1&limit=5000`;
+            let url = `/car-rents?month=${m}&year=${y}`;
             if (search) url += `&search=${encodeURIComponent(search)}`;
             const res = await axiosSecure.get(url);
             setRentals(res.data.data || []);
@@ -253,7 +252,7 @@ const CarRentPage = () => {
                 exportData = filteredRows.map(toRow);
             } else {
                 Swal.fire({ title: "Fetching…", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-                const res = await axiosSecure.get(`/car-rents?month=${month}&year=${year}&page=1&limit=5000`);
+                const res = await axiosSecure.get(`/car-rents?month=${month}&year=${year}`);
                 exportData = (res.data.data || []).map(toRow);
                 if (!exportData.length) return Swal.fire({ icon: "warning", title: "No Data" });
                 Swal.close();

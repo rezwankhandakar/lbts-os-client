@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import useRole from "../hooks/useRole";
@@ -352,7 +351,7 @@ const AccountsDashboard = () => {
 
   const fetchTrips = useCallback(async (m, y) => {
     setLoading(true);
-    try { const data = await fetchWithCache(`/car-rents?month=${m}&year=${y}&page=1&limit=5000`); setTrips(data.data || []); }
+    try { const data = await fetchWithCache(`/car-rents?month=${m}&year=${y}`); setTrips(data.data || []); }
     catch (err) { console.error(err); }
     setLoading(false);
   }, [fetchWithCache]);
@@ -370,7 +369,7 @@ const AccountsDashboard = () => {
 
   const [accData, tripData] = await Promise.all([
     fetchWithCache(`/accounts?month=${m}&year=${y}`),
-    fetchWithCache(`/car-rents?month=${m}&year=${y}&page=1&limit=500`),
+    fetchWithCache(`/car-rents?month=${m}&year=${y}`),
   ]);
 
   const txs  = accData.data  || [];
@@ -496,8 +495,8 @@ const AccountsDashboard = () => {
   const fetchAuditLogs = useCallback(async (page = 1, search = "") => {
     setAuditLoading(true);
     try {
-      const params = new URLSearchParams({ page, limit: 20 });
-      if (search) params.append("performedBy", search);
+const params = new URLSearchParams({ page, limit: 20, action: "DELETE_TRANSACTION" });
+if (search) params.append("performedBy", search);
       const res = await axiosSecure.get(`/audit-logs?${params}`);
       setAuditLogs(res.data.data || []);
       setAuditTotal(res.data.total || 0);

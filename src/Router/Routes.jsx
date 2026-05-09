@@ -112,7 +112,7 @@ export const router = createBrowserRouter([
        { path: "/registration-success", element: <S><SuccessPage /></S> },
        {
   path: "/labor-bill",
-  element: <PrivateRoute><RoleRoute roles={["admin", "manager", "ceo"]}><S><LaborBillPage /></S></RoleRoute></PrivateRoute>,
+  element: <PrivateRoute><RoleRoute roles={["admin", "manager", "ceo","operator"]}><S><LaborBillPage /></S></RoleRoute></PrivateRoute>,
 }
     ],
   },

@@ -1,4 +1,3 @@
-
 // import React, { useEffect, useState, useRef } from "react";
 // import useAxiosSecure from "../hooks/useAxiosSecure";
 // import usePageParam from "../hooks/usePageParam";
@@ -701,15 +700,30 @@ const DeliveredPage = () => {
     setLoading(true);
     try {
       const url = search
-        ? `/deliveries?search=${encodeURIComponent(search)}&page=1&limit=5000`
-        : `/deliveries?month=${m}&year=${y}&page=1&limit=5000`;
+        ? `/deliveries?search=${encodeURIComponent(search)}`
+        : `/deliveries?month=${m}&year=${y}`;
       const res = await axiosSecure.get(url);
       setDeliveries(res.data.data || []);
     } catch (err) { console.error(err); }
     setLoading(false);
   }, [axiosSecure]);
 
-  useEffect(() => { fetchDeliveries(month, year, searchText); }, [month, year, searchText, fetchDeliveries]);
+  // current month/year/search ref — window focus এ use হয়
+  const monthRef  = useRef(month);
+  const yearRef   = useRef(year);
+  const searchRef = useRef(searchText);
+  useEffect(() => { monthRef.current  = month;      }, [month]);
+  useEffect(() => { yearRef.current   = year;       }, [year]);
+  useEffect(() => { searchRef.current = searchText; }, [searchText]);
+
+  useEffect(() => { setClientPage(1); fetchDeliveries(month, year, searchText); }, [month, year, searchText, fetchDeliveries]);
+
+  // নতুন delivery add হলে (window focus) re-fetch
+  useEffect(() => {
+    const onFocus = () => fetchDeliveries(monthRef.current, yearRef.current, searchRef.current);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [fetchDeliveries]);
 
   const handleResetAll = () => {
     setMonth(new Date().getMonth() + 1); setYear(new Date().getFullYear());
@@ -840,9 +854,8 @@ const DeliveredPage = () => {
         if (!filteredRows.length) return Swal.fire({ icon: "warning", title: "No Data" });
         exportData = filteredRows.map(toRow);
       } else {
-        Swal.fire({ title: "Fetching…", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-        const res = await axiosSecure.get(`/deliveries?month=${month}&year=${year}&page=1&limit=5000`);
-        (res.data.data || []).forEach(trip => {
+        // Full month — already in state (no limit), extra API call নেই
+        deliveries.forEach(trip => {
           (trip.challans || []).forEach(challan => {
             const isReturn = challan.isReturn === true;
             (challan.products || []).forEach(product => {
@@ -853,7 +866,6 @@ const DeliveredPage = () => {
           });
         });
         if (!exportData.length) return Swal.fire({ icon: "warning", title: "No Data" });
-        Swal.close();
       }
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();

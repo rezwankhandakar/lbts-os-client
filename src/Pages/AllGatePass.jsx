@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import usePageParam from "../hooks/usePageParam";
 import { useSearch } from "../hooks/SearchContext";
@@ -69,31 +68,29 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
 };
 
 /* ── Mobile Card ── */
-const MobileCard = ({ gp, p, axiosSecure, setGatePasses }) => (
+const MobileCard = ({ gp, p, axiosSecure, refetchGatePasses }) => (
   <div className="bg-white border border-slate-200 rounded-xl p-3 mb-2 shadow-sm">
     <div className="flex items-center justify-between mb-1.5">
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-[10px] bg-sky-50 border border-sky-200 rounded-lg px-2 py-0.5 font-mono font-bold text-sky-700 flex-shrink-0">{gp.tripDo}</span>
         <span className="text-[10px] text-black truncate">{gp.tripDate ? new Date(gp.tripDate).toLocaleDateString("en-GB") : "—"}</span>
       </div>
-      <ActionDropdown gp={gp} p={p} axiosSecure={axiosSecure} setGatePasses={setGatePasses} currentUser={gp.currentUser} />
+      <ActionDropdown gp={gp} p={p} axiosSecure={axiosSecure} refetchGatePasses={refetchGatePasses} currentUser={gp.currentUser} />
     </div>
     <p className="text-xs font-bold text-slate-800 mb-1.5 truncate">{gp.customerName}</p>
     <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-slate-500 mb-2">
-      <span><span className="text-orange-500"></span>{gp.csd?.toUpperCase()}</span>
-      <span><span className="text-slate-400"></span>{gp.unit?.toUpperCase() || "—"}</span>
-      <span><span className="text-slate-400"> </span>{gp.vehicleNo?.toUpperCase()}</span>
+      <span>{gp.csd?.toUpperCase()}</span>
+      <span>{gp.unit?.toUpperCase() || "—"}</span>
+      <span>{gp.vehicleNo?.toUpperCase()}</span>
       <span><span className="text-orange-500">Z-</span>{gp.zone}</span>
     </div>
     <div className="flex items-center justify-between bg-slate-50 rounded-lg px-2.5 py-1.5 border border-slate-100">
       <div className="min-w-0 flex-1">
-        <span className="text-[10px]  text-slate-800 font-semibold">{p.productName}</span>
+        <span className="text-[10px] text-slate-800 font-semibold">{p.productName}</span>
         <span className="text-[10px] text-slate-800 ml-1.5">{p.model?.toUpperCase()}</span>
       </div>
       <div className="ml-2 flex-shrink-0">
-        
         <span className="text-[11px] font-black text-orange-500">{p.quantity}</span>
-        
       </div>
     </div>
   </div>
@@ -169,19 +166,43 @@ const AllGatePass = () => {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const fetchGatePasses = async (m, y, search) => {
+  // current month/year/search ref — window focus এ use হয়
+  const monthRef  = useRef(month);
+  const yearRef   = useRef(year);
+  const searchRef = useRef(searchText);
+  useEffect(() => { monthRef.current  = month;      }, [month]);
+  useEffect(() => { yearRef.current   = year;       }, [year]);
+  useEffect(() => { searchRef.current = searchText; }, [searchText]);
+
+  const fetchGatePasses = useCallback(async (m, y, search) => {
     setLoading(true);
     try {
       const url = search
-        ? `/gate-pass?search=${encodeURIComponent(search)}&page=1&limit=5000`
-        : `/gate-pass?month=${m}&year=${y}&page=1&limit=5000`;
+        ? `/gate-pass?search=${encodeURIComponent(search)}`
+        : `/gate-pass?month=${m}&year=${y}`;
       const res = await axiosSecure.get(url);
       setGatePasses(res.data.data || []);
     } catch (err) { console.error(err); }
     setLoading(false);
-  };
+  }, [axiosSecure]);
 
-  useEffect(() => { fetchGatePasses(month, year, searchText); }, [month, year, searchText]);
+  // month / year / search change হলে re-fetch
+  useEffect(() => {
+    setClientPage(1);
+    fetchGatePasses(month, year, searchText);
+  }, [month, year, searchText, fetchGatePasses]);
+
+  // নতুন gate pass add করে ফিরে আসলে (window focus) re-fetch
+  useEffect(() => {
+    const onFocus = () => fetchGatePasses(monthRef.current, yearRef.current, searchRef.current);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [fetchGatePasses]);
+
+  // edit / delete এর পরে re-fetch করার callback
+  const refetchGatePasses = useCallback(() => {
+    fetchGatePasses(monthRef.current, yearRef.current, searchRef.current);
+  }, [fetchGatePasses]);
 
   const handleResetAll = () => {
     setMonth(new Date().getMonth() + 1); setYear(new Date().getFullYear());
@@ -193,7 +214,7 @@ const AllGatePass = () => {
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
   };
 
-  const rowMatchesAll = (gp, p, excludeField = null) => {
+  const rowMatchesAll = useCallback((gp, p, excludeField = null) => {
     const s = searchText?.toLowerCase() || "";
     const matchesSearch = !searchText || [gp.tripDo, gp.customerName, gp.csd, gp.unit, gp.vehicleNo, gp.zone, gp.currentUser, p.productName, p.model].some(v => v?.toLowerCase().includes(s));
     const check = (field, filter, val) => field === excludeField || filter.length === 0 || filter.some(f => val?.toLowerCase() === f.toLowerCase());
@@ -207,14 +228,23 @@ const AllGatePass = () => {
       check("productName",  productFilter,  p.productName)   &&
       check("model",        modelFilter,    p.model)         &&
       (excludeField === "date" || !tripDateFilter || gp.tripDate?.slice(0, 10) === tripDateFilter);
-  };
+  }, [searchText, tripDoFilter, customerFilter, csdFilter, unitFilter, vehicleFilter, zoneFilter, productFilter, modelFilter, tripDateFilter]);
 
-  const filteredRows  = gatePasses.flatMap(gp => (gp.products || []).filter(p => rowMatchesAll(gp, p)).map(p => ({ gp, p })));
+  const filteredRows  = useMemo(
+    () => gatePasses.flatMap(gp => (gp.products || []).filter(p => rowMatchesAll(gp, p)).map(p => ({ gp, p }))),
+    [gatePasses, rowMatchesAll]
+  );
   const totalPages    = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
-  const paginatedRows = filteredRows.slice((clientPage - 1) * ITEMS_PER_PAGE, clientPage * ITEMS_PER_PAGE);
-  const totalQtyAll   = filteredRows.reduce((sum, { p }) => sum + (Number(p.quantity) || 0), 0);
+  const paginatedRows = useMemo(
+    () => filteredRows.slice((clientPage - 1) * ITEMS_PER_PAGE, clientPage * ITEMS_PER_PAGE),
+    [filteredRows, clientPage]
+  );
+  const totalQtyAll = useMemo(
+    () => filteredRows.reduce((sum, { p }) => sum + (Number(p.quantity) || 0), 0),
+    [filteredRows]
+  );
 
-  const getOptionsFor = (field) => {
+  const getOptionsFor = useCallback((field) => {
     const map = new Map();
     gatePasses.forEach(gp => {
       (gp.products || []).forEach(p => {
@@ -224,7 +254,7 @@ const AllGatePass = () => {
       });
     });
     return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
-  };
+  }, [gatePasses, rowMatchesAll]);
 
   const activeFilterGroups = [
     { label: "Trip DO",  values: tripDoFilter,   clear: () => setTripDoFilter([]) },
@@ -264,11 +294,9 @@ const AllGatePass = () => {
         if (!filteredRows.length) return Swal.fire({ icon: "warning", title: "No Data" });
         exportData = filteredRows.map(({ gp, p }) => toRow(gp, p));
       } else {
-        Swal.fire({ title: "Fetching…", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-        const res = await axiosSecure.get(`/gate-pass?month=${month}&year=${year}&page=1&limit=5000`);
-        (res.data.data || []).forEach(gp => gp.products?.forEach(p => exportData.push(toRow(gp, p))));
+        // Full month — already in state (no limit), extra API call নেই
+        exportData = gatePasses.flatMap(gp => (gp.products || []).map(p => toRow(gp, p)));
         if (!exportData.length) return Swal.fire({ icon: "warning", title: "No Data" });
-        Swal.close();
       }
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
@@ -323,21 +351,21 @@ const AllGatePass = () => {
             </button>
           )}
           <select className={`${tbtn} border-slate-200 text-slate-700 bg-white focus:outline-none`}
-            value={month} onChange={e => { setMonth(parseInt(e.target.value)); }}>
+            value={month} onChange={e => { setMonth(parseInt(e.target.value)); setClientPage(1); }}>
             {MONTHS_FULL.map((m, i) => <option key={i} value={i + 1}>{isMobile ? MONTHS_SHORT[i] : m}</option>)}
           </select>
           <input type="number" className={`${tbtn} border-slate-200 text-slate-700 bg-white w-20 focus:outline-none focus:border-orange-400`}
-            value={year} onChange={e => { setYear(parseInt(e.target.value)); }} />
+            value={year} onChange={e => { setYear(parseInt(e.target.value)); setClientPage(1); }} />
           <button onClick={handleResetAll} className={`${tbtn} border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500`}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
             <span className="hidden sm:inline">Reset</span>
           </button>
-          {role === "admin" && (
+        
             <button onClick={handleExportExcel} className={`${tbtn} bg-sky-600 text-white border-sky-600 hover:bg-sky-700`}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               <span className="hidden sm:inline">Export</span><span className="sm:hidden">XLS</span>
             </button>
-          )}
+          
         </div>
       </div>
 
@@ -356,7 +384,7 @@ const AllGatePass = () => {
         ) : isMobile ? (
           <div className="h-full overflow-y-auto p-2">
             {paginatedRows.map(({ gp, p }, idx) => (
-              <MobileCard key={`${gp._id}-${p._id || idx}`} gp={gp} p={p} axiosSecure={axiosSecure} setGatePasses={setGatePasses} />
+              <MobileCard key={`${gp._id}-${p._id || idx}`} gp={gp} p={p} axiosSecure={axiosSecure} refetchGatePasses={refetchGatePasses} />
             ))}
             {totalPages > 1 && (
               <div className="flex items-center justify-between py-3 px-1 mt-1">
@@ -380,18 +408,18 @@ const AllGatePass = () => {
                       ))}
                     </tr>
                     <tr className="bg-slate-50 border-b-2 border-slate-200">
-                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("tripDo")}       selected={tripDoFilter}   onChange={val => setTripDoFilter(val)} /></th>
+                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("tripDo")}       selected={tripDoFilter}   onChange={val => { setTripDoFilter(val);   setClientPage(1); }} /></th>
                       <th className="p-1 border-r border-slate-200">
                         <input type="date" className="w-full px-1.5 py-1 border border-slate-200 rounded-lg text-[10px] outline-none focus:border-orange-400 bg-white"
-                          value={tripDateFilter} onChange={e => setTripDateFilter(e.target.value)} />
+                          value={tripDateFilter} onChange={e => { setTripDateFilter(e.target.value); setClientPage(1); }} />
                       </th>
-                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("customerName")} selected={customerFilter} onChange={val => setCustomerFilter(val)} /></th>
-                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("csd")}          selected={csdFilter}      onChange={val => setCsdFilter(val)} /></th>
-                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("unit")}         selected={unitFilter}     onChange={val => setUnitFilter(val)} /></th>
-                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("vehicleNo")}    selected={vehicleFilter}  onChange={val => setVehicleFilter(val)} /></th>
-                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("zone")}         selected={zoneFilter}     onChange={val => setZoneFilter(val)} /></th>
-                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("productName")}  selected={productFilter}  onChange={val => setProductFilter(val)} /></th>
-                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("model")}        selected={modelFilter}    onChange={val => setModelFilter(val)} /></th>
+                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("customerName")} selected={customerFilter} onChange={val => { setCustomerFilter(val); setClientPage(1); }} /></th>
+                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("csd")}          selected={csdFilter}      onChange={val => { setCsdFilter(val);      setClientPage(1); }} /></th>
+                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("unit")}         selected={unitFilter}     onChange={val => { setUnitFilter(val);     setClientPage(1); }} /></th>
+                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("vehicleNo")}    selected={vehicleFilter}  onChange={val => { setVehicleFilter(val);  setClientPage(1); }} /></th>
+                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("zone")}         selected={zoneFilter}     onChange={val => { setZoneFilter(val);     setClientPage(1); }} /></th>
+                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("productName")}  selected={productFilter}  onChange={val => { setProductFilter(val);  setClientPage(1); }} /></th>
+                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("model")}        selected={modelFilter}    onChange={val => { setModelFilter(val);    setClientPage(1); }} /></th>
                       <th className="p-1 border-r border-slate-200 text-center text-xs font-black text-slate-700">{totalQtyAll.toLocaleString()}</th>
                       <th className="p-1" />
                     </tr>
@@ -412,7 +440,7 @@ const AllGatePass = () => {
                         <td className="px-2.5 py-2 text-black font-mono text-[11px]">{p.model?.toUpperCase()}</td>
                         <td className="px-2.5 py-2 text-center font-black text-slate-700">{p.quantity}</td>
                         <td className="px-2.5 py-2">
-                          <ActionDropdown gp={gp} p={p} axiosSecure={axiosSecure} setGatePasses={setGatePasses} currentUser={gp.currentUser} />
+                          <ActionDropdown gp={gp} p={p} axiosSecure={axiosSecure} refetchGatePasses={refetchGatePasses} currentUser={gp.currentUser} />
                         </td>
                       </tr>
                     ))}

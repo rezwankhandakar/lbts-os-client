@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import { useSearch } from "../hooks/SearchContext";
 import * as XLSX from "xlsx";
@@ -152,19 +151,34 @@ const TripInventoryPage = () => {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const fetchDeliveries = async (m, y, search) => {
+  const fetchDeliveries = useCallback(async (m, y, search) => {
     setLoading(true);
     try {
       const url = search
-        ? `/deliveries?search=${encodeURIComponent(search)}&page=1&limit=5000`
-        : `/deliveries?month=${m}&year=${y}&page=1&limit=5000`;
+        ? `/deliveries?search=${encodeURIComponent(search)}`
+        : `/deliveries?month=${m}&year=${y}`;
       const res = await axiosSecure.get(url);
       setDeliveries(res.data.data || []);
     } catch (err) { console.error(err); }
     setLoading(false);
-  };
+  }, [axiosSecure]);
 
-  useEffect(() => { fetchDeliveries(month, year, searchText); }, [month, year, searchText]);
+  // current month/year/search ref — window focus এ use হয়
+  const monthRef  = useRef(month);
+  const yearRef   = useRef(year);
+  const searchRef = useRef(searchText);
+  useEffect(() => { monthRef.current  = month;      }, [month]);
+  useEffect(() => { yearRef.current   = year;       }, [year]);
+  useEffect(() => { searchRef.current = searchText; }, [searchText]);
+
+  useEffect(() => { fetchDeliveries(month, year, searchText); }, [month, year, searchText, fetchDeliveries]);
+
+  // window focus — re-fetch
+  useEffect(() => {
+    const onFocus = () => fetchDeliveries(monthRef.current, yearRef.current, searchRef.current);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [fetchDeliveries]);
 
   const tripRows = deliveries.map(t => ({
     _id: t._id, tripNumber: t.tripNumber, vendorName: t.vendorName,
@@ -268,7 +282,7 @@ const TripInventoryPage = () => {
         exportData = filteredRows.map(toRow);
       } else {
         Swal.fire({ title: "Fetching…", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-        const res = await axiosSecure.get(`/deliveries?month=${month}&year=${year}&page=1&limit=5000`);
+        const res = await axiosSecure.get(`/deliveries?month=${month}&year=${year}`);
         exportData = (res.data.data || []).map(toRow);
         if (!exportData.length) return Swal.fire({ icon: "warning", title: "No Data" });
         Swal.close();
