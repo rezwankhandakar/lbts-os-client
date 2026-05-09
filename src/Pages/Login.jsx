@@ -24,31 +24,37 @@ const Login = () => {
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm();
 
-  const handleSignin = async (data) => {
-    setLoading(true);
-    setVerificationPending(null);
-    try {
-      await signInUser(data.email, data.password);
-      toast.success("Login successful 🎉");
-      navigate("/");
-    } catch (error) {
-      const code = error?.response?.data?.code;
-      if (code === "EMAIL_NOT_VERIFIED") {
-        setVerificationPending(data.email);
-        toast.error("Please verify your email before logging in");
-      } else if (
-        error.code === "auth/wrong-password" ||
-        error.code === "auth/user-not-found" ||
-        error.code === "auth/invalid-credential"
-      ) {
-        toast.error("Invalid email or password");
-      } else {
-        toast.error(error.message || "Login failed");
-      }
-    } finally {
-      setLoading(false);
+const handleSignin = async (data) => {
+  setLoading(true);
+  setVerificationPending(null);
+  try {
+    await signInUser(data.email, data.password);
+    toast.success("Login successful 🎉");
+    navigate("/");
+  } catch (error) {
+    const code = error?.response?.data?.code;
+
+    if (code === "EMAIL_NOT_VERIFIED") {
+      setVerificationPending(data.email);
+      toast.error("Please verify your email before logging in");
+    } else if (error?.isServerError) {
+      // Vercel cold start বা network issue — user কে সঠিক message দাও
+      toast.error("Server is starting up, please try again in a moment ☕", {
+        duration: 5000,
+      });
+    } else if (
+      error.code === "auth/wrong-password" ||
+      error.code === "auth/user-not-found" ||
+      error.code === "auth/invalid-credential"
+    ) {
+      toast.error("Invalid email or password");
+    } else {
+      toast.error(error.message || "Login failed");
     }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleResendVerification = async () => {
     const email    = verificationPending || watch("email");

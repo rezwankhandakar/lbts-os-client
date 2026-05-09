@@ -36,52 +36,65 @@ const AuthProvider = ({ children }) => {
   // Unmount guard — stop setState after unmount
   const isMounted = useRef(true);
 
-  // ─────────────────────────────────────────────────────────────
-  // Token Management
-  // ─────────────────────────────────────────────────────────────
-  const saveToken = async (firebaseUser) => {
-    if (!firebaseUser) {
+// ─────────────────────────────────────────────────────────────
+// Token Management
+// ─────────────────────────────────────────────────────────────
+const saveToken = async (firebaseUser, attempt = 1) => {
+  if (!firebaseUser) {
+    removeToken();
+    return null;
+  }
+
+  const MAX_ATTEMPTS = 3;
+  const RETRY_DELAYS = [0, 1500, 3000]; // ms: 1st try instant, 2nd 1.5s, 3rd 3s
+
+  try {
+    // force=true শুধু retry-তে — প্রথমবার cached token নাও (faster)
+    const idToken = await firebaseUser.getIdToken(attempt > 1);
+    const res = await axios.post(
+      `${BASE_URL}/jwt`,
+      { idToken },
+      { timeout: 20000 } // 15s থেকে বাড়িয়ে 20s (cold start এর জন্য)
+    );
+
+    if (res.data?.success && res.data?.token) {
+      localStorage.setItem('access-token', res.data.token);
+      return res.data;
+    }
+
+    console.error('Unexpected /jwt response:', res.data);
+    removeToken();
+    return null;
+
+  } catch (err) {
+    const status = err?.response?.status;
+
+    // 403 — server intentionally rejected (email not verified, suspended)
+    // এটা retry করার দরকার নেই, সরাসরি throw করো
+    if (status === 403) throw err;
+
+    // 400/401 — invalid token, retry করে লাভ নেই
+    if (status === 400 || status === 401) {
       removeToken();
       return null;
     }
 
-    try {
-      const idToken = await firebaseUser.getIdToken(false);
-      const res = await axios.post(
-        `${BASE_URL}/jwt`,
-        { idToken },
-        { timeout: 15000 }
-      );
-
-      if (res.data?.success && res.data?.token) {
-        localStorage.setItem('access-token', res.data.token);
-        return res.data;
-      }
-
-      console.error('Unexpected /jwt response:', res.data);
-      removeToken();
-      return null;
-    } catch (err) {
-      const status = err?.response?.status;
-      const code = err?.response?.data?.code;
-      const message = err?.response?.data?.message || err?.message;
-
-      console.error(`Token exchange failed [${status} ${code || ''}]:`, message);
-
-      if (status === 401 || status === 400) {
-        removeToken();
-      }
-
-      // 403 errors (e.g. EMAIL_NOT_VERIFIED, account suspended) must reach
-      // the caller so it can show the correct UI. Re-throw with the original
-      // response attached so Login.jsx can read error?.response?.data?.code.
-      if (status === 403) {
-        throw err;
-      }
-
-      return null;
+    // Network error বা 5xx (Vercel cold start) — retry করো
+    const isNetworkOrServerError = !status || status >= 500;
+    if (isNetworkOrServerError && attempt < MAX_ATTEMPTS) {
+      const delay = RETRY_DELAYS[attempt] || 3000;
+      console.warn(`/jwt attempt ${attempt} failed, retrying in ${delay}ms...`, err?.message);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return saveToken(firebaseUser, attempt + 1); // recursive retry
     }
-  };
+
+    // সব retry শেষ, তবুও fail
+    const message = err?.response?.data?.message || err?.message;
+    console.error(`Token exchange failed after ${attempt} attempt(s) [${status || 'network'}]:`, message);
+    removeToken();
+    return null;
+  }
+};
 
   const removeToken = () => {
     localStorage.removeItem('access-token');
@@ -104,33 +117,34 @@ const AuthProvider = ({ children }) => {
     }
   };
 
-  const signInUser = async (email, password) => {
-    setLoading(true);
+const signInUser = async (email, password) => {
+  setLoading(true);
+  try {
+    const res = await signInWithEmailAndPassword(auth, email, password);
+
+    let tokenResult;
     try {
-      const res = await signInWithEmailAndPassword(auth, email, password);
-
-      let tokenResult;
-      try {
-        tokenResult = await saveToken(res.user);
-      } catch (tokenErr) {
-        // saveToken re-throws 403 (EMAIL_NOT_VERIFIED, etc.) — sign the user
-        // out of Firebase so they're not in a half-logged-in state, then
-        // propagate the original error so Login.jsx gets error?.response?.data?.code.
-        await signOut(auth).catch(() => {});
-        throw tokenErr;
-      }
-
-      if (!tokenResult) {
-        await signOut(auth).catch(() => {});
-        throw new Error('Login succeeded in Firebase but server rejected the session');
-      }
-
-      if (isMounted.current) setUser(res.user);
-      return res;
-    } finally {
-      if (isMounted.current) setLoading(false);
+      tokenResult = await saveToken(res.user);
+    } catch (tokenErr) {
+      // 403 (EMAIL_NOT_VERIFIED etc.) — signOut করো, error propagate করো
+      await signOut(auth).catch(() => {});
+      throw tokenErr;
     }
-  };
+
+    if (!tokenResult) {
+      await signOut(auth).catch(() => {});
+      // Network error এর জন্য আলাদা, friendly error
+      const err = new Error('SERVER_UNAVAILABLE');
+      err.isServerError = true;
+      throw err;
+    }
+
+    if (isMounted.current) setUser(res.user);
+    return res;
+  } finally {
+    if (isMounted.current) setLoading(false);
+  }
+};
 
   const logOut = async () => {
     setLoading(true);
