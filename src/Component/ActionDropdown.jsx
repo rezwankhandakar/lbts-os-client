@@ -1,11 +1,9 @@
-
-
 import React, { useState, useRef, useEffect } from "react";
 import EditGatePassModal from "./EditGatePassModal";
 import Swal from "sweetalert2";
 import { CgPlayButtonR } from "react-icons/cg";
 
-const ActionDropdown = ({ gp, p, axiosSecure, setGatePasses }) => {
+const ActionDropdown = ({ gp, p, axiosSecure, refetchGatePasses }) => {
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const ref = useRef(null);
@@ -24,7 +22,9 @@ const ActionDropdown = ({ gp, p, axiosSecure, setGatePasses }) => {
         axiosSecure
           .delete(`/gate-pass/${gp._id}`)
           .then(() => {
-            setGatePasses((prev) => prev.filter((g) => g._id !== gp._id));
+            if (typeof refetchGatePasses === "function") {
+              refetchGatePasses();
+            }
             Swal.fire({
               title: "Deleted!",
               text: "Gate pass has been deleted.",
@@ -94,7 +94,7 @@ const ActionDropdown = ({ gp, p, axiosSecure, setGatePasses }) => {
         gp={gp}
         p={p}
         axiosSecure={axiosSecure}
-        setGatePasses={setGatePasses}
+        refetchGatePasses={refetchGatePasses}
       />
     </div>
   );

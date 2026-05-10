@@ -3,7 +3,7 @@ import useAuth from "../hooks/useAuth";
 import Swal from "sweetalert2";
 import { X, Save } from "lucide-react";
 
-const EditGatePassModal = ({ open, onClose, gp, p, axiosSecure, setGatePasses }) => {
+const EditGatePassModal = ({ open, onClose, gp, p, axiosSecure, refetchGatePasses }) => {
   const [formData, setFormData] = useState({
     tripDo: "", tripDate: "", customerName: "", csd: "",
     unit: "", vehicleNo: "", zone: "", productName: "", model: "", quantity: ""
@@ -35,17 +35,20 @@ const EditGatePassModal = ({ open, onClose, gp, p, axiosSecure, setGatePasses })
         model: formData.model,
         quantity: Number(formData.quantity),
       });
-      const res = await axiosSecure.patch(`/gate-pass/${gp._id}`, {
+      await axiosSecure.patch(`/gate-pass/${gp._id}`, {
         tripDo: formData.tripDo, tripDate: formData.tripDate,
         customerName: formData.customerName, csd: formData.csd,
         unit: formData.unit, vehicleNo: formData.vehicleNo,
         zone: formData.zone,
         currentUser: user?.displayName || user?.email,
       });
-      setGatePasses(prev => prev.map(g => g._id === gp._id ? res.data.data : g));
+      if (typeof refetchGatePasses === "function") {
+        refetchGatePasses();
+      }
       onClose();
       Swal.fire({ icon: "success", title: "Updated!", timer: 1500, showConfirmButton: false });
     } catch (err) {
+      console.error(err);
       Swal.fire({ icon: "error", title: "Update failed", text: "Something went wrong!" });
     }
   };

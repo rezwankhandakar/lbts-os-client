@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import Swal from "sweetalert2";
 import { X, Save } from "lucide-react";
 
-const EditChallanModal = ({ open, onClose, challan, product, axiosSecure, setChallans }) => {
+const EditChallanModal = ({ open, onClose, challan, product, axiosSecure, refetchChallans }) => {
   const [formData, setFormData] = useState({
     customerName: "", address: "", thana: "", district: "",
     receiverNumber: "", zone: "", productName: "", model: "", quantity: 0,
@@ -43,10 +43,13 @@ const EditChallanModal = ({ open, onClose, challan, product, axiosSecure, setCha
       });
       if (!resProd.data.success) throw new Error("Product update failed");
 
-      setChallans(prev => prev.map(item => item._id === challan._id ? resProd.data.data : item));
+      if (typeof refetchChallans === "function") {
+        refetchChallans();
+      }
       Swal.fire({ icon: "success", title: "Updated Successfully", timer: 1500, showConfirmButton: false });
       onClose();
     } catch (err) {
+      console.error(err);
       Swal.fire("Error!", "Update failed!", "error");
     }
   };

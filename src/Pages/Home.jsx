@@ -115,27 +115,27 @@ const Home = () => {
       </div>
 
       {/* ── WAREHOUSE RECEIVING SUMMARY ── */}
-      {role !== 'vendor' && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-orange-50 rounded-xl flex items-center justify-center text-orange-500 flex-shrink-0">
-                <FaWarehouse size={15} />
-              </div>
-              <div>
-                <h3 className="text-sm font-black text-slate-800 leading-tight">Warehouse Receiving Summary</h3>
-                <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 mt-0.5">
-                  <FiCalendar size={9} />
-                  <span>{monthName}, {year}</span>
-                </div>
-              </div>
-            </div>
-            <span className="self-start sm:self-auto px-3 py-1 bg-slate-50 border border-slate-200
-              rounded-lg text-[9px] font-black text-slate-500 uppercase tracking-widest">
-              Source: Walton Factory
-            </span>
+{!['vendor', 'user'].includes(role) && (
+  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+    {/* Header */}
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 bg-orange-50 rounded-xl flex items-center justify-center text-orange-500 flex-shrink-0">
+          <FaWarehouse size={15} />
+        </div>
+        <div>
+          <h3 className="text-sm font-black text-slate-800 leading-tight">Warehouse Receiving Summary</h3>
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 mt-0.5">
+            <FiCalendar size={9} />
+            <span>{monthName}, {year}</span>
           </div>
+        </div>
+      </div>
+      <span className="self-start sm:self-auto px-3 py-1 bg-slate-50 border border-slate-200
+        rounded-lg text-[9px] font-black text-slate-500 uppercase tracking-widest">
+        Source: Walton Factory
+      </span>
+    </div>
 
           {/* Product grid */}
           <div className="p-4 sm:p-5">

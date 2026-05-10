@@ -3,7 +3,7 @@ import { CgPlayButtonR } from "react-icons/cg";
 import EditChallanModal from "./EditChallanModal";
 import Swal from "sweetalert2";
 
-const ChallanActionDropdown = ({ challan, product, axiosSecure, setChallans }) => {
+const ChallanActionDropdown = ({ challan, product, axiosSecure, refetchChallans }) => {
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const ref = useRef(null);
@@ -19,10 +19,23 @@ const ChallanActionDropdown = ({ challan, product, axiosSecure, setChallans }) =
       confirmButtonText: "Yes, delete it!",
     }).then((result) => {
       if (result.isConfirmed) {
-        axiosSecure.delete(`/challan/${challan._id}`).then(() => {
-          setChallans((prev) => prev.filter((c) => c._id !== challan._id));
-          Swal.fire("Deleted!", "Challan has been deleted.", "success");
-        });
+        axiosSecure.delete(`/challan/${challan._id}`)
+          .then(() => {
+            if (typeof refetchChallans === "function") {
+              refetchChallans();
+            }
+            Swal.fire({
+              title: "Deleted!",
+              text: "Challan has been deleted.",
+              icon: "success",
+              timer: 1500,
+              showConfirmButton: false,
+            });
+          })
+          .catch((err) => {
+            console.error(err);
+            Swal.fire("Error!", "Delete failed.", "error");
+          });
       }
     });
   };
@@ -64,7 +77,7 @@ const ChallanActionDropdown = ({ challan, product, axiosSecure, setChallans }) =
       <EditChallanModal 
         open={editOpen} onClose={() => setEditOpen(false)} 
         challan={challan} product={product} 
-        axiosSecure={axiosSecure} setChallans={setChallans} 
+        axiosSecure={axiosSecure} refetchChallans={refetchChallans} 
       />
     </div>
   );

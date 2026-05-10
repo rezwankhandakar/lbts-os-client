@@ -39,7 +39,7 @@ function ProgressBar({ paid, total, color }) {
   );
 }
 
-const FL = ({ children }) => <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5">{children}</p>;
+const FL = ({ children }) => <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">{children}</p>;
 
 const DarkInput = ({ type = "text", value, onChange, placeholder, className = "", ...rest }) => (
   <input type={type} value={value} onChange={onChange} placeholder={placeholder}
@@ -132,8 +132,8 @@ function AddBillModal({ type, month, year, onClose, onSaved, axiosSecure }) {
 
           <div style={{ background: `${accent}08`, border: `1px solid ${accent}20` }} className="rounded-xl px-4 py-3 flex items-center justify-between gap-3">
             <div>
-              <p className="text-[8px] font-black uppercase tracking-widest text-slate-500 mb-0.5">মোট Bill</p>
-              {totalPics > 0 && <p className="text-[10px] text-slate-500">{totalPics.toLocaleString()} pics</p>}
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-300 mb-0.5">মোট Bill</p>
+              {totalPics > 0 && <p className="text-[11px] text-slate-400">{totalPics.toLocaleString()} pics</p>}
             </div>
             <p style={{ color: accent }} className="text-2xl font-black">৳{fmt(totalAmount)}</p>
           </div>
@@ -203,9 +203,9 @@ function AddPaymentModal({ bill, onClose, onSaved, axiosSecure }) {
         <div className="px-5 py-4 space-y-4">
           <div className="grid grid-cols-3 gap-2 text-center">
             {[["মোট Bill", bill.totalAmount, accent],["দেওয়া হয়েছে", bill.totalPaid, "#10b981"],["বাকি", due, "#f43f5e"]].map(([l,v,c]) => (
-              <div key={l} style={{ background: "rgba(148,163,184,0.04)", border: "1px solid rgba(148,163,184,0.08)" }} className="rounded-xl p-2.5">
-                <p className="text-[8px] font-black uppercase tracking-wider text-slate-600 mb-1 leading-tight">{l}</p>
-                <p style={{ color: c }} className="text-sm font-black leading-tight">৳{fmt(v)}</p>
+              <div key={l} style={{ background: "rgba(148,163,184,0.06)", border: "1px solid rgba(148,163,184,0.12)" }} className="rounded-xl p-2.5">
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 leading-tight">{l}</p>
+                <p style={{ color: c }} className="text-base font-black leading-tight">৳{fmt(v)}</p>
               </div>
             ))}
           </div>
@@ -259,34 +259,34 @@ function BillCard({ bill, readOnly, onAddPayment, onDelete, onDeletePayment }) {
 
             {/* Badges */}
             <div className="flex flex-wrap items-center gap-1.5">
-              <span style={{ color: accent, background: `${accent}10`, border: `1px solid ${accent}20` }}
-                className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg shrink-0">
+              <span style={{ color: accent, background: `${accent}1f`, border: `1px solid ${accent}40` }}
+                className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg shrink-0">
                 {bill.type === "main" ? "Main Bill" : "Lebor Bill"}
               </span>
               <span style={{ color: st.color, background: st.bg, border: `1px solid ${st.border}` }}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide shrink-0">
-                <StIcon size={8} /> {st.label}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide shrink-0">
+                <StIcon size={9} /> {st.label}
               </span>
-              {bill.note && <span className="text-[9px] text-slate-500 italic truncate max-w-[120px]">"{bill.note}"</span>}
+              {bill.note && <span className="text-[11px] text-slate-300 italic truncate max-w-[180px] sm:max-w-[260px]">"{bill.note}"</span>}
             </div>
 
             {/* Item chips */}
             <div className="flex flex-wrap gap-1.5">
               {bill.items.map((item, i) => (
-                <div key={i} style={{ background: "rgba(148,163,184,0.05)", border: "1px solid rgba(148,163,184,0.1)" }}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-lg">
-                  <span className="text-[10px] font-black text-slate-200">{item.model}</span>
-                  {item.pics > 0 && <span className="text-[9px] text-slate-500 hidden sm:inline">{item.pics.toLocaleString()} pcs</span>}
-                  <span style={{ color: accent }} className="text-[10px] font-black">৳{fmt(item.amount)}</span>
+                <div key={i} style={{ background: "rgba(148,163,184,0.08)", border: "1px solid rgba(148,163,184,0.18)" }}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg">
+                  <span className="text-[11px] font-black text-slate-100">{item.model}</span>
+                  {item.pics > 0 && <span className="text-[10px] text-slate-300 hidden sm:inline">{item.pics.toLocaleString()} pcs</span>}
+                  <span style={{ color: accent }} className="text-[11px] font-black">৳{fmt(item.amount)}</span>
                 </div>
               ))}
             </div>
 
             {/* Totals */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-              <span className="text-slate-500">মোট: <span className="font-black text-slate-100">৳{fmt(bill.totalAmount)}</span></span>
-              <span className="text-slate-500">দেওয়া: <span className="font-black text-emerald-400">৳{fmt(bill.totalPaid)}</span></span>
-              {due > 0 && <span className="text-slate-500">বাকি: <span className="font-black text-rose-400">৳{fmt(due)}</span></span>}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
+              <span className="text-slate-400">মোট: <span className="font-black text-slate-100">৳{fmt(bill.totalAmount)}</span></span>
+              <span className="text-slate-400">দেওয়া: <span className="font-black text-emerald-400">৳{fmt(bill.totalPaid)}</span></span>
+              {due > 0 && <span className="text-slate-400">বাকি: <span className="font-black text-rose-400">৳{fmt(due)}</span></span>}
             </div>
 
             <ProgressBar paid={bill.totalPaid} total={bill.totalAmount} color={st.color} />
@@ -325,16 +325,16 @@ function BillCard({ bill, readOnly, onAddPayment, onDelete, onDeletePayment }) {
           {open && (
             <div style={{ background: "rgba(5,10,20,0.6)" }} className="px-4 pb-3 pt-1 space-y-1.5">
               {bill.payments.map((p, idx) => (
-                <div key={idx} style={{ background: "rgba(16,185,129,0.04)", border: "1px solid rgba(16,185,129,0.12)" }}
+                <div key={idx} style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.18)" }}
                   className="flex items-center gap-2 px-3 py-2 rounded-xl">
                   <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                     <span className="text-sm font-black text-emerald-400">৳{fmt(p.amount)}</span>
-                    <span className="text-[9px] text-slate-500">{new Date(p.date).toLocaleDateString("en-GB")}</span>
-                    {p.note && <span className="text-[9px] text-slate-500 italic truncate max-w-[120px]">"{p.note}"</span>}
+                    <span className="text-[11px] text-slate-300">{new Date(p.date).toLocaleDateString("en-GB")}</span>
+                    {p.note && <span className="text-[11px] text-slate-300 italic truncate max-w-[180px]">"{p.note}"</span>}
                   </div>
                   {!readOnly && (
                     <button onClick={() => onDeletePayment(bill._id, idx, p.amount)}
-                      className="text-slate-700 hover:text-rose-400 transition p-1 shrink-0"><X size={12} /></button>
+                      className="text-slate-500 hover:text-rose-400 transition p-1 shrink-0"><X size={12} /></button>
                   )}
                 </div>
               ))}
@@ -490,8 +490,8 @@ const BillTracker = () => {
               <div className="grid grid-cols-3 gap-2">
                 {[["মোট Issue", summary.total, accent],["দেওয়া হয়েছে", summary.paid, "#10b981"],["বাকি আছে", summary.due, "#f43f5e"]].map(([l,v,c]) => (
                   <div key={l} className="text-center">
-                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-1 leading-tight">{l}</p>
-                    <p style={{ color: c }} className="text-base sm:text-xl font-black leading-none">৳{fmt(v)}</p>
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 leading-tight">{l}</p>
+                    <p style={{ color: c }} className="text-lg sm:text-2xl font-black leading-none">৳{fmt(v)}</p>
                   </div>
                 ))}
               </div>
@@ -499,7 +499,7 @@ const BillTracker = () => {
               <div className="flex flex-wrap justify-center gap-3">
                 {[["Full Paid", summary.fullPaid, "#10b981"],["Partial", summary.partial, "#f59e0b"],["Unpaid", summary.unpaid, "#f43f5e"]]
                   .filter(([,c]) => c > 0).map(([l,c,col]) => (
-                    <span key={l} className="flex items-center gap-1 text-[9px] font-bold" style={{ color: col }}>
+                    <span key={l} className="flex items-center gap-1.5 text-[11px] font-bold" style={{ color: col }}>
                       <span style={{ background: col }} className="w-1.5 h-1.5 rounded-full" />{c} {l}
                     </span>
                   ))}
