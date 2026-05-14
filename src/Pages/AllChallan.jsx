@@ -7,7 +7,7 @@ import ChallanActionDropdown from "../Component/ChallanActionDropdown";
 import Swal from "sweetalert2";
 import LoadingSpinner from "../Component/LoadingSpinner";
 
-const ITEMS_PER_PAGE = 100;
+const ITEMS_PER_PAGE = 500;
 const MONTHS_FULL  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
