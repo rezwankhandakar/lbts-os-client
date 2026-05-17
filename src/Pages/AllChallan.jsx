@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import { useSearch } from "../hooks/SearchContext";
@@ -6,10 +7,39 @@ import { saveAs } from "file-saver";
 import ChallanActionDropdown from "../Component/ChallanActionDropdown";
 import Swal from "sweetalert2";
 import LoadingSpinner from "../Component/LoadingSpinner";
+import { computeLocation } from "../utils/localAddressMatcher";
 
 const ITEMS_PER_PAGE = 500;
 const MONTHS_FULL  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+/**
+ * Get a challan's `location` value.  Prefer the saved field from DB; if it's
+ * missing (older challan created before the auto-compute feature shipped),
+ * compute it on the fly from thana + district so the column still shows
+ * something useful instead of an empty dash.
+ */
+const resolveLocation = (c) => {
+  if (c?.location) return c.location;
+  return computeLocation(c?.thana, c?.district) || null;
+};
+
+/**
+ * Render Location as a colour-coded badge.  Reused in desktop table and
+ * mobile card.
+ */
+const LocationBadge = ({ value }) => {
+  if (!value) return <span className="text-slate-300">—</span>;
+  const cls =
+    value === "ISD"        ? "bg-blue-50 text-blue-700 border-blue-200" :
+    value === "OSD-Metro"  ? "bg-purple-50 text-purple-700 border-purple-200" :
+                             "bg-amber-50 text-amber-700 border-amber-200";
+  return (
+    <span className={`inline-flex px-1.5 py-0.5 rounded-md text-[9px] font-bold border whitespace-nowrap ${cls}`}>
+      {value}
+    </span>
+  );
+};
 
 /* ══════════════════════════════════════════════════════════════
    Multi-select dropdown
@@ -135,6 +165,7 @@ const MobileCard = ({ c, p, axiosSecure, refetchChallans }) => (
     <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-black mb-2">
       <span><span className="text-orange-600 font-semibold">Thana: </span>{c.thana || "—"}</span>
       <span><span className="text-orange-600 font-semibold">Dist: </span>{c.district || "—"}</span>
+      <span className="inline-flex items-center gap-1"><span className="text-orange-600 font-semibold">Loc: </span><LocationBadge value={resolveLocation(c)} /></span>
       <span><span className="text-orange-600 font-semibold">Zone: </span>{c.zone}</span>
       <span><span className="text-orange-600 font-semibold">Ph: </span>{c.receiverNumber}</span>
     </div>
@@ -156,6 +187,7 @@ const MobileCard = ({ c, p, axiosSecure, refetchChallans }) => (
 const MobileFilterSheet = ({ onClose, getOptionsFor,
   customerFilter, setCustomerFilter, addressFilter, setAddressFilter,
   thanaFilter, setThanaFilter, districtFilter, setDistrictFilter,
+  locationFilter, setLocationFilter,
   receiverFilter, setReceiverFilter, zoneFilter, setZoneFilter,
   productNameFilter, setProductNameFilter, modelFilter, setModelFilter,
   dateFilter, setDateFilter, statusFilter, setStatusFilter, setClientPage }) => {
@@ -191,6 +223,7 @@ const MobileFilterSheet = ({ onClose, getOptionsFor,
               { label: "Address",  opts: "address",        sel: addressFilter,     set: setAddressFilter },
               { label: "Thana",    opts: "thana",          sel: thanaFilter,       set: setThanaFilter },
               { label: "District", opts: "district",       sel: districtFilter,    set: setDistrictFilter },
+              { label: "Location", opts: "location",       sel: locationFilter,    set: setLocationFilter },
               { label: "Receiver", opts: "receiverNumber", sel: receiverFilter,    set: setReceiverFilter },
               { label: "Zone",     opts: "zone",           sel: zoneFilter,        set: setZoneFilter },
               { label: "Product",  opts: "productName",    sel: productNameFilter, set: setProductNameFilter },
@@ -230,6 +263,7 @@ const AllChallan = () => {
   const [addressFilter,     setAddressFilter]     = useState([]);
   const [thanaFilter,       setThanaFilter]       = useState([]);
   const [districtFilter,    setDistrictFilter]    = useState([]);
+  const [locationFilter,    setLocationFilter]    = useState([]);   // NEW: Location column filter
   const [receiverFilter,    setReceiverFilter]    = useState([]);
   const [zoneFilter,        setZoneFilter]        = useState([]);
   const [modelFilter,       setModelFilter]       = useState([]);
@@ -296,7 +330,7 @@ const AllChallan = () => {
     setMonth(new Date().getMonth() + 1); setYear(new Date().getFullYear()); setClientPage(1);
     if (setSearchText) setSearchText("");
     setCustomerFilter([]); setAddressFilter([]); setThanaFilter([]);
-    setDistrictFilter([]); setReceiverFilter([]); setZoneFilter([]);
+    setDistrictFilter([]); setLocationFilter([]); setReceiverFilter([]); setZoneFilter([]);
     setModelFilter([]); setProductNameFilter([]); setDateFilter(""); setStatusFilter("");
     setShowMobileFilters(false);
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
@@ -304,8 +338,9 @@ const AllChallan = () => {
 
   const rowMatchesAll = React.useCallback((c, p, excludeField = null) => {
     const s = searchText?.toLowerCase() || "";
+    const cLocation = resolveLocation(c);    // DB value or computed fallback
     const matchesSearch = !searchText || [
-      c.customerName, c.address, c.thana, c.district,
+      c.customerName, c.address, c.thana, c.district, cLocation,
       c.receiverNumber, c.zone, c.currentUser, p.productName, p.model
     ].some(v => v?.toLowerCase().includes(s));
     const check = (field, filter, val) =>
@@ -318,13 +353,14 @@ const AllChallan = () => {
       check("address",        addressFilter,     c.address) &&
       check("thana",          thanaFilter,       c.thana) &&
       check("district",       districtFilter,    c.district) &&
+      check("location",       locationFilter,    cLocation) &&
       check("receiverNumber", receiverFilter,    c.receiverNumber) &&
       check("zone",           zoneFilter,        c.zone) &&
       check("productName",    productNameFilter, p.productName) &&
       check("model",          modelFilter,       p.model) &&
       (excludeField === "date" || !dateFilter ||
         (c.createdAt && new Date(c.createdAt).toISOString().slice(0, 10) === dateFilter));
-  }, [searchText, statusFilter, customerFilter, addressFilter, thanaFilter, districtFilter,
+  }, [searchText, statusFilter, customerFilter, addressFilter, thanaFilter, districtFilter, locationFilter,
       receiverFilter, zoneFilter, productNameFilter, modelFilter, dateFilter]);
 
   const filteredRows = React.useMemo(
@@ -346,7 +382,10 @@ const AllChallan = () => {
     challans.forEach(c => {
       (c.products || []).forEach(p => {
         if (!rowMatchesAll(c, p, field)) return;
-        const val = (field === "productName" || field === "model") ? p[field]?.toString().trim() : c[field]?.toString().trim();
+        let val;
+        if (field === "productName" || field === "model") val = p[field]?.toString().trim();
+        else if (field === "location") val = resolveLocation(c);    // fall back to compute for older challans
+        else val = c[field]?.toString().trim();
         if (val && !map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
       });
     });
@@ -358,6 +397,7 @@ const AllChallan = () => {
     { label: "Address",  values: addressFilter,     clear: () => { setAddressFilter([]);     setClientPage(1); } },
     { label: "Thana",    values: thanaFilter,       clear: () => { setThanaFilter([]);       setClientPage(1); } },
     { label: "District", values: districtFilter,    clear: () => { setDistrictFilter([]);    setClientPage(1); } },
+    { label: "Location", values: locationFilter,    clear: () => { setLocationFilter([]);    setClientPage(1); } },
     { label: "Receiver", values: receiverFilter,    clear: () => { setReceiverFilter([]);    setClientPage(1); } },
     { label: "Zone",     values: zoneFilter,        clear: () => { setZoneFilter([]);        setClientPage(1); } },
     { label: "Product",  values: productNameFilter, clear: () => { setProductNameFilter([]); setClientPage(1); } },
@@ -395,6 +435,7 @@ const AllChallan = () => {
         "Trip No": c.tripNumber || "",
         Customer: c.customerName, Address: c.address,
         Thana: c.thana || "", District: c.district || "",
+        Location: resolveLocation(c) || "",
         "Receiver No": c.receiverNumber, Zone: c.zone,
         "Product Name": p.productName, Model: p.model,
         Qty: Number(p.quantity) || 0, User: c.currentUser || "N/A",
@@ -539,7 +580,7 @@ const AllChallan = () => {
                 <table className="border-collapse w-full" style={{ minWidth: "900px" }}>
                   <thead className="sticky top-0 z-20">
                     <tr className="bg-slate-900 text-left">
-                      {["Date","Status","Customer","Address","Thana","District","Receiver No","Zone","Product","Model","Qty","Action"].map(h => (
+                      {["Date","Status","Customer","Address","Thana","District","Location","Receiver No","Zone","Product","Model","Qty","Action"].map(h => (
                         <th key={h} className="px-2.5 py-2.5 text-[10px] font-black text-slate-400 uppercase tracking-wide whitespace-nowrap border-r border-white/5 last:border-0">
                           {h}
                         </th>
@@ -563,6 +604,7 @@ const AllChallan = () => {
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("address")}        selected={addressFilter}     onChange={setFilter(setAddressFilter)} /></th>
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("thana")}          selected={thanaFilter}       onChange={setFilter(setThanaFilter)} /></th>
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("district")}       selected={districtFilter}    onChange={setFilter(setDistrictFilter)} /></th>
+                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("location")}       selected={locationFilter}    onChange={setFilter(setLocationFilter)} /></th>
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("receiverNumber")} selected={receiverFilter}    onChange={setFilter(setReceiverFilter)} /></th>
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("zone")}           selected={zoneFilter}        onChange={setFilter(setZoneFilter)} /></th>
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("productName")}    selected={productNameFilter} onChange={setFilter(setProductNameFilter)} /></th>
@@ -588,6 +630,7 @@ const AllChallan = () => {
                         <td className="px-2.5 py-2 text-black max-w-[140px] truncate" title={c.address}>{c.address}</td>
                         <td className="px-2.5 py-2 text-black">{c.thana || "—"}</td>
                         <td className="px-2.5 py-2 text-black">{c.district || "—"}</td>
+                        <td className="px-2.5 py-2"><LocationBadge value={resolveLocation(c)} /></td>
                         <td className="px-2.5 py-2 text-black">{c.receiverNumber}</td>
                         <td className="px-2.5 py-2 text-black">{c.zone}</td>
                         <td className="px-2.5 py-2 text-black whitespace-nowrap">{p.productName || "—"}</td>
@@ -646,6 +689,7 @@ const AllChallan = () => {
           addressFilter={addressFilter} setAddressFilter={setAddressFilter}
           thanaFilter={thanaFilter} setThanaFilter={setThanaFilter}
           districtFilter={districtFilter} setDistrictFilter={setDistrictFilter}
+          locationFilter={locationFilter} setLocationFilter={setLocationFilter}
           receiverFilter={receiverFilter} setReceiverFilter={setReceiverFilter}
           zoneFilter={zoneFilter} setZoneFilter={setZoneFilter}
           productNameFilter={productNameFilter} setProductNameFilter={setProductNameFilter}
