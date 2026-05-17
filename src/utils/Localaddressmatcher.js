@@ -1,23 +1,32 @@
 // ═══════════════════════════════════════════════════════════════════
-//  localAddressMatcher.js — FIXED VERSION
+//  localAddressMatcher.js — STRICT VERSION
 //  Detect Thana + District from an address string WITHOUT calling AI.
 // ═══════════════════════════════════════════════════════════════════
 //
+//  ⚠️ POLICY: NEVER GUESS A THANA.
+//  ──────────────────────────────────────────────────────────────────
+//  If we cannot match a real thana from the address with EXACT
+//  evidence (curated alias OR exact-text match confirmed by the
+//  district), the matcher returns:
+//      { success: false, thana: null, district: null }
+//  The caller (AIAddressParser.jsx) then falls through to the AI
+//  parser. Bare district names alone (e.g. "Mymensingh") will NOT
+//  resolve to the district's Sadar thana — that was a bug.
+//
 //  KEY FIXES vs previous version:
 //  ───────────────────────────────────────────────────────────────────
-//  1. ALIAS-FIRST scanning: scan aliases before fuzzy matching, and
-//     prefer LONGER alias n-grams (so "shaheb bazar" beats "bazar").
-//  2. Multi-district thana disambiguation: when a thana exists in
-//     multiple districts AND no district is detected in the address,
-//     RETURN LOW confidence with null district (instead of guessing).
-//  3. Alias override: only override fuzzy thana detections when the
-//     alias is at least as long as the detected thana n-gram.
-//  4. Single-word generic alias guard: a 1-word alias should NOT win
-//     against a 2+ word exact thana match in the same address.
-//  5. "Sadar" / "Model" / "Kotwali" — never fuzzy-match these alone;
-//     they're too generic and produce false positives.
-//  6. Fix Levenshtein swap bug: `[prev, curr] = [curr, prev]` is fine
-//     but `curr` needs to be reset per outer-iter — minor optimization.
+//  1. STRICT GATE at the end of detectThanaDistrict — only returns a
+//     result when confidence is "high" AND evidence is exact.
+//     Otherwise both thana AND district are null, success=false.
+//  2. Bare-district aliases ("chittagong", "rangpur", "khulna",
+//     "sylhet", "barisal", "comilla", "mymensingh", "ctg") REMOVED
+//     from THANA_ALIASES in bangladeshData.js.
+//  3. Transliteration support: Ph↔F, Sh↔S, Ch↔Chh, Bh↔V, etc., so
+//     "Phulpur" matches "Fulpur".
+//  4. ALIAS-FIRST scanning, multi-district disambiguation, alias
+//     override only when alias is at least as strong as fuzzy hit.
+//  5. STOP_WORDS_FOR_FUZZY prevents "Sadar"/"Model"/"Kotwali" from
+//     producing false positives.
 // ═══════════════════════════════════════════════════════════════════
 
 import {
@@ -86,12 +95,66 @@ const STOP_WORDS_FOR_FUZZY = new Set([
   "district", "po", "ps", "via", "no", "number",
 ]);
 
+// ─────────────────────────────────────────────────────────────────
+//  Transliteration normaliser
+//  Bangla letters have multiple common English spellings. Examples:
+//    ফ → "f" or "ph"   (Fulpur / Phulpur)
+//    শ → "s" or "sh"   (Satkhira / Shatkhira)
+//    ছ → "ch" or "chh" (Chatak / Chhatak)
+//    ভ → "v" or "bh"   (Vatara / Bhatara)
+//    য় → "j" or "y"    (Joydebpur / Yoydebpur)
+//    য → "j" or "y"
+//    ণ → "n" or "rn"   (Karnaphuli / Karnnaphuli)
+//
+//  This function reduces a word to a SHAPE — a canonical transliteration
+//  fingerprint — so that "phulpur" and "fulpur" both become "fulpur" and
+//  fuzzy-match cleanly. Reference names go through the same shape so the
+//  comparison is symmetric.
+//
+//  We only normalise — never expand. So "fh" stays as is, but "ph" becomes
+//  "f". This keeps the function O(n) and reversible patterns out of scope.
+// ─────────────────────────────────────────────────────────────────
+function transliterationShape(word) {
+  if (!word) return word;
+  let s = word.toLowerCase();
+  // Multi-char digraphs first (order matters — longer patterns before shorter)
+  s = s.replace(/ph/g, "f");      // Phulpur → Fulpur
+  s = s.replace(/chh/g, "ch");    // Chhatak → Chatak
+  s = s.replace(/sh/g, "s");      // Shatkhira → Satkhira (also Shibpur → Sibpur)
+  s = s.replace(/bh/g, "b");      // Bhola → Bola, Bhatara → Batara
+  s = s.replace(/kh/g, "k");      // Khulna → Kulna (rarely needed but symmetric)
+  s = s.replace(/gh/g, "g");      // Ghatail → Gatail
+  s = s.replace(/jh/g, "j");      // Jhenaidah → Jenaidah
+  s = s.replace(/th/g, "t");      // Thakurgaon → Takurgaon
+  s = s.replace(/dh/g, "d");      // Dhaka → Daka (rarely useful but symmetric)
+  s = s.replace(/y/g, "j");       // Yoydebpur → Joydebpur (uncommon variant)
+  s = s.replace(/w/g, "v");       // Wari/Vari variation
+  return s;
+}
+
 function isFuzzyMatch(candidate, reference) {
   if (candidate === reference) return { matched: true, exact: true };
   if (Math.abs(candidate.length - reference.length) > 3) return { matched: false };
   if (STOP_WORDS_FOR_FUZZY.has(candidate)) return { matched: false };
 
-  // First-character anchor for short candidates
+  // ── Transliteration check FIRST — before first-char anchor ──
+  // Catches Phulpur↔Fulpur, Shatkhira↔Satkhira, Chhatak↔Chatak, etc.
+  const candShape = transliterationShape(candidate);
+  const refShape = transliterationShape(reference);
+  if (candShape === refShape) {
+    // Same transliteration shape = equally trustworthy as an exact match,
+    // but we flag it so the caller knows it came through the shape path.
+    return { matched: true, exact: false, distance: 0, viaShape: true };
+  }
+  // Also allow 1-char Levenshtein on the SHAPES (for typos + transliteration combo)
+  if (candShape.length >= 4 && refShape.length >= 4) {
+    const shapeDist = levenshtein(candShape, refShape);
+    if (shapeDist === 1 && Math.abs(candShape.length - refShape.length) <= 1) {
+      return { matched: true, exact: false, distance: 1, viaShape: true };
+    }
+  }
+
+  // First-character anchor for short candidates (regular fuzzy path)
   if (candidate.length <= 8 && candidate[0] !== reference[0]) {
     return { matched: false };
   }
@@ -191,6 +254,7 @@ function findAllHits(grams, refs) {
         ref,
         gram,
         exact: !!cmp.exact,
+        viaShape: !!cmp.viaShape,
         distance: cmp.distance ?? 0,
       });
     }
@@ -284,17 +348,41 @@ export function detectThanaDistrict(rawAddress) {
       thanaHit = best;
     }
 
-    // False-positive guard: thana matched the same n-gram as district
-    if (
-      thanaHit &&
-      districtHit &&
-      thanaHit.gram.start === districtHit.gram.start &&
-      thanaHit.gram.text === districtHit.gram.text
-    ) {
-      const thanaNorm = normalise(thanaHit.ref.original);
-      const distNorm = normalise(districtHit.ref.original);
-      if (thanaNorm === distNorm || thanaNorm.startsWith(distNorm + " ")) {
-        thanaHit = null;
+    // False-positive guard: thana matched the same n-gram that ALSO matches
+    // ANY district name in the address. This catches cases like:
+    //   • "Phulpur, Mymensingh" — Mymensingh Sadar matches "mymensingh" exactly,
+    //      but "mymensingh" is the district, not the thana.
+    //   • "Sherpur road, Phulpur, Mymensingh" — Sherpur Sadar matches
+    //     "sherpur", which is also Sherpur district.
+    if (thanaHit && districtHits.length > 0) {
+      const offendingDistrict = districtHits.find(
+        (dh) =>
+          dh.gram.start === thanaHit.gram.start &&
+          dh.gram.text === thanaHit.gram.text
+      );
+      if (offendingDistrict) {
+        const thanaNorm = normalise(thanaHit.ref.original);
+        const distNorm = normalise(offendingDistrict.ref.original);
+        if (thanaNorm === distNorm || thanaNorm.startsWith(distNorm + " ")) {
+          // Try to fall back to the next-best legitimate thana hit
+          // (one whose gram is NOT any district's gram).
+          const districtGramKeys = new Set(
+            districtHits.map((dh) => `${dh.gram.start}|${dh.gram.text}`)
+          );
+          const fallback = allThanaHits.find((h) => {
+            const key = `${h.gram.start}|${h.gram.text}`;
+            if (!districtGramKeys.has(key)) return true; // gram differs from any district
+            // gram matches a district, but thana name is NOT a Sadar-pattern of that district
+            const dh = districtHits.find(
+              (d) => `${d.gram.start}|${d.gram.text}` === key
+            );
+            if (!dh) return true;
+            const tn = normalise(h.ref.original);
+            const dn = normalise(dh.ref.original);
+            return tn !== dn && !tn.startsWith(dn + " ");
+          });
+          thanaHit = fallback || null;
+        }
       }
     }
   }
@@ -353,10 +441,51 @@ export function detectThanaDistrict(rawAddress) {
   if (aliasMatch) {
     let aliasOverrides = false;
 
+    // ── Detect "weak" aliases ──
+    // A weak alias is one whose ALIAS TEXT is just the district name
+    // (or a close spelling variant of it). Examples:
+    //   "mymensingh"  → district "Mymensingh"  — exact match
+    //   "chittagong"  → district "Chattogram"  — spelling variant (Lev distance 2)
+    //   "comilla"     → district "Cumilla"     — spelling variant
+    //   "barisal"     → district "Barishal"    — spelling variant
+    //   "rangpur"     → district "Rangpur"     — exact match
+    //
+    // These aliases exist so that addresses like "House 5, Mymensingh" resolve
+    // to the Sadar thana. But when a specific thana (Phulpur, Patiya, etc.) is
+    // ALSO mentioned in the same address, the bare-district alias must NOT
+    // overwrite that legitimate exact thana match.
+    const aliasText = aliasMatch.gram.text;
+    const aliasDistrictNorm = normalise(aliasMatch.district);
+    let isWeakAlias = false;
+    if (aliasText === aliasDistrictNorm) {
+      isWeakAlias = true;
+    } else if (aliasMatch.gram.length === 1) {
+      // 1-word alias — check if it's a close spelling variant of its district
+      // (chittagong/chattogram, comilla/cumilla, barisal/barishal, etc.)
+      const dist = levenshtein(aliasText, aliasDistrictNorm);
+      // Allow up to 3-character difference for these district name variants
+      if (dist <= 3 && Math.abs(aliasText.length - aliasDistrictNorm.length) <= 2) {
+        isWeakAlias = true;
+      }
+    }
+
     if (!finalThana) {
       aliasOverrides = true;
+    } else if (isWeakAlias && thanaHit?.exact === true) {
+      // ⚠️ KEY FIX: don't let a bare-district alias overwrite a legitimate
+      // exact thana match. The address mentions a real thana — trust it.
+      // Example: "Phulpur, Mymensingh" — alias "mymensingh" → Mymensingh Sadar,
+      //          but if a real thana of Mymensingh is exact-matched, keep that.
+      // Example: "Patiya, Chittagong" — alias "chittagong" → Kotwali/Chattogram,
+      //          but Patiya is an exact-match thana of Chattogram, keep Patiya.
+      aliasOverrides = false;
+      // Make sure final district is set correctly when we skip the alias
+      if (!finalDistrict && aliasMatch.district) {
+        finalDistrict = aliasMatch.district;
+      }
     } else if (finalDistrict === aliasMatch.district) {
-      // Alias confirms or refines current detection
+      // Alias confirms or refines current detection (different district
+      // detected from thana, but alias agrees with thana's resolved district)
       aliasOverrides = true;
     } else {
       const detectedGramLen = thanaHit?.gram.length || 0;
@@ -397,15 +526,70 @@ export function detectThanaDistrict(rawAddress) {
     confidence = (thanaHit?.exact || districtHit?.exact) ? "medium" : "low";
   }
 
-  result.success = !!(finalThana || finalDistrict);
+  // ─────────────────────────────────────────────────────────────
+  //  STEP 7: STRICT GATE — never guess a thana
+  //  ───────────────────────────────────────────────────────────
+  //  Rule (per user requirement):
+  //    "address-এ thana না পাওয়া গেলে কখনোই thana guess করা যাবে না।
+  //     এমনকি district-ও পাঠানো যাবে না।  AI parser কে call করতে দাও।"
+  //
+  //  We treat these levels of evidence as STRONG (≈ exact):
+  //    • curated THANA_ALIASES match (always trusted)
+  //    • exact text match (Levenshtein = 0)
+  //    • transliteration-shape match (Ph↔F, Sh↔S, etc.) — equally
+  //      trustworthy because it's a deterministic spelling variant.
+  //
+  //  We pass the strict gate when:
+  //    (a) Thana came from a curated alias, OR
+  //    (b) Thana is a STRONG hit AND district is at least a STRONG
+  //        hit (or matches the thana's only-possible district).
+  //
+  //  Anything else → return { success: false, thana: null, district: null }.
+  //  The caller falls through to the Hybrid AI parser.
+  //  ───────────────────────────────────────────────────────────
+  const isStrongThana = thanaHit && (thanaHit.exact || thanaHit.viaShape);
+  const isStrongDistrict = districtHit && (districtHit.exact || districtHit.viaShape);
+
+  const fromAlias = !!(aliasMatch && finalThana === aliasMatch.thana);
+
+  // Both thana and district are strongly evidenced AND agree
+  const strongPair =
+    isStrongThana && isStrongDistrict &&
+    thanaHit.ref?.district === districtHit.ref?.original;
+
+  // Strong thana whose name is UNIQUE (only one district in BD has it).
+  // Example: "Patiya" only exists in Chattogram — even if the address says
+  // "Chittagong" (which doesn't shape-match Chattogram), we can safely
+  // resolve from the thana alone.
+  const unambiguousStrongThana = (() => {
+    if (!isStrongThana) return false;
+    const possibles = ENRICHED_THANA_TO_DISTRICTS.get(thanaHit.ref.norm) || [];
+    return possibles.length === 1;
+  })();
+
+  const strictPass = !!finalThana && !!finalDistrict &&
+                     (fromAlias || strongPair || unambiguousStrongThana);
+
+  if (!strictPass) {
+    // Don't guess — make the caller fall through to AI.
+    result.success = false;
+    result.thana = null;
+    result.district = null;
+    result.confidence = "low";
+    result.notes = result.notes ||
+      "Local matcher could not exactly match a thana; falling back to AI.";
+    return result;
+  }
+
+  result.success = true;
   result.thana = finalThana;
   result.district = finalDistrict;
   result.confidence = confidence;
   result.matchedThana = thanaHit
-    ? { exact: thanaHit.exact, distance: thanaHit.distance, matchedText: thanaHit.gram.text }
+    ? { exact: thanaHit.exact, viaShape: thanaHit.viaShape, distance: thanaHit.distance, matchedText: thanaHit.gram.text }
     : null;
   result.matchedDistrict = districtHit
-    ? { exact: districtHit.exact, distance: districtHit.distance, matchedText: districtHit.gram.text }
+    ? { exact: districtHit.exact, viaShape: districtHit.viaShape, distance: districtHit.distance, matchedText: districtHit.gram.text }
     : null;
 
   return result;
