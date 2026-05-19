@@ -9,6 +9,12 @@ import {
 } from "react-icons/fa";
 import EditCreateDeliveryChallanModal from "../Component/EditCreateDelliveryChallanModal";
 import useAuth from "../hooks/useAuth";
+// Local rate / product lookup — when the user edits a product inside a
+// challan we re-resolve capacity + rate from the (product, model,
+// location) triple so the saved challan stays consistent with the rate
+// tables.
+import { findRate } from "../utils/rateMatcher";
+import { computeLocation } from "../utils/localAddressMatcher";
 
 const CreateDelivery = () => {
     const axiosSecure = useAxiosSecure();
@@ -71,7 +77,36 @@ const CreateDelivery = () => {
 
     const handleProductChange = (index, field, value) => {
         const updated = [...editingChallan.products];
-        updated[index][field] = value;
+        updated[index] = { ...updated[index], [field]: value };
+
+        // ── Auto-recompute capacity + rate ──────────────────────────
+        // Any change to productName / model / capacity invalidates the
+        // previously-resolved rate.  Quantity-only edits don't.
+        // The location used here is the challan's stored location, or
+        // we derive one from thana+district as a fallback for older
+        // rows.
+        if (field === "productName" || field === "model" || field === "capacity") {
+            const location = editingChallan.location
+                || computeLocation(editingChallan.thana, editingChallan.district)
+                || null;
+            const p = updated[index];
+            const { capacity, rate } = findRate({
+                productName: p.productName,
+                model: p.model,
+                location,
+                // If user edited capacity directly, honour that selection;
+                // otherwise pass the existing capacity to keep multi-
+                // capacity without-model products on the right row.
+                capacity: field === "capacity" ? value : (p.capacity || ""),
+            });
+            // Only overwrite capacity when the matcher returned one;
+            // an empty result (e.g. needsCapacity) should leave the
+            // user-typed capacity alone.
+            if (capacity) updated[index].capacity = capacity;
+            else if (field === "capacity") updated[index].capacity = value;
+            updated[index].rate = rate;
+        }
+
         setEditingChallan({ ...editingChallan, products: updated });
     };
 
@@ -111,6 +146,10 @@ const CreateDelivery = () => {
             ...deliveryInfo,
             challanId: c._id, customerName: c.customerName, zone: c.zone,
             address: c.address, thana: c.thana, district: c.district,
+            // location: needed by the Delivered page rate-matcher fallback
+            // for older challans whose products don't yet have capacity/
+            // rate saved.  We pass through whatever the challan recorded.
+            location: c.location || null,
             receiverNumber: c.receiverNumber, products: c.products,
             createdBy: user?.displayName || user?.email || "unknown",
         }));

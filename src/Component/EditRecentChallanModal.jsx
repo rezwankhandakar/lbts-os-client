@@ -1,7 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import useAuth from "../hooks/useAuth";
 import Swal from "sweetalert2";
 import { X, Save } from "lucide-react";
+// Local rate / product lookup (with-model + without-model master tables).
+//   - suggestProducts gives 1-2-letter typeahead matches
+//   - findRate resolves capacity + rate from product + model + location
+// Used here so editing a product re-resolves the rate (e.g. user fixes a
+// typo in product name → rate gets recalculated on save).
+import { findRate, suggestProducts } from "../utils/rateMatcher";
+import { computeLocation } from "../utils/localAddressMatcher";
 
 const EditRecentChallanModal = ({ open, onClose, challan, product, axiosSecure, refreshChallan }) => {
   const { user } = useAuth();
@@ -9,6 +16,9 @@ const EditRecentChallanModal = ({ open, onClose, challan, product, axiosSecure, 
     customerName: "", address: "", district: "", thana: "",
     receiverNumber: "", zone: "", model: "", productName: "", quantity: "",
   });
+  // Local product typeahead — only shown while user is editing Product Name
+  const [showProductSuggest, setShowProductSuggest] = useState(false);
+  const productSuggestRef = useRef(null);
 
   useEffect(() => {
     if (open && challan && product) {
@@ -19,20 +29,79 @@ const EditRecentChallanModal = ({ open, onClose, challan, product, axiosSecure, 
         model: product.model || "", productName: product.productName || "",
         quantity: product.quantity || "",
       });
+      setShowProductSuggest(false);
     }
   }, [open, challan, product]);
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    if (!showProductSuggest) return;
+    const onClick = (e) => {
+      if (productSuggestRef.current && !productSuggestRef.current.contains(e.target)) {
+        setShowProductSuggest(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [showProductSuggest]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === "productName") {
+      setShowProductSuggest(value.trim().length >= 1);
+    }
+  };
+
+  // Compute the location for this challan — prefer the stored field,
+  // otherwise derive it from thana + district (older challans may not
+  // have a saved location).  We need this to resolve rate at save time.
+  const resolveLocation = () => {
+    if (challan?.location) return challan.location;
+    return computeLocation(formData.thana, formData.district) || null;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Older challans may not have per-product _id (the auto-generated
+    // ObjectId-string field).  Without it, the PUT route can't target a
+    // specific product row.  Warn the user and bail gracefully so the
+    // form doesn't appear to "do nothing".
+    if (!product?._id) {
+      console.error("Product missing _id — cannot save inline edit", product);
+      Swal.fire({
+        icon: "warning",
+        title: "Edit not supported",
+        text: "This challan was created before per-product IDs were added. Please delete it and create a new one.",
+      });
+      return;
+    }
+    if (!challan?._id) {
+      Swal.fire("Error", "Challan ID missing", "error");
+      return;
+    }
+
     try {
+      // Re-resolve capacity + rate from the (possibly edited) product
+      // name + model + the challan's location.  If the product hasn't
+      // changed and the lookup still finds it, this is a no-op; if the
+      // user fixed a typo in the product name, the rate now reflects
+      // the correct row.
+      const loc = resolveLocation();
+      const { capacity, rate } = findRate({
+        productName: formData.productName,
+        model: formData.model,
+        location: loc,
+        // Pre-existing capacity (if any) helps disambiguate without-
+        // model multi-capacity products (Gas Stove, Air Cooler, etc.)
+        capacity: product?.capacity || "",
+      });
+
       await axiosSecure.put(`/challan/${challan._id}/product/${product._id}`, {
         model: formData.model, productName: formData.productName,
         quantity: Number(formData.quantity),
+        capacity, rate,
       });
       await axiosSecure.patch(`/challan/${challan._id}`, {
         customerName: formData.customerName, address: formData.address,
@@ -44,7 +113,22 @@ const EditRecentChallanModal = ({ open, onClose, challan, product, axiosSecure, 
       onClose();
       refreshChallan();
     } catch (err) {
-      Swal.fire("Error!", "Update failed!", "error");
+      // Surface the real failure cause to make debugging painless.
+      // The server returns { success: false, message: "..." } for
+      // expected errors and validation-array for express-validator
+      // failures.  axios wraps it as err.response.data.
+      console.error("EditRecentChallanModal update failed:", err);
+      const serverData = err?.response?.data;
+      const detail =
+        (Array.isArray(serverData?.errors) && serverData.errors.map(e => e.msg || e.message).join(", "))
+        || serverData?.message
+        || err?.message
+        || "Unknown error";
+      Swal.fire({
+        icon: "error",
+        title: "Update failed",
+        text: detail,
+      });
     }
   };
 
@@ -120,10 +204,39 @@ const EditRecentChallanModal = ({ open, onClose, challan, product, axiosSecure, 
               <span className="h-1 w-5 rounded-full bg-blue-500" />
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Product Information</p>
             </div>
-            <div>
+            <div ref={productSuggestRef} className="relative">
               <label className={`${lbl} text-blue-500`}>Product Name</label>
-              <input required name="productName" value={formData.productName} onChange={handleChange}
-                className={`${inp} border-blue-200 focus:border-blue-400 focus:ring-blue-400/10`} placeholder="Product name" />
+              <input required name="productName" value={formData.productName}
+                onChange={handleChange}
+                onFocus={() => formData.productName.trim().length >= 1 && setShowProductSuggest(true)}
+                autoComplete="off"
+                className={`${inp} border-blue-200 focus:border-blue-400 focus:ring-blue-400/10`} placeholder="Product name (1-2 letters)" />
+              {showProductSuggest && (() => {
+                const suggestions = suggestProducts(formData.productName, 8);
+                if (!suggestions.length) return null;
+                return (
+                  <ul className="absolute top-full left-0 w-full bg-white border border-slate-200 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto mt-1">
+                    {suggestions.map((s, i) => (
+                      <li
+                        key={i}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setFormData(prev => ({ ...prev, productName: s.name }));
+                          setShowProductSuggest(false);
+                        }}
+                        className="px-3 py-1.5 hover:bg-blue-50 cursor-pointer flex items-center justify-between text-xs"
+                      >
+                        <span className="text-slate-800 truncate">{s.name}</span>
+                        <span className={
+                          "ml-2 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase " +
+                          (s.hasModel ? "bg-blue-50 text-blue-600 border border-blue-200"
+                                      : "bg-emerald-50 text-emerald-600 border border-emerald-200")
+                        }>{s.hasModel ? "model" : "no-model"}</span>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

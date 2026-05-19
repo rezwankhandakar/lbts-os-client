@@ -1,18 +1,38 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { FaBoxOpen, FaTrashAlt, FaPlus } from "react-icons/fa";
 import { X, Check } from "lucide-react";
+// Local product typeahead — surfaces canonical product names from the
+// with-model + without-model master tables so the user picks one the
+// rate matcher knows about.  Rate itself is recomputed inside the
+// parent's handleProductChange.
+import { suggestProducts } from "../utils/rateMatcher";
 
 const EditCreateDeliveryChallanModal = ({
   isOpen, editingChallan, setIsEditModalOpen,
   handleEditChange, handleProductChange,
   handleDeleteProduct, handleUpdateChallan, setEditingChallan,
 }) => {
+  // Which row's product-name field is currently showing suggestions?
+  const [openSuggestIdx, setOpenSuggestIdx] = useState(null);
+  const suggestRefs = useRef({});
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    if (openSuggestIdx === null) return;
+    const onClick = (e) => {
+      const ref = suggestRefs.current[openSuggestIdx];
+      if (ref && !ref.contains(e.target)) setOpenSuggestIdx(null);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [openSuggestIdx]);
+
   if (!isOpen || !editingChallan) return null;
 
   const handleAddProduct = () => {
     setEditingChallan(prev => ({
       ...prev,
-      products: [...(prev.products || []), { productName: "", model: "", quantity: "" }],
+      products: [...(prev.products || []), { productName: "", model: "", quantity: "", capacity: "", rate: 0 }],
     }));
   };
 
@@ -107,13 +127,50 @@ const EditCreateDeliveryChallanModal = ({
             <div className="space-y-2">
               {editingChallan.products?.map((p, index) => (
                 <div key={index} className="flex gap-2 items-end p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                  {/* Product name — small */}
-                  <div className="w-[30%] shrink-0">
+                  {/* Product name — small, with local typeahead */}
+                  <div
+                    className="w-[30%] shrink-0 relative"
+                    ref={el => (suggestRefs.current[index] = el)}
+                  >
                     <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Item</label>
                     <input value={p.productName}
-                      onChange={e => handleProductChange(index, "productName", e.target.value)}
+                      autoComplete="off"
+                      onChange={e => {
+                        handleProductChange(index, "productName", e.target.value);
+                        setOpenSuggestIdx(e.target.value.trim().length >= 1 ? index : null);
+                      }}
+                      onFocus={() => {
+                        if ((p.productName || "").trim().length >= 1) setOpenSuggestIdx(index);
+                      }}
                       className="w-full text-xs text-slate-800 outline-none bg-white border border-slate-200 rounded-lg px-2 py-1.5 focus:border-slate-400 placeholder-slate-300"
                       placeholder="Name" />
+                    {/* Local typeahead — canonical names from rate tables */}
+                    {openSuggestIdx === index && (() => {
+                      const sug = suggestProducts(p.productName || "", 6);
+                      if (!sug.length) return null;
+                      return (
+                        <ul className="absolute top-full left-0 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto mt-1">
+                          {sug.map((s, i) => (
+                            <li
+                              key={i}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                handleProductChange(index, "productName", s.name);
+                                setOpenSuggestIdx(null);
+                              }}
+                              className="px-2 py-1.5 hover:bg-slate-50 cursor-pointer flex items-center justify-between text-xs"
+                            >
+                              <span className="text-slate-800 truncate">{s.name}</span>
+                              <span className={
+                                "ml-1.5 text-[8px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0 " +
+                                (s.hasModel ? "bg-blue-50 text-blue-600 border border-blue-200"
+                                            : "bg-emerald-50 text-emerald-600 border border-emerald-200")
+                              }>{s.hasModel ? "M" : "N/M"}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      );
+                    })()}
                   </div>
                   {/* Model — large */}
                   <div className="flex-1 min-w-0">
@@ -129,6 +186,16 @@ const EditCreateDeliveryChallanModal = ({
                     <input type="number" min="1" value={p.quantity}
                       onChange={e => handleProductChange(index, "quantity", e.target.value)}
                       className="w-full text-xs font-black text-center text-slate-800 outline-none bg-white border border-slate-200 rounded-lg px-1 py-1.5 focus:border-slate-400" />
+                  </div>
+                  {/* Rate (read-only display) — comes from rate matcher.
+                      Quiet hint to the user that we resolved a rate.    */}
+                  <div className="w-14 shrink-0">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Rate</label>
+                    <div className={
+                      "w-full text-xs font-black text-center px-1 py-1.5 rounded-lg border " +
+                      (p.rate ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : "bg-amber-50 text-amber-600 border-amber-200")
+                    }>{p.rate ? `৳${p.rate}` : "—"}</div>
                   </div>
                   {editingChallan.products.length > 1 && (
                     <button type="button" onClick={() => handleDeleteProduct(index)}

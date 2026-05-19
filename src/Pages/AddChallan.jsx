@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,7 +10,14 @@ import Swal from "sweetalert2";
 import EditRecentChallanModal from "../Component/EditRecentChallanModal";
 import AIAddressParser from "../Component/AIAddressParser";
 import LocalAddressDropdown from "../Component/LocalAddressDropdown";
+import LocalProductDropdown from "../Component/LocalProductDropdown";
 import { suggestThanas, suggestDistricts, computeLocation } from "../utils/localAddressMatcher";
+// Local rate / product lookup — sources are src/utils/withModelData.js
+// and src/utils/withoutModelData.js (generated from the two xlsx files).
+// We use these to:
+//   1. show product-name suggestions as the user types 1-2 letters
+//   2. resolve capacity + rate from product + model + location at submit
+import { findRate, suggestProducts } from "../utils/rateMatcher";
 
 const AddChallan = () => {
   const axiosSecure  = useAxiosSecure();
@@ -21,6 +27,13 @@ const AddChallan = () => {
   const [editModalOpen,  setEditModalOpen]  = useState(false);
   const [selectedProduct,setSelectedProduct]= useState(null);
   const [showRecent,     setShowRecent]     = useState(false);
+
+  // Product-name local typeahead.  Map of row-index → { query, open }
+  // We use this to drive a small dropdown over each Product field that
+  // shows suggestions from the master product list (with-model + without-
+  // model combined).  The user can ignore the dropdown and free-type
+  // anything; rate resolution at submit time is best-effort.
+  const [productSuggestState, setProductSuggestState] = useState({});
 
   // FIX: cache + debounce + abort — একই query দ্বিতীয়বার API call করবে না
   const { autoData, activeField, setActiveField, handleAutoSearch } =
@@ -112,8 +125,27 @@ const AddChallan = () => {
       }
 
       // 3) Build payload — thana/district পাঠাচ্ছি EXACTLY যা field-এ আছে।
+      //    প্রতি product এর জন্য capacity + rate auto-resolve করি
+      //    (with-model / without-model lookup থেকে).  resolve না হলে
+      //    capacity="" + rate=0 যাবে, Delivered page থেকে user পরে
+      //    capacity select করলে rate calculate হবে.
+      const productsWithRate = (data.products || []).map((p) => {
+        const { capacity, rate } = findRate({
+          productName: p.productName,
+          model: p.model,
+          location: autoLocation,
+        });
+        return {
+          productName: p.productName,
+          model: p.model,
+          quantity: p.quantity,
+          capacity,
+          rate,
+        };
+      });
       const payload = {
         ...data,                            // includes thana, district as user typed
+        products: productsWithRate,         // override with rate-resolved version
         location: autoLocation,
         locationSource: resolutionSource,
         currentUser: user?.displayName,
@@ -391,9 +423,70 @@ const AddChallan = () => {
                         <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Product</label>
                         <input
                           {...register(`products.${index}.productName`, { required: true })}
-                          onChange={e => handleAutoSearch(`product-${index}`, "productName", e.target.value)}
-                          className={inpSm} placeholder="Product name"
+                          autoComplete="off"
+                          onChange={e => {
+                            const v = e.target.value;
+                            setValue(`products.${index}.productName`, v);
+                            setProductSuggestState(prev => ({ ...prev, [index]: v }));
+
+                            // ── Local-first typeahead ────────────────
+                            // 1. Compute local matches synchronously.
+                            // 2. If we have ≥1 local match → show local
+                            //    dropdown ONLY.  Skip the server call so
+                            //    its delayed setActiveField can't overwrite
+                            //    our local activeField (that was the bug
+                            //    where suggestions appeared then vanished).
+                            // 3. If local has nothing → fall back to the
+                            //    server history dropdown.
+                            const trimmed = v.trim();
+                            if (trimmed.length === 0) {
+                              setActiveField(null);
+                              return;
+                            }
+                            const localHits = suggestProducts(trimmed, 8);
+                            if (localHits.length > 0) {
+                              // Order matters here: handleAutoSearch("") will
+                              // call setActiveField(null) immediately, so we
+                              // call IT FIRST then setActiveField to the local
+                              // key.  React batches the two updates in a
+                              // single render — final value wins.
+                              handleAutoSearch(`product-${index}`, "productName", "");
+                              setActiveField(`product-local-${index}`);
+                            } else {
+                              // Local miss → close local dropdown and let
+                              // the server-side history typeahead handle it.
+                              if (activeField === `product-local-${index}`) {
+                                setActiveField(null);
+                              }
+                              handleAutoSearch(`product-${index}`, "productName", v);
+                            }
+                          }}
+                          onFocus={e => {
+                            const v = e.target.value.trim();
+                            if (v.length === 0) return;
+                            setProductSuggestState(prev => ({ ...prev, [index]: v }));
+                            const localHits = suggestProducts(v, 8);
+                            if (localHits.length > 0) {
+                              handleAutoSearch(`product-${index}`, "productName", "");
+                              setActiveField(`product-local-${index}`);
+                            } else {
+                              handleAutoSearch(`product-${index}`, "productName", v);
+                            }
+                          }}
+                          className={inpSm} placeholder="Product name (1-2 letters)"
                         />
+                        {/* LOCAL canonical product list (with-model + without-model) — priority */}
+                        <LocalProductDropdown
+                          fieldKey={`product-local-${index}`}
+                          activeField={activeField}
+                          setActiveField={setActiveField}
+                          suggestions={suggestProducts(productSuggestState[index] || "", 8)}
+                          onPick={(name) => {
+                            setValue(`products.${index}.productName`, name, { shouldDirty: true });
+                            setProductSuggestState(prev => ({ ...prev, [index]: name }));
+                          }}
+                        />
+                        {/* SERVER-side history fallback — only when local had no match */}
                         <AutoDropdown fieldKey={`product-${index}`} autoData={autoData} activeField={activeField}
                           setActiveField={setActiveField} setFormValue={v => setValue(`products.${index}.productName`, v)} />
                       </div>

@@ -1,12 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Swal from "sweetalert2";
 import { X, Save } from "lucide-react";
+import { findRate, suggestProducts } from "../utils/rateMatcher";
+import { computeLocation } from "../utils/localAddressMatcher";
 
 const EditChallanModal = ({ open, onClose, challan, product, axiosSecure, refetchChallans }) => {
   const [formData, setFormData] = useState({
     customerName: "", address: "", thana: "", district: "",
     receiverNumber: "", zone: "", productName: "", model: "", quantity: 0,
   });
+  // Local product-name typeahead state
+  const [showProductSuggest, setShowProductSuggest] = useState(false);
+  const productSuggestRef = useRef(null);
 
   useEffect(() => {
     if (open && challan && product) {
@@ -17,14 +22,39 @@ const EditChallanModal = ({ open, onClose, challan, product, axiosSecure, refetc
         productName: product.productName || "", model: product.model || "",
         quantity: product.quantity || 0,
       });
+      setShowProductSuggest(false);
     }
   }, [open, challan, product]);
+
+  // Close suggestion popover on outside click
+  useEffect(() => {
+    if (!showProductSuggest) return;
+    const onClick = (e) => {
+      if (productSuggestRef.current && !productSuggestRef.current.contains(e.target)) {
+        setShowProductSuggest(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [showProductSuggest]);
 
   if (!open) return null;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === "productName") {
+      // open the local typeahead as soon as the user types 1+ char
+      setShowProductSuggest(value.trim().length >= 1);
+    }
+  };
+
+  // Where is this challan delivered?  Prefer the stored field; fall back
+  // to local compute so older challans (pre-feature) still get a sensible
+  // location for rate lookup.
+  const resolveLocation = () => {
+    if (challan?.location) return challan.location;
+    return computeLocation(formData.thana, formData.district) || null;
   };
 
   const handleSubmit = async (e) => {
@@ -37,9 +67,21 @@ const EditChallanModal = ({ open, onClose, challan, product, axiosSecure, refetc
       });
       if (!resMain.data.success) throw new Error("Main challan update failed");
 
+      // Resolve capacity + rate fresh — handles typo fixes, model edits,
+      // location-driven changes.  Pre-existing capacity (when present)
+      // helps disambiguate without-model multi-capacity products.
+      const loc = resolveLocation();
+      const { capacity, rate } = findRate({
+        productName: formData.productName,
+        model: formData.model,
+        location: loc,
+        capacity: product?.capacity || "",
+      });
+
       const resProd = await axiosSecure.put(`/challan/${challan._id}/product/${product._id}`, {
         productName: formData.productName, model: formData.model,
         quantity: Number(formData.quantity),
+        capacity, rate,
       });
       if (!resProd.data.success) throw new Error("Product update failed");
 
@@ -129,10 +171,39 @@ const EditChallanModal = ({ open, onClose, challan, product, axiosSecure, refetc
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Product Information</p>
             </div>
 
-            <div>
+            <div ref={productSuggestRef} className="relative">
               <label className={`${lbl} text-blue-500`}>Product Name</label>
-              <input required name="productName" value={formData.productName} onChange={handleChange}
-                className={`${inp} border-blue-200 focus:border-blue-400 focus:ring-blue-400/10`} placeholder="Product name" />
+              <input required name="productName" value={formData.productName}
+                onChange={handleChange}
+                onFocus={() => formData.productName.trim().length >= 1 && setShowProductSuggest(true)}
+                autoComplete="off"
+                className={`${inp} border-blue-200 focus:border-blue-400 focus:ring-blue-400/10`} placeholder="Product name (1-2 letters)" />
+              {showProductSuggest && (() => {
+                const suggestions = suggestProducts(formData.productName, 8);
+                if (!suggestions.length) return null;
+                return (
+                  <ul className="absolute top-full left-0 w-full bg-white border border-slate-200 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto mt-1">
+                    {suggestions.map((s, i) => (
+                      <li
+                        key={i}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setFormData(prev => ({ ...prev, productName: s.name }));
+                          setShowProductSuggest(false);
+                        }}
+                        className="px-3 py-1.5 hover:bg-blue-50 cursor-pointer flex items-center justify-between text-xs"
+                      >
+                        <span className="text-slate-800 truncate">{s.name}</span>
+                        <span className={
+                          "ml-2 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase " +
+                          (s.hasModel ? "bg-blue-50 text-blue-600 border border-blue-200"
+                                      : "bg-emerald-50 text-emerald-600 border border-emerald-200")
+                        }>{s.hasModel ? "model" : "no-model"}</span>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
