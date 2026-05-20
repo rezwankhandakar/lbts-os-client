@@ -626,15 +626,15 @@ const AllChallan = () => {
                           {c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-GB") : "—"}
                         </td>
                         <td className="px-2.5 py-2"><StatusBadge status={c.status} tripNumber={c.tripNumber} /></td>
-                        <td className="px-2.5 py-2 font-semibold text-slate-800 whitespace-nowrap">{c.customerName}</td>
+                        <td className="px-2.5 py-2 text-black max-w-[140px] truncate" title={c.customerName}> {c.customerName}</td>
                         <td className="px-2.5 py-2 text-black max-w-[140px] truncate" title={c.address}>{c.address}</td>
-                        <td className="px-2.5 py-2 text-black">{c.thana || "—"}</td>
-                        <td className="px-2.5 py-2 text-black">{c.district || "—"}</td>
+                        <td className="px-2.5 py-2 text-black max-w-[140px] truncate" title={c.thana}>{c.thana || "—"}</td>
+                        <td className="px-2.5 py-2 text-black max-w-[140px] truncate" title={c.district}>{c.district || "—"}</td>
                         <td className="px-2.5 py-2"><LocationBadge value={resolveLocation(c)} /></td>
                         <td className="px-2.5 py-2 text-black">{c.receiverNumber}</td>
                         <td className="px-2.5 py-2 text-black">{c.zone}</td>
                         <td className="px-2.5 py-2 text-black whitespace-nowrap">{p.productName || "—"}</td>
-                        <td className="px-2.5 py-2 text-black font-mono font-semibold whitespace-nowrap">{p.model?.toUpperCase()}</td>
+                        <td className="px-2.5 py-2 text-black max-w-[140px] truncate"title={p.model}>{p.model?.toUpperCase()}</td>
                         <td className="px-2.5 py-2 text-center font-black text-black">{p.quantity}</td>
                         <td className="px-2.5 py-2">
                           <ChallanActionDropdown challan={c} product={p} axiosSecure={axiosSecure} refetchChallans={refetchChallans} />

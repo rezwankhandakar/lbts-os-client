@@ -399,26 +399,73 @@ export function detectThanaDistrict(rawAddress) {
     const possibleDistricts =
       ENRICHED_THANA_TO_DISTRICTS.get(thanaHit.ref.norm) || [thanaHit.ref.district];
 
-    if (possibleDistricts.length === 1) {
-      finalDistrict = possibleDistricts[0];
-    } else if (districtHit && possibleDistricts.includes(districtHit.ref.original)) {
-      finalDistrict = districtHit.ref.original;
-    } else if (districtHit) {
-      // ── FIX #2: thana name conflicts with explicit district ──
-      // Address says "Kotwali, Cumilla" but thana hit was Rangamati's Kotwali.
-      // Trust the explicit district mention.
-      finalDistrict = districtHit.ref.original;
-      // BUT verify this thana actually exists in that district
-      const verifiedThanas = DISTRICTS_WITH_THANAS[districtHit.ref.original] || [];
-      if (!verifiedThanas.includes(finalThana)) {
-        // The matched thana doesn't exist in the explicit district.
-        // This is suspicious — keep thana null, only set district.
-        result.notes = `Thana "${finalThana}" mismatched with district "${districtHit.ref.original}". Dropping thana.`;
-        finalThana = null;
-        lowConfidenceReason = "thana_district_mismatch";
+    // ── FIX #6 (stray-thana bug): DISTRICT IS AUTHORITATIVE ──
+    // When the address explicitly mentions a district, that district WINS.
+    // Previously we trusted the thana's home district even when the
+    // address clearly said a different district — producing wrong results
+    // like "Bagmara, ..., Cumilla" → Bagmara/Rajshahi (Cumilla ignored),
+    // or "Lalpur, ..., Brahmanbaria" → Lalpur/Natore (Brahmanbaria ignored).
+    //
+    // Try the next-best thana hit that DOES belong to the explicit district
+    // before giving up on the thana.
+    if (districtHit) {
+      // Case A: top thana already belongs to the explicit district → keep
+      if (possibleDistricts.includes(districtHit.ref.original)) {
+        finalDistrict = districtHit.ref.original;
+      } else {
+        // Case B: top thana doesn't belong — try a fallback thana hit
+        // that does belong to the explicit district.
+        finalDistrict = districtHit.ref.original;
+        const verifiedThanas = DISTRICTS_WITH_THANAS[districtHit.ref.original] || [];
+
+        const betterHit = allThanaHits.find((h) => {
+          // Must belong to the explicit district
+          if (h.ref.district !== districtHit.ref.original) {
+            // Or its norm could map to that district via ENRICHED map
+            const possibles = ENRICHED_THANA_TO_DISTRICTS.get(h.ref.norm) || [];
+            if (!possibles.includes(districtHit.ref.original)) return false;
+          }
+          // Must not share gram with ANY district hit (not just the chosen one).
+          // Catches duplicated district mentions like
+          // "...Manikganj, ..., Manikganj" where 2nd "manikganj" gram also
+          // matches Manikganj Sadar thana via alias-strip.
+          const sharedWithDistrict = districtHits.some(
+            (dh) => dh.gram.start === h.gram.start && dh.gram.text === h.gram.text
+          );
+          if (sharedWithDistrict) {
+            // Allow ONLY if this thana name is NOT a Sadar/district-name
+            // pattern (i.e. the gram coincidence is incidental, not the
+            // district name being mistaken for a thana).
+            const tn = normalise(h.ref.original);
+            const distName = normalise(districtHit.ref.original);
+            if (tn === distName || tn.startsWith(distName + " ")) return false;
+          }
+          return true;
+        });
+
+        if (betterHit) {
+          finalThana = betterHit.ref.original;
+          // Verify the canonical name exists in the district's master list
+          if (!verifiedThanas.includes(finalThana)) {
+            // Resolve via DISTRICTS_WITH_THANAS — pick the canonical spelling
+            const canonical = verifiedThanas.find(
+              (t) => normalise(t) === betterHit.ref.norm
+            );
+            if (canonical) finalThana = canonical;
+          }
+        } else {
+          // No legitimate thana found inside the explicit district.
+          // The original thana hit was a stray locality name — drop it.
+          result.notes = `Thana "${finalThana}" does not belong to district "${districtHit.ref.original}" found in address. Dropping thana.`;
+          finalThana = null;
+          lowConfidenceReason = "thana_district_mismatch";
+        }
       }
+    } else if (possibleDistricts.length === 1) {
+      // No explicit district hit — thana's only possible district is safe to use
+      finalDistrict = possibleDistricts[0];
     } else {
-      // ── FIX #2: AMBIGUOUS — multi-district thana, no district mentioned ──
+      // ── AMBIGUOUS — multi-district thana, no district mentioned ──
       // Don't guess. Return thana but mark district uncertain.
       finalDistrict = null;
       lowConfidenceReason = "ambiguous_multi_district";

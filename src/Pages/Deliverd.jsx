@@ -1,25 +1,19 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import usePageParam from "../hooks/usePageParam";
+import useRole from "../hooks/useRole";   // gate admin-only columns / actions
 import { useSearch } from "../hooks/SearchContext";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import Swal from "sweetalert2";
 import LoadingSpinner from "../Component/LoadingSpinner";
 import { computeLocation } from "../utils/localAddressMatcher";   // for on-the-fly fallback when older challans don't have location saved
-// Local rate / product / capacity matcher.  Used by the inline product-
-// name and capacity editors on this page:
-//   - `suggestProducts` — typeahead while user types a product name
-//   - `suggestCapacities` / `getCapacityOptions` — typeahead for
-//     without-model items with multiple capacity variants
-//   - `findRate` — re-resolves capacity + rate after an inline edit so
-//     the saved challan stays consistent with the rate tables
-import {
-  findRate,
-  suggestProducts,
-  suggestCapacities,
-  getCapacityOptions,
-} from "../utils/rateMatcher";
+// Local rate matcher — still used on the read path to compute a fallback
+// rate for older challans that have no `rate` field saved on the product.
+// The inline product-name / capacity editors were removed, so the
+// typeahead helpers (suggestProducts, suggestCapacities, getCapacityOptions)
+// are no longer imported.
+import { findRate } from "../utils/rateMatcher";
 
 const ITEMS_PER_PAGE = 100;
 const MONTHS_FULL  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -82,7 +76,19 @@ const STATUS_OPTIONS = {
   challanReturnStatus: ["confirmed","not_received","call_later","received","missing"],
 };
 
-/* ── Multi-select ── */
+/* ── Multi-select ──
+   Two synthetic options are always available in addition to the real ones:
+     "__all__"   → selects every currently-filtered real option (a true
+                   no-op for filtering, but useful for "select everything
+                   then de-select a few")
+     "__blank__" → matches rows whose value for this column is empty/null
+                   (rendered as "(Blanks)" in the chip and in the menu)
+   The actual filter logic in buildRows checks selected.includes("__blank__")
+   separately so empty strings stay matchable. */
+const ALL_TOKEN   = "__all__";
+const BLANK_TOKEN = "__blank__";
+const BLANK_LABEL = "(Blanks)";
+
 const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -93,24 +99,72 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
     return () => document.removeEventListener("mousedown", h);
   }, []);
   const filtered = options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
-  const label    = selected.length === 0 ? placeholder : selected.length === 1 ? selected[0] : `${selected.length} sel`;
-  const toggle   = (v) => onChange(selected.includes(v) ? selected.filter(x => x !== v) : [...selected, v]);
+
+  // Visible "real" selected count (excludes BLANK token which we render
+  // with a friendly label)
+  const realSelected = selected.filter(v => v !== BLANK_TOKEN);
+  const hasBlank = selected.includes(BLANK_TOKEN);
+  const totalSel = realSelected.length + (hasBlank ? 1 : 0);
+
+  const label =
+    totalSel === 0 ? placeholder
+    : totalSel === 1 ? (hasBlank && realSelected.length === 0 ? BLANK_LABEL : realSelected[0])
+    : `${totalSel} sel`;
+
+  const toggle = (v) =>
+    onChange(selected.includes(v) ? selected.filter(x => x !== v) : [...selected, v]);
+
+  // "Select all" toggles all currently-filtered REAL options. It never
+  // pulls in (Blanks) — that stays an independent choice.
+  const filteredAllSelected =
+    filtered.length > 0 && filtered.every(o => selected.includes(o));
+  const toggleAll = () => {
+    if (filteredAllSelected) {
+      // Remove the filtered ones from selection
+      onChange(selected.filter(v => !filtered.includes(v)));
+    } else {
+      // Add every filtered option that's not already there
+      const next = new Set(selected);
+      for (const o of filtered) next.add(o);
+      onChange([...next]);
+    }
+  };
+
   return (
     <div ref={ref} className="relative w-full">
       <button type="button" onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center justify-between gap-0.5 px-1.5 py-0.5 text-[11px] rounded-lg border transition-all text-left ${selected.length > 0 ? "border-slate-700 bg-slate-800 text-white" : "border-slate-200 bg-white text-slate-400"}`}>
+        className={`w-full flex items-center justify-between gap-0.5 px-1.5 py-0.5 text-[11px] rounded-lg border transition-all text-left ${totalSel > 0 ? "border-slate-700 bg-slate-800 text-white" : "border-slate-200 bg-white text-slate-400"}`}>
         <span className="truncate flex-1">{label}</span>
         <span className="flex items-center gap-0.5 flex-shrink-0">
-          {selected.length > 0 && <span className="text-slate-400 hover:text-white cursor-pointer text-[10px]" onClick={e => { e.stopPropagation(); onChange([]); }}>✕</span>}
+          {totalSel > 0 && <span className="text-slate-400 hover:text-white cursor-pointer text-[10px]" onClick={e => { e.stopPropagation(); onChange([]); }}>✕</span>}
           <svg width="7" height="5" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d={open ? "M1 5L5 1L9 5" : "M1 1L5 5L9 1"} /></svg>
         </span>
       </button>
       {open && (
-        <div className="fixed bg-white border border-slate-200 rounded-xl shadow-2xl min-w-[140px] w-max max-w-[210px] overflow-hidden"
-          style={{ zIndex: 9999, top: ref.current ? ref.current.getBoundingClientRect().bottom + 4 : 0, left: ref.current ? Math.min(ref.current.getBoundingClientRect().left, window.innerWidth - 215) : 0 }}>
+        <div className="fixed bg-white border border-slate-200 rounded-xl shadow-2xl min-w-[160px] w-max max-w-[230px] overflow-hidden"
+          style={{ zIndex: 9999, top: ref.current ? ref.current.getBoundingClientRect().bottom + 4 : 0, left: ref.current ? Math.min(ref.current.getBoundingClientRect().left, window.innerWidth - 235) : 0 }}>
           <div className="p-1.5 border-b border-slate-100">
             <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
               className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none focus:border-orange-400" />
+          </div>
+          {/* Quick toggles row — Select all (filtered) + Blanks */}
+          <div className="border-b border-slate-100 bg-slate-50/60">
+            <label className="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-slate-100">
+              <input type="checkbox"
+                checked={filteredAllSelected}
+                onChange={toggleAll}
+                className="w-3 h-3 accent-orange-500 flex-shrink-0" />
+              <span className="font-semibold text-slate-700">
+                Select all {search ? `(${filtered.length} match)` : `(${options.length})`}
+              </span>
+            </label>
+            <label className="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-slate-100">
+              <input type="checkbox"
+                checked={hasBlank}
+                onChange={() => toggle(BLANK_TOKEN)}
+                className="w-3 h-3 accent-orange-500 flex-shrink-0" />
+              <span className="italic text-slate-500">{BLANK_LABEL}</span>
+            </label>
           </div>
           <div className="max-h-44 overflow-y-auto">
             {filtered.length === 0
@@ -122,7 +176,7 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
                 </label>
               ))}
           </div>
-          {selected.length > 0 && (
+          {totalSel > 0 && (
             <div className="border-t border-slate-100 p-1.5">
               <button onClick={() => onChange([])} className="w-full text-[10px] text-slate-400 uppercase py-1 hover:text-slate-700">Clear all</button>
             </div>
@@ -142,8 +196,11 @@ const TypeSelect = ({ value, onChange }) => (
   </select>
 );
 
-/* ── Mobile Card ── */
-const MobileCard = ({ row }) => {
+/* ── Mobile Card ──
+   `isAdmin` is passed from the parent so we can hide admin-only fields
+   (capacity, rate, amount, tripDo) without making this component aware
+   of the role hook. */
+const MobileCard = ({ row, isAdmin }) => {
   const { challan, product, date, isReturn, note, returnNote } = row;
   const displayNote = isReturn ? returnNote : note;
   return (
@@ -185,7 +242,7 @@ const MobileCard = ({ row }) => {
         <div className="flex-1 min-w-0">
           <span className="text-xs font-semibold text-slate-800 truncate block">{product.productName}</span>
           <span className="text-[10px] text-slate-400 uppercase">{product.model}</span>
-          {(product.capacity || row.effectiveCapacity) && (
+          {isAdmin && (product.capacity || row.effectiveCapacity) && (
             <span className={
               "block text-[10px] mt-0.5 truncate " +
               (!product.capacity && row.effectiveCapacity ? "text-blue-500 italic" : "text-slate-500")
@@ -199,7 +256,7 @@ const MobileCard = ({ row }) => {
             <p className="text-[10px] text-slate-400">Qty</p>
             <span className="font-black text-slate-800 text-sm">{product.quantity}</span>
           </div>
-          {row.effectiveRate ? (
+          {isAdmin && row.effectiveRate ? (
             <span className={
               "inline-block text-[10px] font-black rounded-md px-1.5 py-0.5 border " +
               (row.rateSource === "computed"
@@ -209,8 +266,18 @@ const MobileCard = ({ row }) => {
               ৳{row.effectiveRate}
             </span>
           ) : null}
+          {isAdmin && row.effectiveAmount > 0 && (
+            <span className="block text-[10px] font-black text-emerald-700">
+              = ৳{row.effectiveAmount.toLocaleString()}
+            </span>
+          )}
         </div>
       </div>
+      {isAdmin && product.tripDo && (
+        <p className="mt-1.5 text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded px-2 py-0.5 inline-block">
+          DO: {product.tripDo}
+        </p>
+      )}
       {displayNote && <p className={`mt-1.5 text-[10px] italic truncate font-medium ${isReturn ? "text-orange-500" : "text-amber-600"}`}>{displayNote}</p>}
 
     </div>
@@ -223,6 +290,18 @@ const MobileCard = ({ row }) => {
 const DeliveredPage = () => {
   const axiosSecure = useAxiosSecure();
   const { searchText, setSearchText } = useSearch();
+  // Admin-only columns + actions:
+  //   Location, Capacity, Rate, Amount, Trip Do columns
+  //   Bulk Trip Do button (header)
+  //   Same columns in the Excel export
+  // Non-admin users (manager, operator, etc.) don't see these in the
+  // table, the filter row, the mobile filter panel, or the exported file.
+  //
+  // While the role query is still loading we treat the user as
+  // non-admin (safer default — a non-admin briefly seeing the admin UI
+  // is worse than an admin briefly seeing the trimmed UI).
+  const { role, isLoading: roleLoading } = useRole();
+  const isAdmin = !roleLoading && role === "admin";
 
   const [deliveries,        setDeliveries]        = useState([]);
   const [loading,           setLoading]           = useState(false);
@@ -243,6 +322,7 @@ const DeliveredPage = () => {
   const [dateFilter,     setDateFilter]     = useState("");
   const [typeFilter,     setTypeFilter]     = useState("");
   const [noteFilter,     setNoteFilter]     = useState([]);
+  const [tripDoFilter,   setTripDoFilter]   = useState([]);   // NEW: Trip Do column filter
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year,  setYear]  = useState(new Date().getFullYear());
 
@@ -288,7 +368,7 @@ const DeliveredPage = () => {
     setThanaFilter([]); setLocationFilter([]); setProductFilter([]); setModelFilter([]);
     setCapacityFilter([]);
     setAddressFilter([]); setReceiverFilter([]); setDateFilter("");
-    setTypeFilter(""); setNoteFilter([]); setShowMobileFilters(false);
+    setTypeFilter(""); setNoteFilter([]); setTripDoFilter([]); setShowMobileFilters(false);
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
   };
 
@@ -301,11 +381,20 @@ const DeliveredPage = () => {
         if (typeFilter && typeFilter !== rowType) return;
         (challan.products || []).forEach(product => {
           const s = searchText?.toLowerCase() || "";
-          const matchesSearch = !searchText || [challan.customerName, challan.zone, challan.address, challan.receiverNumber, challan.district, challan.thana, resolveLocation(challan), product.productName, product.model].some(v => v?.toString().toLowerCase().includes(s));
+          const matchesSearch = !searchText || [challan.customerName, challan.zone, challan.address, challan.receiverNumber, challan.district, challan.thana, resolveLocation(challan), product.productName, product.model, product.tripDo].some(v => v?.toString().toLowerCase().includes(s));
           if (!matchesSearch) return;
           const challanDate = new Date(trip.createdAt).toISOString().slice(0, 10);
           if (dateFilter && challanDate !== dateFilter) return;
-          const check = (filter, val) => filter.length === 0 || filter.some(f => val?.toLowerCase() === f.toLowerCase());
+          // Blank-aware filter:
+          //   filter.length === 0       → pass-through (no filter active)
+          //   filter contains __blank__ → empty values match
+          //   real values are case-insensitive equality
+          const check = (filter, val) => {
+            if (filter.length === 0) return true;
+            const v = (val ?? "").toString().trim();
+            if (v === "") return filter.includes(BLANK_TOKEN);
+            return filter.some(f => f !== BLANK_TOKEN && v.toLowerCase() === f.toLowerCase());
+          };
 
           // Resolve effective capacity + rate FIRST so the rest of the
           // filter/sort/display pipeline can use the on-the-fly value
@@ -322,18 +411,23 @@ const DeliveredPage = () => {
           if (!check(productFilter,  product.productName))  return;
           if (!check(modelFilter,    product.model))        return;
           if (!check(capacityFilter, eff.capacity))         return;
+          if (!check(tripDoFilter,   product.tripDo))       return;
           if (noteFilter.length > 0) {
             const noteVal = isReturn ? (challan.returnNote || "") : (challan.note || "");
-            if (!noteFilter.some(f => noteVal.toLowerCase() === f.toLowerCase())) return;
+            if (!check(noteFilter, noteVal)) return;
           }
+          const qty  = Number(product.quantity) || 0;
+          const rate = Number(eff.rate) || 0;
           rows.push({
             trip, challan, product,
             // Effective values — saved when present, computed otherwise.
             // All downstream consumers (cells, totals, export) read
             // these instead of product.capacity / product.rate.
             effectiveCapacity: eff.capacity,
-            effectiveRate:     eff.rate,
+            effectiveRate:     rate,
+            effectiveAmount:   qty * rate,    // NEW — qty × rate per row
             rateSource:        eff.source,   // "saved" | "computed" | "unresolved"
+            tripDo:            product.tripDo || "",  // NEW — bubble up for cell access
             date: new Date(trip.createdAt), isReturn, rowType,
             deliveryStatus: challan.deliveryStatus,
             challanReturnStatus: challan.challanReturnStatus,
@@ -343,7 +437,7 @@ const DeliveredPage = () => {
       });
     });
     return rows;
-  }, [deliveries, searchText, typeFilter, dateFilter, customerFilter, zoneFilter, addressFilter, receiverFilter, districtFilter, thanaFilter, locationFilter, productFilter, modelFilter, capacityFilter, noteFilter]);
+  }, [deliveries, searchText, typeFilter, dateFilter, customerFilter, zoneFilter, addressFilter, receiverFilter, districtFilter, thanaFilter, locationFilter, productFilter, modelFilter, capacityFilter, tripDoFilter, noteFilter]);
 
   const filteredRows  = useMemo(() => buildRows(), [buildRows]);
   const totalPages    = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
@@ -353,47 +447,58 @@ const DeliveredPage = () => {
   // a quick bill total for the current view.  Older rows without a
   // saved rate get a computed rate from the matcher and contribute too.
   const totalAmountAll = useMemo(
-    () => filteredRows.reduce(
-      (s, r) => s + (Number(r.product.quantity) || 0) * (Number(r.effectiveRate) || 0),
-      0
-    ),
+    () => filteredRows.reduce((s, r) => s + (r.effectiveAmount || 0), 0),
     [filteredRows]
   );
 
+  // ── Filter dropdown options ────────────────────────────────────────
+  // Strict mode: options come from the CURRENTLY VISIBLE rows. So if the
+  // user filters Customer = "Acme", the District dropdown only shows
+  // districts where Acme orders went.
+  //
+  // Trade-off the user accepted: once a value is selected in a column,
+  // that column's dropdown collapses to just that value (since only rows
+  // with that value remain visible). To add more values, remove the
+  // chip via the X first.
   const getOptionsFor = useCallback((field) => {
     const map = new Map();
-    deliveries.forEach(trip => {
-      (trip.challans || []).forEach(challan => {
-        (challan.products || []).forEach(product => {
-          let val;
-          if (field === "capacity") {
-            // For capacity also surface on-the-fly resolved values from
-            // older challans (those don't have product.capacity saved).
-            val = resolveProductRate(challan, product).capacity;
-          } else if (field === "productName" || field === "model") {
-            val = product[field]?.toString().trim();
-          } else if (field === "location") {
-            val = resolveLocation(challan);   // fall back to compute for older challans
-          } else {
-            val = challan[field]?.trim();
-          }
-          if (val && !map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
-        });
-      });
-    });
+    for (const row of filteredRows) {
+      const { challan, product } = row;
+      let val;
+      if (field === "capacity") {
+        // Use the row's already-resolved effective capacity instead of
+        // re-running resolveProductRate. Includes on-the-fly resolved
+        // values for older challans.
+        val = row.effectiveCapacity;
+      } else if (field === "productName" || field === "model" || field === "tripDo") {
+        val = product[field]?.toString().trim();
+      } else if (field === "location") {
+        val = resolveLocation(challan);
+      } else if (field === "note") {
+        // Note filter is shared between delivery (note) and return rows
+        // (returnNote); pick whichever applies to this row.
+        val = (row.isReturn ? row.returnNote : row.note)?.toString().trim();
+      } else {
+        val = challan[field]?.trim();
+      }
+      if (val && !map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
+    }
     return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
-  }, [deliveries]);
+  }, [filteredRows]);
 
   const getNoteOptions = useCallback(() => {
+    // Same strict-mode rule: only show notes that appear in the
+    // currently filtered rows.
     const map = new Map();
-    deliveries.forEach(trip => {
-      (trip.challans || []).forEach(challan => {
-        const note = challan.isReturn ? (challan.returnNote || "") : (challan.note || "");
-        if (note.trim() && !map.has(note.toLowerCase())) map.set(note.toLowerCase(), note.trim());
-      });
-    });
+    for (const row of filteredRows) {
+      const note = row.isReturn ? (row.returnNote || "") : (row.note || "");
+      const trimmed = note.trim();
+      if (trimmed && !map.has(trimmed.toLowerCase())) {
+        map.set(trimmed.toLowerCase(), trimmed);
+      }
+    }
     return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
-  }, [deliveries]);
+  }, [filteredRows]);
 
   const activeFilterGroups = [
     { label: "Customer", values: customerFilter, clear: () => setCustomerFilter([]) },
@@ -402,14 +507,15 @@ const DeliveredPage = () => {
     { label: "Receiver", values: receiverFilter, clear: () => setReceiverFilter([]) },
     { label: "District", values: districtFilter, clear: () => setDistrictFilter([]) },
     { label: "Thana",    values: thanaFilter,    clear: () => setThanaFilter([]) },
-    { label: "Location", values: locationFilter, clear: () => setLocationFilter([]) },
+    { label: "Location", values: locationFilter, clear: () => setLocationFilter([]), adminOnly: true },
     { label: "Product",  values: productFilter,  clear: () => setProductFilter([]) },
     { label: "Model",    values: modelFilter,    clear: () => setModelFilter([]) },
-    { label: "Capacity", values: capacityFilter, clear: () => setCapacityFilter([]) },
+    { label: "Capacity", values: capacityFilter, clear: () => setCapacityFilter([]), adminOnly: true },
+    { label: "Trip Do",  values: tripDoFilter,   clear: () => setTripDoFilter([]),  adminOnly: true },
     ...(dateFilter ? [{ label: "Date", values: [dateFilter], clear: () => setDateFilter("") }] : []),
     ...(typeFilter ? [{ label: "Type", values: [typeFilter], clear: () => setTypeFilter("") }] : []),
     { label: "Note", values: noteFilter, clear: () => setNoteFilter([]) },
-  ].filter(f => f.values.length > 0);
+  ].filter(f => f.values.length > 0 && (isAdmin || !f.adminOnly));
 
   const activeFilterCount = activeFilterGroups.reduce((n, f) => n + f.values.length, 0);
 
@@ -439,17 +545,26 @@ const DeliveredPage = () => {
           : resolveProductRate(row.challan, row.product);
         const qty = Number(row.product.quantity) || 0;
         const rate = Number(eff.rate) || 0;
+        // Build the base (non-admin-visible) export row, then conditionally
+        // add admin-only fields. Object spread preserves column order:
+        // base fields first (up through Model), admin block in the middle,
+        // then post-admin fields (Floor onward).
         return {
           Date: row.date.toLocaleDateString(), Type: row.isReturn ? "Return" : "Delivery",
           "Trip No": row.trip.tripNumber || "", Customer: row.challan.customerName,
           Zone: row.challan.zone, Address: row.challan.address,
           "Receiver Number": row.challan.receiverNumber, District: row.challan.district,
-          Thana: row.challan.thana, Location: resolveLocation(row.challan) || "", Product: row.product.productName,
+          Thana: row.challan.thana,
+          ...(isAdmin ? { Location: resolveLocation(row.challan) || "" } : {}),
+          Product: row.product.productName,
           Model: row.product.model,
-          Capacity: eff.capacity || "",
+          ...(isAdmin ? { Capacity: eff.capacity || "" } : {}),
           Qty: qty,
-          Rate: rate,
-          Total: qty * rate,
+          ...(isAdmin ? {
+            Rate: rate,
+            Amount: qty * rate,
+            "Trip Do": row.product.tripDo || "",
+          } : {}),
           Floor: row.challan.floor || "", Carrying: row.challan.carrying || "",
           "Delivery Status": row.deliveryStatus || "Pending",
           "Challan Status": row.challanReturnStatus || "—",
@@ -488,85 +603,106 @@ const DeliveredPage = () => {
     .reduce((acc, p, i, arr) => { if (i > 0 && p - arr[i - 1] > 1) acc.push("..."); acc.push(p); return acc; }, []);
 
   // ── Inline-edit state ─────────────────────────────────────────────
-  // editingCell tracks which (challanId, productId, field) is open.
-  // field is "productName" | "capacity".  Only one cell edits at a
-  // time so a flat object is fine.
-  const [editingCell, setEditingCell] = useState(null);   // { challanId, productId, field, value }
+  // Only the Trip Do column is inline-editable now (Product and Capacity
+  // are read-only on this page). editingCell tracks which
+  // (challanId, productId) is currently open.
+  const [editingCell, setEditingCell] = useState(null);   // { challanId, productId, value }
   const [savingCell,  setSavingCell]  = useState(false);
 
   /**
-   * Save an inline product-row edit (productName or capacity) and
-   * re-resolve capacity + rate via the rate matcher.  After PUT
-   * succeeds we refetch the current month so the UI shows the new
-   * value + recomputed rate.
+   * Save a single-row Trip Do edit. Uses the bulk endpoint so server-side
+   * logic only lives in one place (single row = bulk with one target).
    */
-  const saveProductField = useCallback(async (challan, product, field, newValue) => {
+  const saveTripDo = useCallback(async (challan, product, newValue) => {
     setSavingCell(true);
     try {
-      const location = resolveLocation(challan);
-
-      // Build the new product values we want to send.
-      const next = {
-        productName: product.productName,
-        model: product.model,
-        quantity: product.quantity,
-        capacity: product.capacity || "",
-      };
-      next[field] = newValue;
-
-      // Re-resolve capacity + rate.  For capacity edits we feed the new
-      // capacity as the explicit hint so without-model multi-capacity
-      // products land on the right rate row.  For productName edits we
-      // let the matcher figure it out (it may overwrite capacity for
-      // with-model products).
-      const resolved = findRate({
-        productName: next.productName,
-        model: next.model,
-        location,
-        capacity: field === "capacity" ? newValue : (next.capacity || ""),
+      const clean = (newValue ?? "").toString().trim();
+      // The Delivered page reads from the deliveries collection, where each
+      // embedded challan stores the canonical challan _id under the field
+      // name `challanId` (not `_id`). Older code paths use `_id` for the
+      // top-level trip; here we always want the embedded `challanId`.
+      const challanId = challan.challanId || challan._id;
+      await axiosSecure.patch("/deliveries/bulk-trip-do", {
+        tripDo: clean,
+        targets: [{ challanId, productId: product._id }],
       });
-
-      // For capacity edits — keep what the user picked even if matcher
-      // didn't find a match (it'll just set rate=0 and the user can
-      // try another capacity).
-      const finalCapacity = field === "capacity"
-        ? newValue
-        : (resolved.capacity || next.capacity || "");
-      const finalRate = resolved.rate || 0;
-
-      await axiosSecure.put(
-        `/challan/${challan._id}/product/${product._id}`,
-        {
-          productName: next.productName,
-          model: next.model,
-          quantity: Number(next.quantity) || 1,
-          capacity: finalCapacity,
-          rate: finalRate,
-        }
-      );
-
-      // Refresh visible data
       await fetchDeliveries(monthRef.current, yearRef.current, searchRef.current);
-
       Swal.fire({
         toast: true, position: "top-end", icon: "success",
-        title: field === "capacity"
-          ? `Capacity updated · Rate ৳${finalRate}`
-          : `Product updated · Rate ৳${finalRate}`,
-        showConfirmButton: false, timer: 1500,
+        title: clean ? `Trip Do set to ${clean}` : "Trip Do cleared",
+        showConfirmButton: false, timer: 1300,
       });
     } catch (err) {
-      console.error("inline save failed", err);
-      Swal.fire("Error", "Failed to save change", "error");
+      console.error("trip Do save failed", err);
+      Swal.fire("Error", "Failed to save Trip Do", "error");
     } finally {
       setSavingCell(false);
       setEditingCell(null);
     }
   }, [axiosSecure, fetchDeliveries]);
 
+  /**
+   * Bulk Trip Do — stamps one Trip Do value onto every product currently
+   * shown by the active filters. Empty value clears Trip Do on those rows.
+   */
+  const handleBulkTripDo = useCallback(async () => {
+    if (filteredRows.length === 0) {
+      Swal.fire({ icon: "info", title: "No rows", text: "Apply filters first or load data." });
+      return;
+    }
+
+    const { value, isDismissed } = await Swal.fire({
+      title: `Set Trip Do for ${filteredRows.length} rows`,
+      input: "text",
+      inputLabel: "Trip Do number",
+      inputPlaceholder: "e.g. 4681835 — leave blank to clear",
+      showCancelButton: true,
+      confirmButtonColor: "#4f46e5",
+      confirmButtonText: "Apply to all",
+      inputValidator: () => null,   // empty allowed (clears)
+    });
+    if (isDismissed) return;
+
+    // De-duplicate targets — many rows can share the same product
+    // (shouldn't happen, but be safe), then build the payload.
+    // Embedded challan rows use the `challanId` field (the canonical
+    // challan _id stored as a string); top-level `_id` is the trip's
+    // own ObjectId, which is NOT what we want.
+    const seen = new Set();
+    const targets = [];
+    for (const r of filteredRows) {
+      const challanId = r.challan.challanId || r.challan._id;
+      const key = `${challanId}|${r.product._id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      targets.push({ challanId, productId: r.product._id });
+    }
+
+    try {
+      const res = await axiosSecure.patch("/deliveries/bulk-trip-do", {
+        tripDo: value || "",
+        targets,
+      });
+      await fetchDeliveries(monthRef.current, yearRef.current, searchRef.current);
+      Swal.fire({
+        toast: true, position: "top-end", icon: "success",
+        title: value
+          ? `Trip Do "${value}" applied to ${res.data?.touched ?? targets.length} rows`
+          : `Trip Do cleared on ${res.data?.touched ?? targets.length} rows`,
+        showConfirmButton: false, timer: 2000,
+      });
+    } catch (err) {
+      console.error("bulk trip-do failed", err);
+      Swal.fire("Error", "Bulk Trip Do failed", "error");
+    }
+  }, [axiosSecure, fetchDeliveries, filteredRows]);
+
   // Table columns — action column added.
   // Capacity + Rate columns appended so the user can see the matcher's
   // result and edit it inline when needed.
+  // Admin-only columns are flagged with `adminOnly: true` and filtered
+  // out for non-admin users. The colgroup + tableW recompute below
+  // automatically pick up the shorter list.
   const COLS = [
     { key: "date",     header: "Date",     w: 78  },
     { key: "type",     header: "Type",     w: 72  },
@@ -576,14 +712,16 @@ const DeliveredPage = () => {
     { key: "receiver", header: "Receiver", w: 88  },
     { key: "district", header: "District", w: 68  },
     { key: "thana",    header: "Thana",    w: 68  },
-    { key: "location", header: "Location", w: 80  },
+    { key: "location", header: "Location", w: 80,  adminOnly: true },
     { key: "product",  header: "Product",  w: 110 },
     { key: "model",    header: "Model",    w: 96  },
-    { key: "capacity", header: "Capacity", w: 130 },
+    { key: "capacity", header: "Capacity", w: 130, adminOnly: true },
     { key: "qty",      header: "Qty",      w: 38  },
-    { key: "rate",     header: "Rate",     w: 60  },
+    { key: "rate",     header: "Rate",     w: 60,  adminOnly: true },
+    { key: "amount",   header: "Amount",   w: 80,  adminOnly: true },
+    { key: "tripDo",   header: "Trip Do",  w: 90,  adminOnly: true },
     { key: "note",     header: "Note",     w: 88  },
-  ];
+  ].filter(c => isAdmin || !c.adminOnly);
   const tableW = COLS.reduce((s, c) => s + c.w, 0);
   const tbtn = "flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg border transition-all shrink-0 font-semibold whitespace-nowrap";
 
@@ -607,14 +745,9 @@ const DeliveredPage = () => {
               Qty: {totalQtyAll.toLocaleString()}
             </span>
           )}
-          {filteredRows.length > 0 && totalAmountAll > 0 && (
-            <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-0.5 shrink-0">
-              ৳ {totalAmountAll.toLocaleString()}
-            </span>
-          )}
           {activeFilterGroups.map((f, i) => (
             <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-800 text-white text-[9px] rounded-lg font-bold shrink-0">
-              {f.label}: {f.values.length === 1 ? f.values[0] : `${f.values.length} sel`}
+              {f.label}: {f.values.length === 1 ? (f.values[0] === BLANK_TOKEN ? BLANK_LABEL : f.values[0]) : `${f.values.length} sel`}
               <button onClick={f.clear} className="text-slate-400 hover:text-white ml-0.5">✕</button>
             </span>
           ))}
@@ -633,6 +766,17 @@ const DeliveredPage = () => {
           </select>
           <input type="number" className={`${tbtn} border-slate-200 text-slate-700 bg-white w-20 focus:outline-none`}
             value={year} onChange={e => setYear(parseInt(e.target.value))} />
+          {isAdmin && (
+            <button
+              onClick={handleBulkTripDo}
+              disabled={filteredRows.length === 0}
+              className={`${tbtn} bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed`}
+              title="Apply a Trip Do number to every row currently shown by the filters">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6M7 17h4"/></svg>
+              <span className="hidden sm:inline">Bulk Trip Do</span><span className="sm:hidden">DO</span>
+              {filteredRows.length > 0 && <span className="text-[9px] bg-white/20 rounded px-1">{filteredRows.length}</span>}
+            </button>
+          )}
           <button onClick={handleResetAll} className={`${tbtn} border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500`}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
             <span className="hidden sm:inline">Reset</span>
@@ -669,17 +813,20 @@ const DeliveredPage = () => {
                     <TypeSelect value={typeFilter} onChange={setTypeFilter} />
                   </div>
                   {[
-                    ["Customer", getOptionsFor("customerName"), customerFilter, setCustomerFilter],
-                    ["Zone",     getOptionsFor("zone"),         zoneFilter,     setZoneFilter],
-                    ["District", getOptionsFor("district"),     districtFilter, setDistrictFilter],
-                    ["Thana",    getOptionsFor("thana"),        thanaFilter,    setThanaFilter],
-                    ["Location", getOptionsFor("location"),     locationFilter, setLocationFilter],
-                    ["Product",  getOptionsFor("productName"),  productFilter,  setProductFilter],
-                    ["Model",    getOptionsFor("model"),        modelFilter,    setModelFilter],
-                    ["Capacity", getOptionsFor("capacity"),     capacityFilter, setCapacityFilter],
-                    ["Address",  getOptionsFor("address"),      addressFilter,  setAddressFilter],
-                    ["Receiver", getOptionsFor("receiverNumber"), receiverFilter, setReceiverFilter],
-                  ].map(([label, opts, sel, chg]) => (
+                    ["Customer", getOptionsFor("customerName"), customerFilter, setCustomerFilter, false],
+                    ["Zone",     getOptionsFor("zone"),         zoneFilter,     setZoneFilter,     false],
+                    ["District", getOptionsFor("district"),     districtFilter, setDistrictFilter, false],
+                    ["Thana",    getOptionsFor("thana"),        thanaFilter,    setThanaFilter,    false],
+                    ["Location", getOptionsFor("location"),     locationFilter, setLocationFilter, true],
+                    ["Product",  getOptionsFor("productName"),  productFilter,  setProductFilter,  false],
+                    ["Model",    getOptionsFor("model"),        modelFilter,    setModelFilter,    false],
+                    ["Capacity", getOptionsFor("capacity"),     capacityFilter, setCapacityFilter, true],
+                    ["Trip Do",  getOptionsFor("tripDo"),       tripDoFilter,   setTripDoFilter,   true],
+                    ["Address",  getOptionsFor("address"),      addressFilter,  setAddressFilter,  false],
+                    ["Receiver", getOptionsFor("receiverNumber"), receiverFilter, setReceiverFilter, false],
+                  ]
+                    .filter(([, , , , adminOnly]) => isAdmin || !adminOnly)
+                    .map(([label, opts, sel, chg]) => (
                     <div key={label}><p className="text-[10px] text-slate-400 font-semibold uppercase mb-1">{label}</p>
                       <MultiSelect options={opts} selected={sel} onChange={chg} /></div>
                   ))}
@@ -693,7 +840,7 @@ const DeliveredPage = () => {
               </div>
             )}
             {paginatedRows.map((row, idx) => (
-              <MobileCard key={idx} row={row} />
+              <MobileCard key={idx} row={row} isAdmin={isAdmin} />
             ))}
             {totalPages > 1 && (
               <div className="flex items-center justify-between py-3 px-1 mt-1">
@@ -731,12 +878,26 @@ const DeliveredPage = () => {
                       <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("receiverNumber")} selected={receiverFilter} onChange={setReceiverFilter} /></th>
                       <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("district")}     selected={districtFilter} onChange={setDistrictFilter} /></th>
                       <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("thana")}        selected={thanaFilter}    onChange={setThanaFilter} /></th>
-                      <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("location")}     selected={locationFilter} onChange={setLocationFilter} /></th>
+                      {isAdmin && (
+                        <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("location")}     selected={locationFilter} onChange={setLocationFilter} /></th>
+                      )}
                       <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("productName")}  selected={productFilter}  onChange={setProductFilter} /></th>
                       <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("model")}        selected={modelFilter}    onChange={setModelFilter} /></th>
-                      <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("capacity")}     selected={capacityFilter} onChange={setCapacityFilter} /></th>
+                      {isAdmin && (
+                        <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("capacity")}     selected={capacityFilter} onChange={setCapacityFilter} /></th>
+                      )}
                       <th className="p-0.5 border-r border-slate-200 text-center text-xs font-black text-slate-700">{totalQtyAll}</th>
-                      <th className="p-0.5 border-r border-slate-200 text-center text-[10px] font-black text-emerald-700">৳{totalAmountAll.toLocaleString()}</th>
+                      {isAdmin && (
+                        <>
+                          {/* Rate column — no summary (Amount column carries the total) */}
+                          <th className="p-0.5 border-r border-slate-200"></th>
+                          {/* Amount summary — sum of (qty × rate) across all filtered rows */}
+                          <th className="p-0.5 border-r border-slate-200 text-center text-[10px] font-black text-emerald-700 whitespace-nowrap">
+                            ৳{totalAmountAll.toLocaleString()}
+                          </th>
+                          <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("tripDo")} selected={tripDoFilter} onChange={setTripDoFilter} /></th>
+                        </>
+                      )}
                       <th className="p-0.5"><MultiSelect options={getNoteOptions()} selected={noteFilter} onChange={setNoteFilter} /></th>
                     </tr>
                   </thead>
@@ -760,56 +921,78 @@ const DeliveredPage = () => {
                           <td className="px-2 py-1.5 text-black overflow-hidden"><span className="block truncate">{challan.receiverNumber}</span></td>
                           <td className="px-2 py-1.5 text-black overflow-hidden"><span className="block truncate">{challan.district}</span></td>
                           <td className="px-2 py-1.5 text-black overflow-hidden"><span className="block truncate">{challan.thana}</span></td>
-                          <td className="px-2 py-1.5 overflow-hidden">
-                            {loc
-                              ? <span className={
-                                  `inline-flex px-1.5 py-0.5 rounded-md text-[9px] font-bold border whitespace-nowrap ` +
-                                  (loc === "ISD"
-                                      ? "bg-blue-50 text-blue-700 border-blue-200"
-                                      : loc === "OSD-Metro"
-                                      ? "bg-purple-50 text-purple-700 border-purple-200"
-                                      : "bg-amber-50 text-amber-700 border-amber-200")
-                                }>{loc}</span>
-                              : <span className="text-slate-300">—</span>
-                            }
-                          </td>
-                          <td className="px-2 py-1.5 overflow-hidden">
-                            <ProductCell
-                              row={row}
-                              editingCell={editingCell}
-                              setEditingCell={setEditingCell}
-                              savingCell={savingCell}
-                              onSave={saveProductField}
-                            />
+                          {isAdmin && (
+                            <td className="px-2 py-1.5 overflow-hidden">
+                              {loc
+                                ? <span className={
+                                    `inline-flex px-1.5 py-0.5 rounded-md text-[9px] font-bold border whitespace-nowrap ` +
+                                    (loc === "ISD"
+                                        ? "bg-blue-50 text-blue-700 border-blue-200"
+                                        : loc === "OSD-Metro"
+                                        ? "bg-purple-50 text-purple-700 border-purple-200"
+                                        : "bg-amber-50 text-amber-700 border-amber-200")
+                                  }>{loc}</span>
+                                : <span className="text-slate-300">—</span>
+                              }
+                            </td>
+                          )}
+                          <td className="px-2 py-1.5 overflow-hidden" title={product.productName || ""}>
+                            <span className="block truncate text-slate-800">{product.productName || <span className="text-slate-300">—</span>}</span>
                           </td>
                           <td className="px-2 py-1.5 text-black uppercase overflow-hidden font-mono text-[11px]"title={product.model}><span className="block truncate">{product.model}</span></td>
-                          <td className="px-2 py-1.5 overflow-hidden">
-                            <CapacityCell
-                              row={row}
-                              editingCell={editingCell}
-                              setEditingCell={setEditingCell}
-                              savingCell={savingCell}
-                              onSave={saveProductField}
-                            />
-                          </td>
+                          {isAdmin && (
+                            <td className="px-2 py-1.5 overflow-hidden text-[11px]" title={product.capacity || row.effectiveCapacity || ""}>
+                              {(() => {
+                                const savedCap   = product.capacity || "";
+                                const display    = savedCap || row.effectiveCapacity || "";
+                                const isComputed = !savedCap && !!row.effectiveCapacity;
+                                if (!display) return <span className="text-slate-300">—</span>;
+                                return (
+                                  <span className={"block truncate " + (isComputed ? "text-blue-600 italic" : "text-slate-700")}>
+                                    {display}
+                                  </span>
+                                );
+                              })()}
+                            </td>
+                          )}
                           <td className="px-2 py-1.5 text-center font-black text-slate-700">{product.quantity}</td>
-                          <td className="px-2 py-1.5 text-center overflow-hidden">
-                            {row.effectiveRate ? (
-                              <span
-                                title={row.rateSource === "computed" ? "Auto-resolved from rate table (not yet saved)" : "Saved rate"}
-                                className={
-                                  "inline-block text-[11px] font-black rounded-md px-1.5 py-0.5 border " +
-                                  (row.rateSource === "computed"
-                                    ? "text-blue-700 bg-blue-50 border-blue-200 border-dashed"
-                                    : "text-emerald-700 bg-emerald-50 border-emerald-200")
-                                }
-                              >
-                                ৳{row.effectiveRate}
-                              </span>
-                            ) : (
-                              <span className="text-slate-300 text-[10px]">—</span>
-                            )}
-                          </td>
+                          {isAdmin && (
+                            <>
+                              <td className="px-2 py-1.5 text-center overflow-hidden">
+                                {row.effectiveRate ? (
+                                  <span
+                                    title={row.rateSource === "computed" ? "Auto-resolved from rate table (not yet saved)" : "Saved rate"}
+                                    className={
+                                      "inline-block text-[11px] font-black rounded-md px-1.5 py-0.5 border " +
+                                      (row.rateSource === "computed"
+                                        ? "text-blue-700 bg-blue-50 border-blue-200 border-dashed"
+                                        : "text-emerald-700 bg-emerald-50 border-emerald-200")
+                                    }
+                                  >
+                                    ৳{row.effectiveRate}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-300 text-[10px]">—</span>
+                                )}
+                              </td>
+                              {/* Amount = qty × rate */}
+                              <td className="px-2 py-1.5 text-center overflow-hidden whitespace-nowrap">
+                                {row.effectiveAmount > 0
+                                  ? <span className="text-[11px] font-black text-emerald-700">৳{row.effectiveAmount.toLocaleString()}</span>
+                                  : <span className="text-slate-300 text-[10px]">—</span>}
+                              </td>
+                              {/* Trip Do — inline editable */}
+                              <td className="px-2 py-1.5 overflow-hidden">
+                                <TripDoCell
+                                  row={row}
+                                  editingCell={editingCell}
+                                  setEditingCell={setEditingCell}
+                                  savingCell={savingCell}
+                                  onSave={saveTripDo}
+                                />
+                              </td>
+                            </>
+                          )}
                           {/* Note */}
                           <td className="px-2 py-1.5 overflow-hidden" title={displayNote || ""}>
                             {displayNote
@@ -850,30 +1033,26 @@ const DeliveredPage = () => {
 };
 
 /* ════════════════════════════════════════════════════════════════════
-   Inline editable cells for the Delivered-page table.
+   Inline editable cell for the Trip Do column on the Delivered page.
 
-   Both cells share the same shape:
-     - default view shows the value (or "—") and a quiet hover hint
-     - clicking the cell switches it to an input + suggestion list
-     - committing the edit calls onSave(challan, product, field, newValue)
-       which lives on the page and runs the rate matcher + PUT.
+   Behaviour:
+     - Default view shows the saved tripDo value (or "click to set")
+     - Clicking switches it to an input
+     - Enter → onSave; Escape → cancel
+     - Blank input on Enter clears the tripDo on the row
 
-   The `editingCell` shape is { challanId, productId, field } and lives
-   on the page so only one cell is open at a time.  We don't keep edit
-   text in the cell; we keep it in `editingCell.value` so cancelling
-   discards cleanly.
+   The editingCell shape is { challanId, productId, value } and lives
+   on the page so only one cell is open at a time.
 ═══════════════════════════════════════════════════════════════════ */
 
-const isEditingThis = (editingCell, challanId, productId, field) =>
+const isTripDoEditing = (editingCell, challanId, productId) =>
   editingCell &&
   editingCell.challanId === challanId &&
-  editingCell.productId === productId &&
-  editingCell.field === field;
+  editingCell.productId === productId;
 
-/* ── Product-name cell ─────────────────────────────────────────────── */
-const ProductCell = ({ row, editingCell, setEditingCell, savingCell, onSave }) => {
+const TripDoCell = ({ row, editingCell, setEditingCell, savingCell, onSave }) => {
   const { challan, product } = row;
-  const editing = isEditingThis(editingCell, challan._id, product._id, "productName");
+  const editing = isTripDoEditing(editingCell, challan._id, product._id);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -881,6 +1060,7 @@ const ProductCell = ({ row, editingCell, setEditingCell, savingCell, onSave }) =
   }, [editing]);
 
   if (!editing) {
+    const display = product.tripDo || "";
     return (
       <button
         type="button"
@@ -888,134 +1068,22 @@ const ProductCell = ({ row, editingCell, setEditingCell, savingCell, onSave }) =
           setEditingCell({
             challanId: challan._id,
             productId: product._id,
-            field: "productName",
-            value: product.productName || "",
+            value: display,
           })
         }
-        title="Click to edit product name"
-        className="block w-full text-left truncate hover:bg-blue-50 hover:text-blue-700 px-1 -mx-1 rounded transition-colors"
-      >
-        {product.productName || <span className="text-slate-300">—</span>}
-      </button>
-    );
-  }
-
-  const value = editingCell.value || "";
-  const suggestions = suggestProducts(value, 6);
-
-  return (
-    <div className="relative">
-      <input
-        ref={inputRef}
-        value={value}
-        onChange={(e) =>
-          setEditingCell((cur) => ({ ...cur, value: e.target.value }))
-        }
-        onKeyDown={(e) => {
-          if (e.key === "Escape") setEditingCell(null);
-          if (e.key === "Enter") {
-            const trimmed = (value || "").trim();
-            if (trimmed) onSave(challan, product, "productName", trimmed);
-          }
-        }}
-        disabled={savingCell}
-        autoComplete="off"
-        placeholder="Type 1-2 letters"
-        className="w-full px-1.5 py-0.5 border border-blue-400 rounded text-[11px] outline-none focus:ring-2 focus:ring-blue-300"
-      />
-      {/* Suggestions */}
-      {suggestions.length > 0 && (
-        <ul className="absolute top-full left-0 w-full min-w-[180px] bg-white border border-slate-200 rounded-lg shadow-xl z-50 max-h-44 overflow-y-auto mt-1">
-          {suggestions.map((s, i) => (
-            <li
-              key={i}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                onSave(challan, product, "productName", s.name);
-              }}
-              className="px-2 py-1.5 hover:bg-blue-50 cursor-pointer flex items-center justify-between text-xs"
-            >
-              <span className="text-slate-800 truncate">{s.name}</span>
-              <span
-                className={
-                  "ml-1.5 text-[8px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0 " +
-                  (s.hasModel
-                    ? "bg-blue-50 text-blue-600 border border-blue-200"
-                    : "bg-emerald-50 text-emerald-600 border border-emerald-200")
-                }
-              >
-                {s.hasModel ? "M" : "N/M"}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {/* Tiny action hint */}
-      <div className="absolute top-full left-0 mt-0.5 text-[8px] text-slate-400">
-        Enter to save · Esc to cancel
-      </div>
-    </div>
-  );
-};
-
-/* ── Capacity cell ─────────────────────────────────────────────────── */
-const CapacityCell = ({ row, editingCell, setEditingCell, savingCell, onSave }) => {
-  const { product } = row;
-  const challan = row.challan;
-  const editing = isEditingThis(editingCell, challan._id, product._id, "capacity");
-  const inputRef = useRef(null);
-
-  // Capacity options for this product (only without-model items have any)
-  const options = useMemo(
-    () => getCapacityOptions(product.productName || ""),
-    [product.productName]
-  );
-
-  useEffect(() => {
-    if (editing && inputRef.current) inputRef.current.focus();
-  }, [editing]);
-
-  if (!editing) {
-    // Saved capacity wins; otherwise show the on-the-fly resolved one
-    // from the rate matcher so older challans aren't blank.
-    const savedCap     = product.capacity || "";
-    const display      = savedCap || row.effectiveCapacity || "";
-    const isComputed   = !savedCap && !!row.effectiveCapacity;
-    const editingValue = display;   // when user clicks, pre-fill the input
-
-    return (
-      <button
-        type="button"
-        onClick={() =>
-          setEditingCell({
-            challanId: challan._id,
-            productId: product._id,
-            field: "capacity",
-            value: editingValue,
-          })
-        }
-        title={
-          isComputed
-            ? "Auto-resolved from rate table — click to confirm or change"
-            : options.length > 0
-              ? "Click to pick a capacity"
-              : "Click to edit capacity"
-        }
-        className="block w-full text-left truncate hover:bg-amber-50 hover:text-amber-700 px-1 -mx-1 rounded transition-colors text-[11px]"
+        title={display ? "Click to edit Trip Do" : "Click to set Trip Do"}
+        className="block w-full text-left truncate hover:bg-indigo-50 hover:text-indigo-700 px-1 -mx-1 rounded transition-colors text-[11px]"
       >
         {display ? (
-          <span className={"block truncate " + (isComputed ? "text-blue-600 italic" : "")}>
-            {display}
-          </span>
+          <span className="block truncate font-semibold text-indigo-700">{display}</span>
         ) : (
-          <span className="text-amber-500 italic">click to set</span>
+          <span className="text-indigo-400 italic">click to set</span>
         )}
       </button>
     );
   }
 
-  const value = editingCell.value || "";
-  const suggestions = suggestCapacities(product.productName || "", value, 8);
+  const value = editingCell.value ?? "";
 
   return (
     <div className="relative">
@@ -1028,34 +1096,14 @@ const CapacityCell = ({ row, editingCell, setEditingCell, savingCell, onSave }) 
         onKeyDown={(e) => {
           if (e.key === "Escape") setEditingCell(null);
           if (e.key === "Enter") {
-            onSave(challan, product, "capacity", value.trim());
+            onSave(challan, product, (value || "").trim());
           }
         }}
         disabled={savingCell}
         autoComplete="off"
-        placeholder={
-          options.length > 0
-            ? options.join(" / ")
-            : "Type capacity"
-        }
-        className="w-full px-1.5 py-0.5 border border-amber-400 rounded text-[11px] outline-none focus:ring-2 focus:ring-amber-300"
+        placeholder="e.g. 4681835"
+        className="w-full px-1.5 py-0.5 border border-indigo-400 rounded text-[11px] outline-none focus:ring-2 focus:ring-indigo-300"
       />
-      {suggestions.length > 0 && (
-        <ul className="absolute top-full left-0 w-full min-w-[160px] bg-white border border-slate-200 rounded-lg shadow-xl z-50 max-h-44 overflow-y-auto mt-1">
-          {suggestions.map((c, i) => (
-            <li
-              key={i}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                onSave(challan, product, "capacity", c);
-              }}
-              className="px-2 py-1.5 hover:bg-amber-50 cursor-pointer text-xs text-slate-800"
-            >
-              {c}
-            </li>
-          ))}
-        </ul>
-      )}
       <div className="absolute top-full left-0 mt-0.5 text-[8px] text-slate-400">
         Enter to save · Esc to cancel
       </div>
