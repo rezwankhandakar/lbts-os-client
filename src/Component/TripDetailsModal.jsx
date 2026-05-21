@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import Swal from "sweetalert2";
 import {
   X, Truck, User, Package, PhoneForwarded,
   Plus, Trash2, Pencil, Check, RotateCcw, StickyNote, Save, Wallet, ChevronDown,
-  Building2
+  Building2, ArrowLeft
 } from "lucide-react";
 import useAuth from "../hooks/useAuth";
 
@@ -569,9 +568,19 @@ const NoteModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy })
 };
 
 /* ════════════════════════════════════════════════════════════════
-   MAIN MODAL
+   MAIN — TripDetails (renders as modal or full page)
+   ─────────────────────────────────────────────────────────────────
+   Same component powers two use-cases:
+     - Modal overlay  (displayMode="modal", default; backward-compatible)
+     - Full page      (displayMode="page";  used by /trip/:id route)
+
+   The inner content (header + stats bar + challan grid + footer) is
+   identical between the two — only the outer wrapper, max-height
+   behavior, and close button label/action change.  Keeping a single
+   component avoids drift between the two surfaces.
 ════════════════════════════════════════════════════════════════ */
-const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
+const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, displayMode = "modal" }) => {
+  const isPage = displayMode === "page";
   const axiosSecure = useAxiosSecure();
   const { user } = useAuth();
   const loggedInUser = user?.displayName || user?.email || "Unknown";
@@ -673,22 +682,47 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
     return Object.entries(map);
   })();
 
+  // ── Outer wrapper differs by displayMode ──
+  //   modal → fixed backdrop + centered box; click outside closes
+  //   page  → normal flow, full height, no backdrop, no click-outside
+  const outerProps = isPage
+    ? {
+        className: "h-full w-full flex flex-col bg-slate-50",
+        // no onClick — page doesn't dismiss on outside click
+      }
+    : {
+        className: "fixed inset-0 bg-slate-900/55 backdrop-blur-[2px] flex justify-center items-end sm:items-center z-50 p-0 sm:p-3 md:p-4",
+        onClick: (e) => { if (e.target === e.currentTarget) setSelectedTrip(null); },
+      };
+  const innerProps = isPage
+    ? {
+        className: "bg-white w-full overflow-hidden flex flex-col flex-1",
+      }
+    : {
+        className: "bg-white w-full max-w-5xl overflow-hidden rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col",
+        style: { maxHeight: "100dvh" },
+      };
+
   return (
     <>
-      {/* ── Backdrop ── */}
-      <div
-        className="fixed inset-0 bg-slate-900/55 backdrop-blur-[2px] flex justify-center items-end sm:items-center z-50 p-0 sm:p-3 md:p-4"
-        onClick={e => { if (e.target === e.currentTarget) setSelectedTrip(null); }}
-      >
-        <div
-          className="bg-white w-full max-w-5xl overflow-hidden rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col"
-          style={{ maxHeight: "100dvh" }}
-        >
+      <div {...outerProps}>
+        <div {...innerProps}>
 
           {/* ════ HEADER ════ */}
           <div className="shrink-0 bg-white border-b border-slate-100">
             <div className="flex items-center justify-between gap-2 px-3 pt-2.5 pb-2">
               <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-wrap">
+                {/* In page mode, prepend a Back button. In modal mode the
+                    X at the right handles closing — no back button needed. */}
+                {isPage && (
+                  <button
+                    onClick={() => setSelectedTrip(null)}
+                    className="flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 transition shrink-0"
+                    title="Back"
+                  >
+                    <ArrowLeft size={12} /> <span className="hidden sm:inline">Back</span>
+                  </button>
+                )}
                 <h2 className="text-sm sm:text-base font-black text-slate-800 tracking-tight shrink-0">{trip.tripNumber}</h2>
                 <span className="text-[9px] sm:text-[10px] text-slate-400 shrink-0">{new Date(trip.createdAt).toDateString()}</span>
                 {(trip.currentUser || trip.createdBy) && (
@@ -714,12 +748,16 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                 >
                   <Pencil size={10} /> <span className="hidden sm:inline">Edit</span>
                 </button>
-                <button
-                  onClick={() => setSelectedTrip(null)}
-                  className="p-1.5 sm:p-2 hover:bg-rose-50 hover:text-rose-500 rounded-lg text-slate-400 transition border border-transparent hover:border-rose-100"
-                >
-                  <X size={16} />
-                </button>
+                {/* Close X — only in modal mode; page mode uses the Back
+                    button on the left instead. */}
+                {!isPage && (
+                  <button
+                    onClick={() => setSelectedTrip(null)}
+                    className="p-1.5 sm:p-2 hover:bg-rose-50 hover:text-rose-500 rounded-lg text-slate-400 transition border border-transparent hover:border-rose-100"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1048,7 +1086,7 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
                 onClick={() => setSelectedTrip(null)}
                 className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition ml-auto shrink-0"
               >
-                Close
+                {isPage ? "Back" : "Close"}
               </button>
             </div>
           </div>
@@ -1129,4 +1167,3 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate }) => {
 };
 
 export default TripDetailsModal;
-

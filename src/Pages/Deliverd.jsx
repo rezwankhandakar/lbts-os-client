@@ -200,7 +200,7 @@ const TypeSelect = ({ value, onChange }) => (
    `isAdmin` is passed from the parent so we can hide admin-only fields
    (capacity, rate, amount, tripDo) without making this component aware
    of the role hook. */
-const MobileCard = ({ row, isAdmin }) => {
+const MobileCard = ({ row, isAdmin, onSplit }) => {
   const { challan, product, date, isReturn, note, returnNote } = row;
   const displayNote = isReturn ? returnNote : note;
   return (
@@ -254,7 +254,24 @@ const MobileCard = ({ row, isAdmin }) => {
         <div className="text-right flex-shrink-0 ml-2 space-y-0.5">
           <div>
             <p className="text-[10px] text-slate-400">Qty</p>
-            <span className="font-black text-slate-800 text-sm">{product.quantity}</span>
+            <div className="inline-flex items-center gap-1">
+              <span className="font-black text-slate-800 text-sm">{product.quantity}</span>
+              {isAdmin && Number(product.quantity) > 1 && onSplit && (
+                <button
+                  type="button"
+                  onClick={() => onSplit(challan, product)}
+                  title="Split this row by qty"
+                  className="inline-flex items-center justify-center w-5 h-5 rounded border border-sky-200 text-sky-600 active:bg-sky-500 active:text-white transition-colors"
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="6" y1="3" x2="6" y2="15"/>
+                    <circle cx="18" cy="6" r="3"/>
+                    <circle cx="6" cy="18" r="3"/>
+                    <path d="M18 9a9 9 0 0 1-9 9"/>
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
           {isAdmin && row.effectiveRate ? (
             <span className={
@@ -697,6 +714,76 @@ const DeliveredPage = () => {
     }
   }, [axiosSecure, fetchDeliveries, filteredRows]);
 
+  /**
+   * Split a product row by quantity.
+   *
+   * Use case: a row has qty = 2 (or any n > 1) and the user wants to
+   * assign a different Trip Do to part of it.  We peel `splitQty` units
+   * off into a brand-new row carrying the same product/model/capacity/
+   * rate, but a fresh _id and NO tripDo.  The original row's qty is
+   * reduced by the same amount.  After the split the user can edit Trip
+   * Do on the new row independently from the original.
+   *
+   * Guards:
+   *   - qty must be > 1 (nothing to split off a row of 1)
+   *   - splitQty must be a positive integer strictly less than qty
+   *     (we never let the original row go to 0; that's a delete, not a split)
+   */
+  const splitProductRow = useCallback(async (challan, product) => {
+    const currentQty = Number(product.quantity) || 0;
+    if (currentQty <= 1) {
+      Swal.fire({ icon: "info", title: "Nothing to split", text: "This row only has 1 qty." });
+      return;
+    }
+
+    const { value, isDismissed } = await Swal.fire({
+      title: `Split row (qty ${currentQty})`,
+      html:
+        `<div style="font-size:13px;color:#475569;margin-bottom:10px;">` +
+        `Enter the quantity to peel off into a new row. ` +
+        `The new row will be a copy of this product with no Trip Do, ` +
+        `so you can set a different Trip Do on it.` +
+        `</div>` +
+        `<div style="font-size:12px;color:#64748b;">` +
+        `Allowed: 1 to ${currentQty - 1}` +
+        `</div>`,
+      input: "number",
+      inputValue: 1,
+      inputAttributes: { min: 1, max: currentQty - 1, step: 1 },
+      showCancelButton: true,
+      confirmButtonColor: "#0ea5e9",
+      confirmButtonText: "Split",
+      inputValidator: (v) => {
+        const n = Number(v);
+        if (!Number.isInteger(n) || n <= 0) return "Must be a positive integer";
+        if (n >= currentQty) return `Must be less than ${currentQty} (original row must keep at least 1)`;
+        return null;
+      },
+    });
+    if (isDismissed) return;
+
+    const splitQty = Number(value);
+    const challanId = challan.challanId || challan._id;
+
+    try {
+      await axiosSecure.post("/deliveries/split-product", {
+        challanId,
+        productId: product._id,
+        splitQty,
+      });
+      await fetchDeliveries(monthRef.current, yearRef.current, searchRef.current);
+      Swal.fire({
+        toast: true, position: "top-end", icon: "success",
+        title: `Split: ${currentQty} → ${currentQty - splitQty} + ${splitQty}`,
+        showConfirmButton: false, timer: 1800,
+      });
+    } catch (err) {
+      console.error("split-product failed", err);
+      const msg = err?.response?.data?.message || "Failed to split row";
+      Swal.fire("Error", msg, "error");
+    }
+  }, [axiosSecure, fetchDeliveries]);
+
   // Table columns — action column added.
   // Capacity + Rate columns appended so the user can see the matcher's
   // result and edit it inline when needed.
@@ -716,7 +803,7 @@ const DeliveredPage = () => {
     { key: "product",  header: "Product",  w: 110 },
     { key: "model",    header: "Model",    w: 96  },
     { key: "capacity", header: "Capacity", w: 130, adminOnly: true },
-    { key: "qty",      header: "Qty",      w: 38  },
+    { key: "qty",      header: "Qty",      w: 60  },
     { key: "rate",     header: "Rate",     w: 60,  adminOnly: true },
     { key: "amount",   header: "Amount",   w: 80,  adminOnly: true },
     { key: "tripDo",   header: "Trip Do",  w: 90,  adminOnly: true },
@@ -840,7 +927,7 @@ const DeliveredPage = () => {
               </div>
             )}
             {paginatedRows.map((row, idx) => (
-              <MobileCard key={idx} row={row} isAdmin={isAdmin} />
+              <MobileCard key={idx} row={row} isAdmin={isAdmin} onSplit={splitProductRow} />
             ))}
             {totalPages > 1 && (
               <div className="flex items-center justify-between py-3 px-1 mt-1">
@@ -955,7 +1042,27 @@ const DeliveredPage = () => {
                               })()}
                             </td>
                           )}
-                          <td className="px-2 py-1.5 text-center font-black text-slate-700">{product.quantity}</td>
+                          <td className="px-2 py-1.5 text-center font-black text-slate-700">
+                            <div className="inline-flex items-center justify-center gap-1">
+                              <span>{product.quantity}</span>
+                              {isAdmin && Number(product.quantity) > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => splitProductRow(challan, product)}
+                                  title={`Split this row (qty ${product.quantity}) into two — peel off some qty into a new row so it can take a different Trip Do`}
+                                  className="inline-flex items-center justify-center w-4 h-4 rounded border border-sky-200 text-sky-600 hover:bg-sky-500 hover:text-white hover:border-sky-500 transition-colors"
+                                >
+                                  {/* split / branch icon */}
+                                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="6" y1="3" x2="6" y2="15"/>
+                                    <circle cx="18" cy="6" r="3"/>
+                                    <circle cx="6" cy="18" r="3"/>
+                                    <path d="M18 9a9 9 0 0 1-9 9"/>
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          </td>
                           {isAdmin && (
                             <>
                               <td className="px-2 py-1.5 text-center overflow-hidden">

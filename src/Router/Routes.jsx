@@ -1,3 +1,4 @@
+
 import { createBrowserRouter } from "react-router";
 import { lazy } from "react";
 import RootLayout from "../Layout/RootLayout";
@@ -27,6 +28,8 @@ const VendorDetails = lazy(() => import("../Pages/VendorDetails"));
 const CreateDelivery = lazy(() => import("../Pages/CreateDelivery"));
 const DeliveredPage = lazy(() => import("../Pages/Deliverd"));
 const TripInventory = lazy(() => import("../Pages/TripInventoryPage"));
+const TripDetails = lazy(() => import("../Pages/TripDetails"));
+const CarRentDetails = lazy(() => import("../Pages/CarRentDetails"));
 
 // Vendor শুধু এই ৩টায় যেতে পারবে
 const VENDOR_ALLOWED = ["vendor", "admin", "manager", "operator", "ceo", "user"];
@@ -98,8 +101,20 @@ export const router = createBrowserRouter([
         element: <PrivateRoute><RoleRoute roles={NON_VENDOR}><S><TripInventory /></S></RoleRoute></PrivateRoute>,
       },
       {
+        path: "/trip/:id",
+        element: <PrivateRoute><RoleRoute roles={NON_VENDOR}><S><TripDetails /></S></RoleRoute></PrivateRoute>,
+      },
+      {
         path: "/car-rent",
         element: <PrivateRoute><RoleRoute roles={["admin", "manager", "ceo"]}><S><CarRentPage /></S></RoleRoute></PrivateRoute>,
+      },
+      {
+        // Used by both BillPage (admin/manager/ceo edit access) and
+        // VendorTripSummary (vendor read-only access via readOnly state).
+        // Role-gate to VENDOR_ALLOWED to cover both; the component itself
+        // respects the readOnly flag.
+        path: "/car-rent/:id",
+        element: <PrivateRoute><RoleRoute roles={VENDOR_ALLOWED}><S><CarRentDetails /></S></RoleRoute></PrivateRoute>,
       },
       {
         path: "/accounts",

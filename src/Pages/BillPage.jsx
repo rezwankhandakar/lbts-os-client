@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useNavigate } from "react-router";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import { useSearch } from "../hooks/SearchContext";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import Swal from "sweetalert2";
-import CarRentDetailsModal from "../Component/CarRentDetailsModal";
 import LoadingSpinner from "../Component/LoadingSpinner";
 
 const MONTHS_FULL  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -124,14 +124,23 @@ const MobileCard = ({ r, onView }) => {
 ════════════════════════════════════════════════════════════════ */
 const CarRentPage = () => {
     const axiosSecure = useAxiosSecure();
+    const navigate = useNavigate();
     const { searchText, setSearchText } = useSearch();
 
     const [rentals,       setRentals]       = useState([]);
     const [loading,       setLoading]       = useState(false);
-    const [selectedRental,setSelectedRental]= useState(null);
     const [isMobile,      setIsMobile]      = useState(false);
     const [month, setMonth] = useState(new Date().getMonth() + 1);
     const [year,  setYear]  = useState(new Date().getFullYear());
+
+    // ── Navigate to rental details page ──
+    // Passes the full rental via router `state` so the destination page
+    // renders instantly without a refetch (it has a fetch fallback for
+    // direct URL access).
+    const openRental = useCallback((r) => {
+        if (!r?._id) return;
+        navigate(`/car-rent/${r._id}`, { state: { rental: r } });
+    }, [navigate]);
 
     const [tripFilter,      setTripFilter]      = useState([]);
     const [vendorFilter,    setVendorFilter]    = useState([]);
@@ -172,10 +181,11 @@ const CarRentPage = () => {
         lastUpdatedBy: r.lastUpdatedBy ?? null, lastUpdatedAt: r.lastUpdatedAt ?? null,
     }));
 
-    const handleRentalUpdate = (updatedRental) => {
-        setRentals(prev => prev.map(r => r._id === updatedRental._id ? { ...r, ...updatedRental } : r));
-        setSelectedRental(null);
-    };
+    // Note: `selectedRental` state and `handleRentalUpdate` were
+    // removed.  Rental details now lives on its own route
+    // (`/car-rent/:id`), which manages its own state.  The list
+    // refetches on window focus and on page remount, so navigating
+    // back picks up the latest values automatically.
 
     const rowMatchesAll = (r, excludeField = null) => {
         const s = searchText?.toLowerCase() || "";
@@ -363,7 +373,7 @@ const CarRentPage = () => {
             {/* ── CONTENT ── */}
             <div className="flex-1 overflow-hidden">
                 {loading ? (
-                    <div className="flex items-center justify-center h-full"><LoadingSpinner /></div>
+                    <LoadingSpinner variant="auto" />
                 ) : filteredRows.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-slate-400 m-4">
                         <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-3">
@@ -392,7 +402,7 @@ const CarRentPage = () => {
                                 <SimpleSelect value={leborBillFilter} onChange={setLeborBillFilter} options={[{ value: "", label: "All" }, { value: "added", label: "Added" }, { value: "missing", label: "Missing" }]} />
                             </div>
                         </div>
-                        {filteredRows.map((r, i) => <MobileCard key={i} r={r} onView={setSelectedRental} />)}
+                        {filteredRows.map((r, i) => <MobileCard key={i} r={r} onView={openRental} />)}
                     </div>
                 ) : (
                     <div className="h-full bg-white border border-slate-200 rounded-2xl shadow-sm mx-3 my-2 overflow-hidden flex flex-col">
@@ -449,7 +459,7 @@ const CarRentPage = () => {
                                                     }
                                                 </td>
                                                 <td className="px-2.5 py-2">
-                                                    <button onClick={() => setSelectedRental(r)}
+                                                    <button onClick={() => openRental(r)}
                                                         className="px-2.5 py-1 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-black rounded-lg transition">
                                                         View
                                                     </button>
@@ -463,13 +473,6 @@ const CarRentPage = () => {
                     </div>
                 )}
             </div>
-
-            <CarRentDetailsModal
-                selectedRental={selectedRental}
-                setSelectedRental={setSelectedRental}
-                onRentalUpdate={handleRentalUpdate}
-                onSaved={() => { if (!rentFilter) setRentFilter("missing"); }}
-            />
         </div>
     );
 };

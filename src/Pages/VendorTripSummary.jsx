@@ -6,7 +6,6 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import Swal from "sweetalert2";
 import LoadingSpinner from "../Component/LoadingSpinner";
-import CarRentDetailsModal from "../Component/CarRentDetailsModal";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const fmt = (n) => n == null ? "—" : "৳ " + Number(n).toLocaleString("en-IN");
@@ -145,8 +144,16 @@ const VendorTripSummary = () => {
   const [tripYear,      setTripYear]      = useState(new Date().getFullYear());
   const [trips,         setTrips]         = useState([]);
   const [tripLoading,   setTripLoading]   = useState(false);
-  const [selectedRental,setSelectedRental]= useState(null);
   const [accountTxs,    setAccountTxs]   = useState([]);
+
+  // ── Navigate to read-only rental details page ──
+  // VendorTripSummary is a vendor-facing view, so the rental detail
+  // page opens in readOnly mode (edits disabled).  The flag flows
+  // through router state.
+  const openRental = (t) => {
+    if (!t?._id) return;
+    navigate(`/car-rent/${t._id}`, { state: { rental: t, readOnly: true } });
+  };
 
   const [tripFilter,      setTripFilter]      = useState([]);
   const [driverFilter,    setDriverFilter]    = useState([]);
@@ -179,10 +186,9 @@ const VendorTripSummary = () => {
       .catch(() => setAccountTxs([]));
   }, [tripMonth, tripYear, vendor]);
 
-  const handleRentalUpdate = (u) => {
-    setTrips(prev => prev.map(t => t._id === u._id ? { ...u } : t));
-    setSelectedRental(prev => prev ? { ...prev, ...u } : prev);
-  };
+  // Note: handleRentalUpdate removed — rental detail page manages its
+  // own state.  This page refetches via the existing useEffect when
+  // remounted on back-navigation.
 
   const rowMatch = (t, ex = null) => {
     const chk = (f, fil, v) => f === ex || fil.length === 0 || fil.some(x => v?.toLowerCase() === x.toLowerCase());
@@ -434,7 +440,7 @@ const VendorTripSummary = () => {
                 {filteredTrips.length === 0
                   ? <div className="py-12 text-center text-slate-400 text-sm">No trips match the filter.</div>
                   : filteredTrips.map((t, idx) => (
-                    <TripCard key={t._id} t={t} idx={idx} ps={payStatus[t._id]} onView={setSelectedRental} />
+                    <TripCard key={t._id} t={t} idx={idx} ps={payStatus[t._id]} onView={openRental} />
                   ))
                 }
                 {filteredTrips.length > 0 && (
@@ -518,7 +524,7 @@ const VendorTripSummary = () => {
                             </td>
                             <td className="px-2.5 py-2 text-center"><PayBadge ps={ps} bill={bill} /></td>
                             <td className="px-2.5 py-2 text-center">
-                              <button onClick={() => setSelectedRental(t)}
+                              <button onClick={() => openRental(t)}
                                 className="px-2.5 py-1 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-black rounded-lg transition">
                                 View
                               </button>
@@ -544,13 +550,6 @@ const VendorTripSummary = () => {
           </>
         )}
       </div>
-
-      <CarRentDetailsModal
-        selectedRental={selectedRental}
-        setSelectedRental={setSelectedRental}
-        onRentalUpdate={handleRentalUpdate}
-        readOnly={true}
-      />
     </div>
   );
 };

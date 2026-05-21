@@ -4,6 +4,7 @@ import useAuth from "../hooks/useAuth";
 import Swal from "sweetalert2";
 import {
   X, Truck, User, Package, PhoneForwarded, Save, Wallet, Pencil, ChevronDown, RotateCcw,
+  ArrowLeft,
 } from "lucide-react";
 import RentSummaryModal from "./RentSummaryModal";
 
@@ -49,9 +50,20 @@ function takaInWords(amount) {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   CAR RENT DETAILS MODAL
+   CAR RENT DETAILS  (modal or full-page surface)
+   ─────────────────────────────────────────────────────────────────
+   Same component for two use-cases:
+     - Modal overlay (displayMode="modal", default; backward-compatible)
+     - Full page     (displayMode="page"; used by /car-rent/:id route)
+
+   In page mode the outer fixed-backdrop is dropped, the box fills the
+   layout, the close X at the right is hidden, and a Back button is
+   added at the left of the header.  All internal handlers stay the
+   same — the parent decides what `setSelectedRental(null)` means
+   (close modal vs. navigate back).
 ════════════════════════════════════════════════════════════════ */
-const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate, onSaved, readOnly = false }) => {
+const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate, onSaved, readOnly = false, displayMode = "modal" }) => {
+  const isPage = displayMode === "page";
   const axiosSecure = useAxiosSecure();
   const { user } = useAuth();
   const loggedInUser = user?.displayName || "Unknown";
@@ -132,6 +144,23 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
     }
   };
 
+  // ── Outer wrapper differs by displayMode ──
+  //   modal → fixed backdrop + centered max-width box; click outside closes
+  //   page  → fills parent layout, no backdrop, no click-outside
+  const outerProps = isPage
+    ? { className: "h-full w-full flex flex-col bg-slate-50" }
+    : {
+        className: "fixed inset-0 bg-slate-900/50 backdrop-blur-[2px] flex justify-center items-end sm:items-center z-50 p-0 sm:p-3 md:p-4",
+        onClick: handleClose,
+      };
+  const innerProps = isPage
+    ? { className: "bg-white w-full overflow-hidden flex flex-col flex-1" }
+    : {
+        className: "bg-white w-full max-w-5xl overflow-hidden rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col",
+        style: { maxHeight: "100dvh" },
+        onClick: (e) => e.stopPropagation(),
+      };
+
   return (
     <>
       {/* ── RentSummaryModal ── */}
@@ -146,15 +175,8 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
         />
       )}
 
-      <div
-        className="fixed inset-0 bg-slate-900/50 backdrop-blur-[2px] flex justify-center items-end sm:items-center z-50 p-0 sm:p-3 md:p-4"
-        onClick={handleClose}
-      >
-        <div
-          className="bg-white w-full max-w-5xl overflow-hidden rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col"
-          style={{ maxHeight: "100dvh" }}
-          onClick={e => e.stopPropagation()}
-        >
+      <div {...outerProps}>
+        <div {...innerProps}>
 
           {/* ══ HEADER ══ */}
           <div className="shrink-0 bg-slate-800">
@@ -162,6 +184,17 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
               className="flex items-center gap-1.5 sm:gap-2 px-3 py-2 cursor-pointer select-none"
               onClick={() => setStatsOpen(o => !o)}
             >
+              {/* Back button — only in page mode. Stops propagation so
+                  clicking it doesn't also toggle the stats panel. */}
+              {isPage && (
+                <button
+                  onClick={e => { e.stopPropagation(); handleClose(); }}
+                  className="flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-slate-300 border border-slate-600 rounded-lg hover:bg-white/5 hover:text-white transition shrink-0"
+                  title="Back"
+                >
+                  <ArrowLeft size={12} /> <span className="hidden sm:inline">Back</span>
+                </button>
+              )}
               <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
                 <h2 className="text-xs sm:text-sm font-black text-white tracking-tight shrink-0">
                   {rental.tripNumber}
@@ -187,12 +220,15 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
               </div>
               <div className="flex items-center gap-0.5 shrink-0">
                 <ChevronDown size={12} className={`text-slate-500 transition-transform duration-200 ${statsOpen ? "rotate-180" : ""}`} />
-                <button
-                  onClick={e => { e.stopPropagation(); handleClose(); }}
-                  className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition"
-                >
-                  <X size={14} />
-                </button>
+                {/* X close — only in modal mode; page mode uses Back on left */}
+                {!isPage && (
+                  <button
+                    onClick={e => { e.stopPropagation(); handleClose(); }}
+                    className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -275,13 +311,22 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                     ))}
                   </div>
                   {!readOnly && (
-                    <div className="flex items-end gap-1.5 flex-wrap ml-auto">
+                    <div className="flex items-start gap-1.5 flex-wrap ml-auto">
                       <div className="flex flex-col">
                         <span className="text-[7px] text-slate-500 uppercase font-black tracking-widest mb-0.5 pl-0.5">Rent (৳)</span>
                         <input
                           type="number" value={rent} onChange={e => setRent(e.target.value)} placeholder="—"
                           className="w-20 sm:w-24 text-xs font-bold bg-slate-700 border border-slate-600 text-white placeholder-slate-500 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 text-center"
                         />
+                        {/* Bangla amount-in-words — shows live as the user types.
+                            Hidden when blank or invalid; kept under the input
+                            (max-width matches input) so the header layout
+                            doesn't shift when it appears. */}
+                        {rent !== "" && rent != null && takaInWords(rent) && (
+                          <p className="w-20 sm:w-24 mt-1 px-0.5 text-[9px] text-indigo-300 font-medium leading-tight break-words text-center">
+                            {takaInWords(rent)}
+                          </p>
+                        )}
                       </div>
                       <div className="flex flex-col">
                         <span className="text-[7px] text-slate-500 uppercase font-black tracking-widest mb-0.5 pl-0.5">Lebor Bill (৳)</span>
@@ -289,10 +334,15 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                           type="number" value={leborBill} onChange={e => setLeborBill(e.target.value)} placeholder="—"
                           className="w-20 sm:w-24 text-xs font-bold bg-slate-700 border border-slate-600 text-white placeholder-slate-500 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 text-center"
                         />
+                        {leborBill !== "" && leborBill != null && takaInWords(leborBill) && (
+                          <p className="w-20 sm:w-24 mt-1 px-0.5 text-[9px] text-indigo-300 font-medium leading-tight break-words text-center">
+                            {takaInWords(leborBill)}
+                          </p>
+                        )}
                       </div>
                       <button
                         onClick={handleSaveClick} disabled={saving}
-                        className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition disabled:opacity-50"
+                        className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition disabled:opacity-50 mt-3.5"
                       >
                         <Save size={11} /> Save
                       </button>
@@ -498,7 +548,7 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                 onClick={handleClose}
                 className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition ml-auto shrink-0"
               >
-                Close
+                {isPage ? "Back" : "Close"}
               </button>
             </div>
           </div>

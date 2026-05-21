@@ -1,10 +1,11 @@
+
 import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useNavigate } from "react-router";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import { useSearch } from "../hooks/SearchContext";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import Swal from "sweetalert2";
-import TripDetailsModal from "../Component/TripDetailsModal";
 import LoadingSpinner from "../Component/LoadingSpinner";
 
 const ITEMS_PER_PAGE = 400;
@@ -127,15 +128,25 @@ const MobileTripCard = ({ t, onView }) => {
 ════════════════════════════════════════════════════════════════ */
 const TripInventoryPage = () => {
   const axiosSecure = useAxiosSecure();
+  const navigate = useNavigate();
   const { searchText, setSearchText } = useSearch();
 
   const [deliveries,    setDeliveries]    = useState([]);
   const [loading,       setLoading]       = useState(false);
-  const [selectedTrip,  setSelectedTrip]  = useState(null);
   const [clientPage,    setClientPage]    = useState(1);
   const [isMobile,      setIsMobile]      = useState(false);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year,  setYear]  = useState(new Date().getFullYear());
+
+  // ── Trip navigation ──
+  // Used to open the full-page trip details view.  The trip object is
+  // passed via router `state` so the destination page can render
+  // instantly without a refetch — the destination still has a fetch
+  // fallback for direct URL access.
+  const openTrip = useCallback((t) => {
+    if (!t?._id) return;
+    navigate(`/trip/${t._id}`, { state: { trip: t } });
+  }, [navigate]);
 
   const [tripFilter,     setTripFilter]     = useState([]);
   const [vendorFilter,   setVendorFilter]   = useState([]);
@@ -192,10 +203,11 @@ const TripInventoryPage = () => {
     lastUpdatedBy: t.lastUpdatedBy ?? null, lastUpdatedAt: t.lastUpdatedAt ?? null,
   }));
 
-  const handleTripUpdate = (updatedTrip) => {
-    setDeliveries(prev => prev.map(d => d._id === updatedTrip._id ? { ...d, ...updatedTrip } : d));
-    setSelectedTrip(prev => prev ? { ...prev, ...updatedTrip } : prev);
-  };
+  // Note: we used to keep a local `selectedTrip` state plus a
+  // `handleTripUpdate` that synced edits from the modal back into the
+  // list — both removed.  Trip details now lives on its own route
+  // (`/trip/:id`), which manages its own state.  The list will pick up
+  // edits on the next refetch (e.g. page revisit / month switch).
 
   const rowMatchesAll = (t, excludeField = null) => {
     const s = searchText?.toLowerCase() || "";
@@ -345,7 +357,7 @@ const TripInventoryPage = () => {
       {/* ── CONTENT ── */}
       <div className="flex-1 overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center h-full"><LoadingSpinner /></div>
+          <LoadingSpinner variant="auto" />
         ) : filteredRows.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-slate-400 m-4">
             <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-3">
@@ -377,7 +389,7 @@ const TripInventoryPage = () => {
               </div>
             </div>
             <div className="space-y-2">
-              {paginatedRows.map((t, i) => <MobileTripCard key={i} t={t} onView={setSelectedTrip} />)}
+              {paginatedRows.map((t, i) => <MobileTripCard key={i} t={t} onView={openTrip} />)}
             </div>
           </div>
         ) : (
@@ -439,7 +451,7 @@ const TripInventoryPage = () => {
                             </span>
                           </td>
                           <td className="px-2.5 py-2">
-                            <button onClick={() => setSelectedTrip(t)}
+                            <button onClick={() => openTrip(t)}
                               className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-bold rounded-lg transition">
                               View
                             </button>
@@ -469,8 +481,6 @@ const TripInventoryPage = () => {
           </div>
         )}
       </div>
-
-      <TripDetailsModal selectedTrip={selectedTrip} setSelectedTrip={setSelectedTrip} onTripUpdate={handleTripUpdate} />
     </div>
   );
 };
