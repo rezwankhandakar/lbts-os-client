@@ -92,6 +92,15 @@ const CarRentDetails = () => {
     else navigate("/car-rent");
   }, [navigate]);
 
+  // After-save navigation — explicitly land on /car-rent with the
+  // Missing filter pre-applied so the user immediately sees the next
+  // rental that still needs amounts entered.  We use `replace: true`
+  // to avoid stacking the details page in history (back from the
+  // list would otherwise return to a stale just-saved details page).
+  const onSaveSuccess = useCallback(() => {
+    navigate("/car-rent?filter=missing", { replace: true });
+  }, [navigate]);
+
   if (loading) {
     return <LoadingSpinner variant="auto" />;
   }
@@ -119,6 +128,7 @@ const CarRentDetails = () => {
       selectedRental={rental}
       setSelectedRental={goBack}
       onRentalUpdate={handleRentalUpdate}
+      onSaveSuccess={onSaveSuccess}
       readOnly={readOnly}
       displayMode="page"
     />

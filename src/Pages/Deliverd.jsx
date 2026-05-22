@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import usePageParam from "../hooks/usePageParam";
@@ -801,12 +802,12 @@ const DeliveredPage = () => {
     { key: "thana",    header: "Thana",    w: 68  },
     { key: "location", header: "Location", w: 80,  adminOnly: true },
     { key: "product",  header: "Product",  w: 110 },
-    { key: "model",    header: "Model",    w: 96  },
-    { key: "capacity", header: "Capacity", w: 130, adminOnly: true },
+    { key: "model",    header: "Model",    w: 140 },
+    { key: "capacity", header: "Capacity", w: 95,  adminOnly: true },
     { key: "qty",      header: "Qty",      w: 60  },
     { key: "rate",     header: "Rate",     w: 60,  adminOnly: true },
     { key: "amount",   header: "Amount",   w: 80,  adminOnly: true },
-    { key: "tripDo",   header: "Trip Do",  w: 90,  adminOnly: true },
+    { key: "tripDo",   header: "Trip Do",  w: 70,  adminOnly: true },
     { key: "note",     header: "Note",     w: 88  },
   ].filter(c => isAdmin || !c.adminOnly);
   const tableW = COLS.reduce((s, c) => s + c.w, 0);
@@ -878,7 +879,7 @@ const DeliveredPage = () => {
       {/* ── CONTENT ── */}
       <div className="flex-1 overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center h-full"><LoadingSpinner /></div>
+          <LoadingSpinner variant="auto" />
         ) : filteredRows.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-slate-400 m-4">
             <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-3">
@@ -1006,8 +1007,8 @@ const DeliveredPage = () => {
                           <td className="px-2 py-1.5 text-black overflow-hidden"title={challan.zone}><span className="block truncate">{challan.zone}</span></td>
                           <td className="px-2 py-1.5 text-black overflow-hidden" title={challan.address}><span className="block truncate">{challan.address}</span></td>
                           <td className="px-2 py-1.5 text-black overflow-hidden"><span className="block truncate">{challan.receiverNumber}</span></td>
-                          <td className="px-2 py-1.5 text-black overflow-hidden"><span className="block truncate">{challan.district}</span></td>
-                          <td className="px-2 py-1.5 text-black overflow-hidden"><span className="block truncate">{challan.thana}</span></td>
+                          <td className="px-2 py-1.5 text-black "><span className="">{challan.district}</span></td>
+                          <td className="px-2 py-1.5 text-black "><span className="">{challan.thana}</span></td>
                           {isAdmin && (
                             <td className="px-2 py-1.5 overflow-hidden">
                               {loc
@@ -1026,7 +1027,7 @@ const DeliveredPage = () => {
                           <td className="px-2 py-1.5 overflow-hidden" title={product.productName || ""}>
                             <span className="block truncate text-slate-800">{product.productName || <span className="text-slate-300">—</span>}</span>
                           </td>
-                          <td className="px-2 py-1.5 text-black uppercase overflow-hidden font-mono text-[11px]"title={product.model}><span className="block truncate">{product.model}</span></td>
+                          <td className="px-2 py-1.5 text-black uppercase font-mono text-[11px]"title={product.model}><span className="">{product.model}</span></td>
                           {isAdmin && (
                             <td className="px-2 py-1.5 overflow-hidden text-[11px]" title={product.capacity || row.effectiveCapacity || ""}>
                               {(() => {

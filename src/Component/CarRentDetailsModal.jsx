@@ -10,25 +10,37 @@ import RentSummaryModal from "./RentSummaryModal";
 
 /* ════════════════════════════════════════════════════════════════
    সংখ্যাকে বাংলা কথায় রূপান্তর
+   ─────────────────────────────────────────────────────────────────
+   Bangla te 1-99 prottek number er nijoshsho naam ache — eta English
+   er moto "twenty + one = twenty-one" pattern follow kore na.  E.g.
+   21 = "একুশ" (not "বিশ এক"), 35 = "পঁয়ত্রিশ", 99 = "নিরানব্বই".
+   So 1-99 er full table direct map kora hoyeche.
 ════════════════════════════════════════════════════════════════ */
-const ones = ["", "এক", "দুই", "তিন", "চার", "পাঁচ", "ছয়", "সাত", "আট", "নয়",
-              "দশ", "এগারো", "বারো", "তেরো", "চৌদ্দ", "পনেরো", "ষোলো", "সতেরো", "আঠারো", "উনিশ"];
-const tens = ["", "", "বিশ", "ত্রিশ", "চল্লিশ", "পঞ্চাশ", "ষাট", "সত্তর", "আশি", "নব্বই"];
+const banglaBelowHundred = [
+  "",                                                                                  // 0  (handled by caller)
+  "এক", "দুই", "তিন", "চার", "পাঁচ", "ছয়", "সাত", "আট", "নয়",                            // 1–9
+  "দশ", "এগারো", "বারো", "তেরো", "চৌদ্দ", "পনেরো", "ষোলো", "সতেরো", "আঠারো", "উনিশ",      // 10–19
+  "বিশ", "একুশ", "বাইশ", "তেইশ", "চব্বিশ", "পঁচিশ", "ছাব্বিশ", "সাতাশ", "আঠাশ", "ঊনত্রিশ",   // 20–29
+  "ত্রিশ", "একত্রিশ", "বত্রিশ", "তেত্রিশ", "চৌত্রিশ", "পঁয়ত্রিশ", "ছত্রিশ", "সাঁইত্রিশ", "আটত্রিশ", "ঊনচল্লিশ", // 30–39
+  "চল্লিশ", "একচল্লিশ", "বিয়াল্লিশ", "তেতাল্লিশ", "চুয়াল্লিশ", "পঁয়তাল্লিশ", "ছেচল্লিশ", "সাতচল্লিশ", "আটচল্লিশ", "ঊনপঞ্চাশ", // 40–49
+  "পঞ্চাশ", "একান্ন", "বায়ান্ন", "তিপ্পান্ন", "চুয়ান্ন", "পঞ্চান্ন", "ছাপ্পান্ন", "সাতান্ন", "আটান্ন", "ঊনষাট",       // 50–59
+  "ষাট", "একষট্টি", "বাষট্টি", "তেষট্টি", "চৌষট্টি", "পঁয়ষট্টি", "ছেষট্টি", "সাতষট্টি", "আটষট্টি", "ঊনসত্তর",  // 60–69
+  "সত্তর", "একাত্তর", "বাহাত্তর", "তিয়াত্তর", "চুয়াত্তর", "পঁচাত্তর", "ছিয়াত্তর", "সাতাত্তর", "আটাত্তর", "ঊনআশি",  // 70–79
+  "আশি", "একাশি", "বিরাশি", "তিরাশি", "চুরাশি", "পঁচাশি", "ছিয়াশি", "সাতাশি", "আটাশি", "ঊননব্বই",            // 80–89
+  "নব্বই", "একানব্বই", "বিরানব্বই", "তিরানব্বই", "চুরানব্বই", "পঁচানব্বই", "ছিয়ানব্বই", "সাতানব্বই", "আটানব্বই", "নিরানব্বই", // 90–99
+];
 
 function toBanglaWords(n) {
   n = Math.round(Math.abs(n));
   if (n === 0) return "শূন্য";
   function belowHundred(num) {
-    if (num < 20) return ones[num];
-    const t = Math.floor(num / 10);
-    const o = num % 10;
-    return tens[t] + (o ? " " + ones[o] : "");
+    return banglaBelowHundred[num];
   }
   function belowThousand(num) {
     if (num < 100) return belowHundred(num);
     const h = Math.floor(num / 100);
     const r = num % 100;
-    return ones[h] + " শত" + (r ? " " + belowHundred(r) : "");
+    return banglaBelowHundred[h] + " শত" + (r ? " " + belowHundred(r) : "");
   }
   const crore = Math.floor(n / 10000000); n %= 10000000;
   const lakh  = Math.floor(n / 100000);   n %= 100000;
@@ -62,7 +74,7 @@ function takaInWords(amount) {
    same — the parent decides what `setSelectedRental(null)` means
    (close modal vs. navigate back).
 ════════════════════════════════════════════════════════════════ */
-const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate, onSaved, readOnly = false, displayMode = "modal" }) => {
+const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate, onSaved, onSaveSuccess, readOnly = false, displayMode = "modal" }) => {
   const isPage = displayMode === "page";
   const axiosSecure = useAxiosSecure();
   const { user } = useAuth();
@@ -126,6 +138,15 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
         if (onSaved) onSaved();
         setShowSummary(false);
         Swal.fire({ toast: true, position: "top-end", icon: "success", title: "সংরক্ষিত হয়েছে!", showConfirmButton: false, timer: 1500 });
+        // After-save navigation hook — used by page-mode wrapper to
+        // redirect to the list with the Missing filter pre-applied.
+        // Modal mode doesn't pass this prop, so existing behaviour
+        // (stay open, let onSaved flip filters in caller) is preserved.
+        if (onSaveSuccess) {
+          // Small delay so user actually sees the success toast before
+          // the route changes.
+          setTimeout(() => onSaveSuccess(updated), 600);
+        }
       }
     } catch {
       Swal.fire("ত্রুটি", "সংরক্ষণ ব্যর্থ হয়েছে", "error");

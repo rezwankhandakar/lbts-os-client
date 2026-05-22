@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
+import useRole from "../hooks/useRole";   // gate admin-only Location column / export field
 import { useSearch } from "../hooks/SearchContext";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -149,7 +150,7 @@ const StatusBadge = ({ status, tripNumber }) => {
 /* ══════════════════════════════════════════════════════════════
    Mobile card
 ══════════════════════════════════════════════════════════════ */
-const MobileCard = ({ c, p, axiosSecure, refetchChallans }) => (
+const MobileCard = ({ c, p, axiosSecure, refetchChallans, isAdmin }) => (
   <div className={`border rounded-xl p-3 mb-2 shadow-sm ${c.status === "delivered" ? "bg-emerald-50/60 border-emerald-200" : "bg-white border-slate-200"}`}>
     <div className="flex items-center justify-between mb-1.5">
       <div className="flex items-center gap-2 flex-wrap">
@@ -165,7 +166,9 @@ const MobileCard = ({ c, p, axiosSecure, refetchChallans }) => (
     <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-black mb-2">
       <span><span className="text-orange-600 font-semibold">Thana: </span>{c.thana || "—"}</span>
       <span><span className="text-orange-600 font-semibold">Dist: </span>{c.district || "—"}</span>
-      <span className="inline-flex items-center gap-1"><span className="text-orange-600 font-semibold">Loc: </span><LocationBadge value={resolveLocation(c)} /></span>
+      {isAdmin && (
+        <span className="inline-flex items-center gap-1"><span className="text-orange-600 font-semibold">Loc: </span><LocationBadge value={resolveLocation(c)} /></span>
+      )}
       <span><span className="text-orange-600 font-semibold">Zone: </span>{c.zone}</span>
       <span><span className="text-orange-600 font-semibold">Ph: </span>{c.receiverNumber}</span>
     </div>
@@ -190,7 +193,8 @@ const MobileFilterSheet = ({ onClose, getOptionsFor,
   locationFilter, setLocationFilter,
   receiverFilter, setReceiverFilter, zoneFilter, setZoneFilter,
   productNameFilter, setProductNameFilter, modelFilter, setModelFilter,
-  dateFilter, setDateFilter, statusFilter, setStatusFilter, setClientPage }) => {
+  dateFilter, setDateFilter, statusFilter, setStatusFilter, setClientPage,
+  isAdmin }) => {
 
   const setF = setter => val => { setter(val); setClientPage(1); };
 
@@ -223,12 +227,14 @@ const MobileFilterSheet = ({ onClose, getOptionsFor,
               { label: "Address",  opts: "address",        sel: addressFilter,     set: setAddressFilter },
               { label: "Thana",    opts: "thana",          sel: thanaFilter,       set: setThanaFilter },
               { label: "District", opts: "district",       sel: districtFilter,    set: setDistrictFilter },
-              { label: "Location", opts: "location",       sel: locationFilter,    set: setLocationFilter },
+              { label: "Location", opts: "location",       sel: locationFilter,    set: setLocationFilter, adminOnly: true },
               { label: "Receiver", opts: "receiverNumber", sel: receiverFilter,    set: setReceiverFilter },
               { label: "Zone",     opts: "zone",           sel: zoneFilter,        set: setZoneFilter },
               { label: "Product",  opts: "productName",    sel: productNameFilter, set: setProductNameFilter },
               { label: "Model",    opts: "model",          sel: modelFilter,       set: setModelFilter },
-            ].map((f, i) => (
+            ]
+              .filter(f => isAdmin || !f.adminOnly)
+              .map((f, i) => (
               <div key={i}>
                 <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 font-semibold">{f.label}</p>
                 <MultiSelect options={getOptionsFor(f.opts)} selected={f.sel} onChange={setF(f.set)} />
@@ -251,6 +257,17 @@ const MobileFilterSheet = ({ onClose, getOptionsFor,
 ══════════════════════════════════════════════════════════════ */
 const AllChallan = () => {
   const axiosSecure = useAxiosSecure();
+  // Admin-only:
+  //   - Location column in desktop table (header, filter row, body cell)
+  //   - Location row in mobile filter sheet
+  //   - Loc badge in mobile card
+  //   - Location field in Excel export
+  // Non-admin users still get a full functional page, just without that
+  // column.  While role is loading we default to non-admin (safer to
+  // briefly hide than briefly show).
+  const { role, isLoading: roleLoading } = useRole();
+  const isAdmin = !roleLoading && role === "admin";
+
   const [challans,          setChallans]          = useState([]);
   const [loading,           setLoading]           = useState(false);
   const [clientPage,        setClientPage]        = useState(1);
@@ -397,14 +414,14 @@ const AllChallan = () => {
     { label: "Address",  values: addressFilter,     clear: () => { setAddressFilter([]);     setClientPage(1); } },
     { label: "Thana",    values: thanaFilter,       clear: () => { setThanaFilter([]);       setClientPage(1); } },
     { label: "District", values: districtFilter,    clear: () => { setDistrictFilter([]);    setClientPage(1); } },
-    { label: "Location", values: locationFilter,    clear: () => { setLocationFilter([]);    setClientPage(1); } },
+    { label: "Location", values: locationFilter,    clear: () => { setLocationFilter([]);    setClientPage(1); }, adminOnly: true },
     { label: "Receiver", values: receiverFilter,    clear: () => { setReceiverFilter([]);    setClientPage(1); } },
     { label: "Zone",     values: zoneFilter,        clear: () => { setZoneFilter([]);        setClientPage(1); } },
     { label: "Product",  values: productNameFilter, clear: () => { setProductNameFilter([]); setClientPage(1); } },
     { label: "Model",    values: modelFilter,       clear: () => { setModelFilter([]);       setClientPage(1); } },
     ...(dateFilter   ? [{ label: "Date",   values: [dateFilter],   clear: () => { setDateFilter("");   setClientPage(1); } }] : []),
     ...(statusFilter ? [{ label: "Status", values: [statusFilter], clear: () => { setStatusFilter(""); setClientPage(1); } }] : []),
-  ].filter(f => f.values.length > 0);
+  ].filter(f => f.values.length > 0 && (isAdmin || !f.adminOnly));
 
   const totalActiveFilters = activeFilterGroups.reduce((s, f) => s + f.values.length, 0);
 
@@ -435,7 +452,10 @@ const AllChallan = () => {
         "Trip No": c.tripNumber || "",
         Customer: c.customerName, Address: c.address,
         Thana: c.thana || "", District: c.district || "",
-        Location: resolveLocation(c) || "",
+        // Location is admin-only — non-admin exports skip this column
+        // entirely (object-spread preserves key order, so admin exports
+        // get Location between District and Receiver No as before).
+        ...(isAdmin ? { Location: resolveLocation(c) || "" } : {}),
         "Receiver No": c.receiverNumber, Zone: c.zone,
         "Product Name": p.productName, Model: p.model,
         Qty: Number(p.quantity) || 0, User: c.currentUser || "N/A",
@@ -540,7 +560,7 @@ const AllChallan = () => {
       {/* ══ CONTENT ══ */}
       <div className="flex-1 overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center h-full"><LoadingSpinner /></div>
+          <LoadingSpinner variant="auto" />
         ) : filteredRows.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-slate-400 m-4">
             <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-3">
@@ -554,7 +574,7 @@ const AllChallan = () => {
           /* ── MOBILE ── */
           <div className="h-full overflow-y-auto p-2">
             {paginatedRows.map(({ c, p }, idx) => (
-              <MobileCard key={`${c._id}-${idx}`} c={c} p={p} axiosSecure={axiosSecure} refetchChallans={refetchChallans} />
+              <MobileCard key={`${c._id}-${idx}`} c={c} p={p} axiosSecure={axiosSecure} refetchChallans={refetchChallans} isAdmin={isAdmin} />
             ))}
             {totalPages > 1 && (
               <div className="flex items-center justify-between py-3 px-1 mt-1">
@@ -580,7 +600,11 @@ const AllChallan = () => {
                 <table className="border-collapse w-full" style={{ minWidth: "900px" }}>
                   <thead className="sticky top-0 z-20">
                     <tr className="bg-slate-900 text-left">
-                      {["Date","Status","Customer","Address","Thana","District","Location","Receiver No","Zone","Product","Model","Qty","Action"].map(h => (
+                      {[
+                        "Date","Status","Customer","Address","Thana","District",
+                        ...(isAdmin ? ["Location"] : []),
+                        "Receiver No","Zone","Product","Model","Qty","Action",
+                      ].map(h => (
                         <th key={h} className="px-2.5 py-2.5 text-[10px] font-black text-slate-400 uppercase tracking-wide whitespace-nowrap border-r border-white/5 last:border-0">
                           {h}
                         </th>
@@ -604,7 +628,9 @@ const AllChallan = () => {
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("address")}        selected={addressFilter}     onChange={setFilter(setAddressFilter)} /></th>
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("thana")}          selected={thanaFilter}       onChange={setFilter(setThanaFilter)} /></th>
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("district")}       selected={districtFilter}    onChange={setFilter(setDistrictFilter)} /></th>
-                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("location")}       selected={locationFilter}    onChange={setFilter(setLocationFilter)} /></th>
+                      {isAdmin && (
+                        <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("location")}       selected={locationFilter}    onChange={setFilter(setLocationFilter)} /></th>
+                      )}
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("receiverNumber")} selected={receiverFilter}    onChange={setFilter(setReceiverFilter)} /></th>
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("zone")}           selected={zoneFilter}        onChange={setFilter(setZoneFilter)} /></th>
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("productName")}    selected={productNameFilter} onChange={setFilter(setProductNameFilter)} /></th>
@@ -630,7 +656,9 @@ const AllChallan = () => {
                         <td className="px-2.5 py-2 text-black max-w-[140px] truncate" title={c.address}>{c.address}</td>
                         <td className="px-2.5 py-2 text-black max-w-[140px] truncate" title={c.thana}>{c.thana || "—"}</td>
                         <td className="px-2.5 py-2 text-black max-w-[140px] truncate" title={c.district}>{c.district || "—"}</td>
-                        <td className="px-2.5 py-2"><LocationBadge value={resolveLocation(c)} /></td>
+                        {isAdmin && (
+                          <td className="px-2.5 py-2"><LocationBadge value={resolveLocation(c)} /></td>
+                        )}
                         <td className="px-2.5 py-2 text-black">{c.receiverNumber}</td>
                         <td className="px-2.5 py-2 text-black">{c.zone}</td>
                         <td className="px-2.5 py-2 text-black whitespace-nowrap">{p.productName || "—"}</td>
@@ -697,6 +725,7 @@ const AllChallan = () => {
           dateFilter={dateFilter} setDateFilter={setDateFilter}
           statusFilter={statusFilter} setStatusFilter={setStatusFilter}
           setClientPage={setClientPage}
+          isAdmin={isAdmin}
         />
       )}
     </div>

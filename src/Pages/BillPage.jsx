@@ -1,5 +1,6 @@
+
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import { useSearch } from "../hooks/SearchContext";
 import * as XLSX from "xlsx";
@@ -125,7 +126,15 @@ const MobileCard = ({ r, onView }) => {
 const CarRentPage = () => {
     const axiosSecure = useAxiosSecure();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { searchText, setSearchText } = useSearch();
+
+    // ── URL-driven initial filter ──
+    // The Rent details page redirects here as `/car-rent?filter=missing`
+    // after a save, so the user immediately sees the next rental that
+    // still needs amounts.  We read the param once on mount and clear it
+    // from the URL so a manual refresh later doesn't keep re-applying it.
+    const initialRentFilter = searchParams.get("filter") === "missing" ? "missing" : "";
 
     const [rentals,       setRentals]       = useState([]);
     const [loading,       setLoading]       = useState(false);
@@ -147,8 +156,21 @@ const CarRentPage = () => {
     const [driverFilter,    setDriverFilter]    = useState([]);
     const [vehicleFilter,   setVehicleFilter]   = useState([]);
     const [dateFilter,      setDateFilter]      = useState("");
-    const [rentFilter,      setRentFilter]      = useState("");
+    const [rentFilter,      setRentFilter]      = useState(initialRentFilter);
     const [leborBillFilter, setLeborBillFilter] = useState("");
+
+    // After applying the URL-driven filter once, strip the param so the
+    // URL stays clean (otherwise the back button / a manual refresh
+    // would keep stuffing the filter back in).
+    useEffect(() => {
+        if (searchParams.get("filter")) {
+            const next = new URLSearchParams(searchParams);
+            next.delete("filter");
+            setSearchParams(next, { replace: true });
+        }
+        // run only once on mount
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         const check = () => setIsMobile(window.innerWidth < 768);
