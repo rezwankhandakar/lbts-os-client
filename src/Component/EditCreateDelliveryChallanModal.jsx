@@ -189,14 +189,14 @@ const EditCreateDeliveryChallanModal = ({
                   </div>
                   {/* Rate (read-only display) — comes from rate matcher.
                       Quiet hint to the user that we resolved a rate.    */}
-                  <div className="w-14 shrink-0">
+                  {/* <div className="w-14 shrink-0">
                     <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Rate</label>
                     <div className={
                       "w-full text-xs font-black text-center px-1 py-1.5 rounded-lg border " +
                       (p.rate ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                               : "bg-amber-50 text-amber-600 border-amber-200")
                     }>{p.rate ? `৳${p.rate}` : "—"}</div>
-                  </div>
+                  </div> */}
                   {editingChallan.products.length > 1 && (
                     <button type="button" onClick={() => handleDeleteProduct(index)}
                       className="shrink-0 w-7 h-7 flex items-center justify-center border border-red-100 rounded-lg text-red-300 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all">

@@ -5,32 +5,43 @@
 
 import { Save, X, Package, RotateCcw, Truck, User } from "lucide-react";
 
-/* ── Bangla words helper (same as before) ── */
-const ones = ["","এক","দুই","তিন","চার","পাঁচ","ছয়","সাত","আট","নয়",
-              "দশ","এগারো","বারো","তেরো","চৌদ্দ","পনেরো","ষোলো","সতেরো","আঠারো","উনিশ"];
-const tens = ["","","বিশ","ত্রিশ","চল্লিশ","পঞ্চাশ","ষাট","সত্তর","আশি","নব্বই"];
+/* ── Bangla words helper ── */
+const numbers = [
+  "",                                                                                  // 0  (handled by caller)
+  "এক", "দুই", "তিন", "চার", "পাঁচ", "ছয়", "সাত", "আট", "নয়",                            // 1–9
+  "দশ", "এগারো", "বারো", "তেরো", "চৌদ্দ", "পনেরো", "ষোলো", "সতেরো", "আঠারো", "উনিশ",      // 10–19
+  "বিশ", "একুশ", "বাইশ", "তেইশ", "চব্বিশ", "পঁচিশ", "ছাব্বিশ", "সাতাশ", "আঠাশ", "ঊনত্রিশ",   // 20–29
+  "ত্রিশ", "একত্রিশ", "বত্রিশ", "তেত্রিশ", "চৌত্রিশ", "পঁয়ত্রিশ", "ছত্রিশ", "সাঁইত্রিশ", "আটত্রিশ", "ঊনচল্লিশ", // 30–39
+  "চল্লিশ", "একচল্লিশ", "বিয়াল্লিশ", "তেতাল্লিশ", "চুয়াল্লিশ", "পঁয়তাল্লিশ", "ছেচল্লিশ", "সাতচল্লিশ", "আটচল্লিশ", "ঊনপঞ্চাশ", // 40–49
+  "পঞ্চাশ", "একান্ন", "বায়ান্ন", "তিপ্পান্ন", "চুয়ান্ন", "পঞ্চান্ন", "ছাপ্পান্ন", "সাতান্ন", "আটান্ন", "ঊনষাট",       // 50–59
+  "ষাট", "একষট্টি", "বাষট্টি", "তেষট্টি", "চৌষট্টি", "পঁয়ষট্টি", "ছেষট্টি", "সাতষট্টি", "আটষট্টি", "ঊনসত্তর",  // 60–69
+  "সত্তর", "একাত্তর", "বাহাত্তর", "তিয়াত্তর", "চুয়াত্তর", "পঁচাত্তর", "ছিয়াত্তর", "সাতাত্তর", "আটাত্তর", "ঊনআশি",  // 70–79
+  "আশি", "একাশি", "বিরাশি", "তিরাশি", "চুরাশি", "পঁচাশি", "ছিয়াশি", "সাতাশি", "আটাশি", "ঊননব্বই",            // 80–89
+  "নব্বই", "একানব্বই", "বিরানব্বই", "তিরানব্বই", "চুরানব্বই", "পঁচানব্বই", "ছিয়ানব্বই", "সাতানব্বই", "আটানব্বই", "নিরানব্বই", // 90–99
+];
+
 function toBanglaWords(n) {
   n = Math.round(Math.abs(n));
   if (n === 0) return "শূন্য";
   function belowHundred(num) {
-    if (num < 20) return ones[num];
-    return tens[Math.floor(num/10)] + (num%10 ? " "+ones[num%10] : "");
+    return numbers[num];
   }
   function belowThousand(num) {
     if (num < 100) return belowHundred(num);
-    return ones[Math.floor(num/100)]+" শত"+(num%100 ? " "+belowHundred(num%100) : "");
+    return numbers[Math.floor(num / 100)] + " শত" + (num % 100 ? " " + belowHundred(num % 100) : "");
   }
-  const crore = Math.floor(n/10000000); n %= 10000000;
-  const lakh  = Math.floor(n/100000);   n %= 100000;
-  const hazar = Math.floor(n/1000);     n %= 1000;
+  const crore = Math.floor(n / 10000000); n %= 10000000;
+  const lakh  = Math.floor(n / 100000);   n %= 100000;
+  const hazar = Math.floor(n / 1000);     n %= 1000;
   const rest  = n;
   let parts = [];
-  if (crore) parts.push(belowThousand(crore)+" কোটি");
-  if (lakh)  parts.push(belowThousand(lakh)+" লক্ষ");
-  if (hazar) parts.push(belowThousand(hazar)+" হাজার");
+  if (crore) parts.push(belowThousand(crore) + " কোটি");
+  if (lakh)  parts.push(belowThousand(lakh) + " লক্ষ");
+  if (hazar) parts.push(belowThousand(hazar) + " হাজার");
   if (rest)  parts.push(belowThousand(rest));
   return parts.join(" ");
 }
+
 function takaInWords(amount) {
   if (amount === "" || amount == null) return null;
   const n = Number(amount);
@@ -160,7 +171,7 @@ const RentSummaryModal = ({ rental, rent, leborBill, onConfirm, onCancel, saving
                   </span>
                 </div>
                 {hasRent && takaInWords(rent) && (
-                  <p className="text-[10px] text-indigo-400 font-medium mt-0.5 text-right">{takaInWords(rent)}</p>
+                  <p className="text-[11px] text-indigo-400 font-semibold mt-0.5 text-right">{takaInWords(rent)}</p>
                 )}
               </div>
 
@@ -173,7 +184,7 @@ const RentSummaryModal = ({ rental, rent, leborBill, onConfirm, onCancel, saving
                   </span>
                 </div>
                 {hasLebor && takaInWords(leborBill) && (
-                  <p className="text-[10px] text-sky-400 font-medium mt-0.5 text-right">{takaInWords(leborBill)}</p>
+                  <p className="text-[11px] text-sky-700 font-semibold mt-0.5 text-right">{takaInWords(leborBill)}</p>
                 )}
               </div>
 
@@ -190,7 +201,7 @@ const RentSummaryModal = ({ rental, rent, leborBill, onConfirm, onCancel, saving
                     </span>
                   </div>
                   {takaInWords(totalBill) && (
-                    <p className="text-[10px] text-emerald-600 font-semibold mt-1 text-right leading-relaxed">
+                    <p className="text-[11px] text-emerald-600 font-semibold mt-1 text-right leading-relaxed">
                       {takaInWords(totalBill)}
                     </p>
                   )}

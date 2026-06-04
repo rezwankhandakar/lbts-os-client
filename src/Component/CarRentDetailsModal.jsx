@@ -334,7 +334,7 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                   {!readOnly && (
                     <div className="flex items-start gap-1.5 flex-wrap ml-auto">
                       <div className="flex flex-col">
-                        <span className="text-[7px] text-slate-500 uppercase font-black tracking-widest mb-0.5 pl-0.5">Rent (৳)</span>
+                        <span className="text-[8px] text-amber-200 uppercase font-black tracking-widest mb-0.5 pl-0.5">Rent (৳)</span>
                         <input
                           type="number" value={rent} onChange={e => setRent(e.target.value)} placeholder="—"
                           className="w-20 sm:w-24 text-xs font-bold bg-slate-700 border border-slate-600 text-white placeholder-slate-500 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 text-center"
@@ -344,19 +344,19 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                             (max-width matches input) so the header layout
                             doesn't shift when it appears. */}
                         {rent !== "" && rent != null && takaInWords(rent) && (
-                          <p className="w-20 sm:w-24 mt-1 px-0.5 text-[9px] text-indigo-300 font-medium leading-tight break-words text-center">
+                          <p className="w-20 sm:w-24 mt-1 px-0.5 text-[11px] text-amber-200 font-semibold  leading-tight break-words text-center">
                             {takaInWords(rent)}
                           </p>
                         )}
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-[7px] text-slate-500 uppercase font-black tracking-widest mb-0.5 pl-0.5">Lebor Bill (৳)</span>
+                        <span className="text-[8px] text-amber-200 uppercase font-black tracking-widest mb-0.5 pl-0.5">Lebor Bill (৳)</span>
                         <input
                           type="number" value={leborBill} onChange={e => setLeborBill(e.target.value)} placeholder="—"
                           className="w-20 sm:w-24 text-xs font-bold bg-slate-700 border border-slate-600 text-white placeholder-slate-500 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 text-center"
                         />
                         {leborBill !== "" && leborBill != null && takaInWords(leborBill) && (
-                          <p className="w-20 sm:w-24 mt-1 px-0.5 text-[9px] text-indigo-300 font-medium leading-tight break-words text-center">
+                          <p className="w-20 sm:w-24 mt-1 px-0.5 text-[11px] text-amber-200 font-semibold leading-tight break-words text-center">
                             {takaInWords(leborBill)}
                           </p>
                         )}
