@@ -10,6 +10,19 @@ import Swal from "sweetalert2";
 import LoadingSpinner from "../Component/LoadingSpinner";
 
 const ITEMS_PER_PAGE = 100;
+// Sentinel used inside MultiSelect dropdowns to mean "rows where this
+// column is empty / blank".  Distinctive string so it can't collide
+// with a real data value.
+const BLANK_OPTION = "(Blank)";
+
+/**
+ * Format a gate-pass tripDate into a stable dd/mm/yyyy label.  Used both
+ * as the Date-column filter option value and for matching, so the Date
+ * column behaves like the other text columns (MultiSelect with All /
+ * Blank) instead of a calendar picker.
+ */
+const formatTripDate = (gp) =>
+  gp?.tripDate ? new Date(gp.tripDate).toLocaleDateString("en-GB") : null;
 const MONTHS_FULL  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -24,8 +37,16 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
     return () => document.removeEventListener("mousedown", h);
   }, []);
   const filtered = options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
-  const label    = selected.length === 0 ? placeholder : selected.length === 1 ? selected[0] : `${selected.length} selected`;
+  const label    = selected.length === 0 ? placeholder
+    : selected.length === 1 ? selected[0]
+    : selected.length === options.length ? "All"
+    : `${selected.length} selected`;
   const toggle   = (val) => onChange(selected.includes(val) ? selected.filter(v => v !== val) : [...selected, val]);
+
+  // "All" master toggle — picks every option, or clears all.  Active
+  // only when literally every option is selected.
+  const allSelected = options.length > 0 && selected.length === options.length;
+  const toggleAll = () => onChange(allSelected ? [] : [...options]);
   return (
     <div ref={ref} className="relative w-full">
       <button type="button" onClick={() => setOpen(o => !o)}
@@ -46,14 +67,26 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
             </div>
           )}
           <div className="max-h-44 overflow-y-auto">
+            {/* "All" master toggle — hidden while searching */}
+            {!search && options.length > 0 && (
+              <label
+                className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs font-bold border-b border-slate-100 hover:bg-slate-50 ${allSelected ? "bg-orange-50/50 text-orange-600" : "text-slate-600"}`}>
+                <input type="checkbox" checked={allSelected} onChange={toggleAll}
+                  className="w-3 h-3 accent-orange-500 flex-shrink-0" />
+                <span className="truncate">All</span>
+              </label>
+            )}
             {filtered.length === 0
               ? <div className="px-3 py-3 text-xs text-slate-400 text-center">No results</div>
-              : filtered.map(opt => (
+              : filtered.map(opt => {
+                const isBlank = opt === BLANK_OPTION;
+                return (
                 <label key={opt} className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-slate-50 ${selected.includes(opt) ? "bg-orange-50/50" : ""}`}>
                   <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)} className="w-3 h-3 accent-orange-500 flex-shrink-0" />
-                  <span className="truncate text-slate-700">{opt}</span>
+                  <span className={`truncate ${isBlank ? "italic text-slate-400" : "text-slate-700"}`}>{opt}</span>
                 </label>
-              ))
+                );
+              })
             }
           </div>
           {selected.length > 0 && (
@@ -111,7 +144,7 @@ const MobileFilterSheet = ({ onClose, getOptionsFor, tripDoFilter, setTripDoFilt
         <div className="grid grid-cols-2 gap-2.5">
           {[
             { label: "Trip DO",  el: <MultiSelect options={getOptionsFor("tripDo")}       selected={tripDoFilter}   onChange={setTripDoFilter} /> },
-            { label: "Date",     el: <input type="date" className="w-full px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-orange-400 bg-white" value={tripDateFilter} onChange={e => setTripDateFilter(e.target.value)} /> },
+            { label: "Date",     el: <MultiSelect options={getOptionsFor("date")} selected={tripDateFilter} onChange={setTripDateFilter} /> },
             { label: "Customer", el: <MultiSelect options={getOptionsFor("customerName")} selected={customerFilter} onChange={setCustomerFilter} /> },
             { label: "CSD",      el: <MultiSelect options={getOptionsFor("csd")}          selected={csdFilter}      onChange={setCsdFilter} /> },
             { label: "Unit",     el: <MultiSelect options={getOptionsFor("unit")}         selected={unitFilter}     onChange={setUnitFilter} /> },
@@ -156,7 +189,7 @@ const AllGatePass = () => {
   const [zoneFilter,     setZoneFilter]     = useState([]);
   const [productFilter,  setProductFilter]  = useState([]);
   const [modelFilter,    setModelFilter]    = useState([]);
-  const [tripDateFilter, setTripDateFilter] = useState("");
+  const [tripDateFilter, setTripDateFilter] = useState([]);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year,  setYear]  = useState(new Date().getFullYear());
 
@@ -209,7 +242,7 @@ const AllGatePass = () => {
     if (setSearchText) setSearchText("");
     setTripDoFilter([]); setCustomerFilter([]); setCsdFilter([]);
     setUnitFilter([]); setVehicleFilter([]); setZoneFilter([]);
-    setProductFilter([]); setModelFilter([]); setTripDateFilter("");
+    setProductFilter([]); setModelFilter([]); setTripDateFilter([]);
     setShowMobileFilters(false);
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
   };
@@ -217,8 +250,19 @@ const AllGatePass = () => {
   const rowMatchesAll = useCallback((gp, p, excludeField = null) => {
     const s = searchText?.toLowerCase() || "";
     const matchesSearch = !searchText || [gp.tripDo, gp.customerName, gp.csd, gp.unit, gp.vehicleNo, gp.zone, gp.currentUser, p.productName, p.model].some(v => v?.toLowerCase().includes(s));
-    const check = (field, filter, val) => field === excludeField || filter.length === 0 || filter.some(f => val?.toLowerCase() === f.toLowerCase());
+    // Generic column check with "(Blank)" sentinel support: when the
+    // sentinel is selected, rows whose value is empty/missing match.
+    const check = (field, filter, val) => {
+      if (field === excludeField || filter.length === 0) return true;
+      const isEmpty = !val || !val.toString().trim();
+      return filter.some(f =>
+        f === BLANK_OPTION
+          ? isEmpty
+          : !isEmpty && val.toString().toLowerCase() === f.toLowerCase()
+      );
+    };
     return matchesSearch &&
+      check("date",         tripDateFilter, formatTripDate(gp)) &&
       check("tripDo",       tripDoFilter,   gp.tripDo)       &&
       check("customerName", customerFilter, gp.customerName) &&
       check("csd",          csdFilter,      gp.csd)          &&
@@ -226,8 +270,7 @@ const AllGatePass = () => {
       check("vehicleNo",    vehicleFilter,  gp.vehicleNo)    &&
       check("zone",         zoneFilter,     gp.zone)         &&
       check("productName",  productFilter,  p.productName)   &&
-      check("model",        modelFilter,    p.model)         &&
-      (excludeField === "date" || !tripDateFilter || gp.tripDate?.slice(0, 10) === tripDateFilter);
+      check("model",        modelFilter,    p.model);
   }, [searchText, tripDoFilter, customerFilter, csdFilter, unitFilter, vehicleFilter, zoneFilter, productFilter, modelFilter, tripDateFilter]);
 
   const filteredRows  = useMemo(
@@ -246,17 +289,34 @@ const AllGatePass = () => {
 
   const getOptionsFor = useCallback((field) => {
     const map = new Map();
+    let hasBlank = false;
     gatePasses.forEach(gp => {
       (gp.products || []).forEach(p => {
         if (!rowMatchesAll(gp, p, field)) return;
-        const val = (field === "productName" || field === "model") ? p[field]?.toString().trim() : gp[field]?.toString().trim();
-        if (val && !map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
+        let val;
+        if (field === "productName" || field === "model") val = p[field]?.toString().trim();
+        else if (field === "date") val = formatTripDate(gp);
+        else val = gp[field]?.toString().trim();
+        if (val) {
+          if (!map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
+        } else {
+          hasBlank = true;
+        }
       });
     });
-    return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
+    const sorted = Array.from(map.values()).sort((a, b) => {
+      if (field === "date") {
+        const toTs = (d) => { const [dd, mm, yy] = d.split("/"); return new Date(`${yy}-${mm}-${dd}`).getTime(); };
+        return toTs(b) - toTs(a);   // newest first
+      }
+      return a.localeCompare(b);
+    });
+    if (hasBlank) sorted.push(BLANK_OPTION);
+    return sorted;
   }, [gatePasses, rowMatchesAll]);
 
   const activeFilterGroups = [
+    { label: "Date",     values: tripDateFilter,  clear: () => setTripDateFilter([]) },
     { label: "Trip DO",  values: tripDoFilter,   clear: () => setTripDoFilter([]) },
     { label: "Customer", values: customerFilter,  clear: () => setCustomerFilter([]) },
     { label: "CSD",      values: csdFilter,       clear: () => setCsdFilter([]) },
@@ -265,7 +325,6 @@ const AllGatePass = () => {
     { label: "Zone",     values: zoneFilter,      clear: () => setZoneFilter([]) },
     { label: "Product",  values: productFilter,   clear: () => setProductFilter([]) },
     { label: "Model",    values: modelFilter,     clear: () => setModelFilter([]) },
-    ...(tripDateFilter ? [{ label: "Date", values: [tripDateFilter], clear: () => setTripDateFilter("") }] : []),
   ].filter(f => f.values.length > 0);
   const totalActiveFilters = activeFilterGroups.reduce((s, f) => s + f.values.length, 0);
 
@@ -409,10 +468,7 @@ const AllGatePass = () => {
                     </tr>
                     <tr className="bg-slate-50 border-b-2 border-slate-200">
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("tripDo")}       selected={tripDoFilter}   onChange={val => { setTripDoFilter(val);   setClientPage(1); }} /></th>
-                      <th className="p-1 border-r border-slate-200">
-                        <input type="date" className="w-full px-1.5 py-1 border border-slate-200 rounded-lg text-[10px] outline-none focus:border-orange-400 bg-white"
-                          value={tripDateFilter} onChange={e => { setTripDateFilter(e.target.value); setClientPage(1); }} />
-                      </th>
+                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("date")} selected={tripDateFilter} onChange={val => { setTripDateFilter(val); setClientPage(1); }} /></th>
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("customerName")} selected={customerFilter} onChange={val => { setCustomerFilter(val); setClientPage(1); }} /></th>
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("csd")}          selected={csdFilter}      onChange={val => { setCsdFilter(val);      setClientPage(1); }} /></th>
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("unit")}         selected={unitFilter}     onChange={val => { setUnitFilter(val);     setClientPage(1); }} /></th>

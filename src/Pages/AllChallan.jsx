@@ -11,6 +11,10 @@ import LoadingSpinner from "../Component/LoadingSpinner";
 import { computeLocation } from "../utils/localAddressMatcher";
 
 const ITEMS_PER_PAGE = 500;
+// Sentinel value used inside the MultiSelect dropdowns to represent
+// "rows where this column is empty / blank".  Kept as a distinctive
+// string so it can't collide with a real data value.
+const BLANK_OPTION = "(Blank)";
 const MONTHS_FULL  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -24,6 +28,15 @@ const resolveLocation = (c) => {
   if (c?.location) return c.location;
   return computeLocation(c?.thana, c?.district) || null;
 };
+
+/**
+ * Format a challan's createdAt to a stable dd/mm/yyyy label.  Used both
+ * as the Date-column filter option value and for matching, so the Date
+ * column behaves exactly like the other text columns (MultiSelect with
+ * All / Blank), instead of a calendar picker.
+ */
+const formatDate = (c) =>
+  c?.createdAt ? new Date(c.createdAt).toLocaleDateString("en-GB") : null;
 
 /**
  * Render Location as a colour-coded badge.  Reused in desktop table and
@@ -59,8 +72,15 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
   const filtered = options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
   const label    = selected.length === 0 ? placeholder
     : selected.length === 1 ? selected[0]
+    : selected.length === options.length ? "All"
     : `${selected.length} selected`;
   const toggle = (val) => onChange(selected.includes(val) ? selected.filter(v => v !== val) : [...selected, val]);
+
+  // "All" master toggle — selecting it picks every option; unselecting
+  // it clears everything.  Considered active only when literally every
+  // available option is selected.
+  const allSelected = options.length > 0 && selected.length === options.length;
+  const toggleAll = () => onChange(allSelected ? [] : [...options]);
 
   return (
     <div ref={ref} className="relative w-full">
@@ -100,16 +120,28 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
             </div>
           )}
           <div className="max-h-44 overflow-y-auto">
+            {/* "All" master toggle — always visible (unless searching) */}
+            {!search && options.length > 0 && (
+              <label
+                className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs font-bold border-b border-slate-100 hover:bg-slate-50 transition-colors ${allSelected ? "bg-orange-50/50 text-orange-600" : "text-slate-600"}`}>
+                <input type="checkbox" checked={allSelected} onChange={toggleAll}
+                  className="w-3 h-3 accent-orange-500 cursor-pointer flex-shrink-0" />
+                <span className="truncate">All</span>
+              </label>
+            )}
             {filtered.length === 0
               ? <div className="px-3 py-3 text-xs text-slate-400 text-center">No results</div>
-              : filtered.map(opt => (
+              : filtered.map(opt => {
+                const isBlank = opt === BLANK_OPTION;
+                return (
                 <label key={opt}
                   className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-slate-50 transition-colors ${selected.includes(opt) ? "bg-orange-50/50" : ""}`}>
                   <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)}
                     className="w-3 h-3 accent-orange-500 cursor-pointer flex-shrink-0" />
-                  <span className="truncate text-slate-700">{opt}</span>
+                  <span className={`truncate ${isBlank ? "italic text-slate-400" : "text-slate-700"}`}>{opt}</span>
                 </label>
-              ))
+                );
+              })
             }
           </div>
           {selected.length > 0 && (
@@ -210,8 +242,7 @@ const MobileFilterSheet = ({ onClose, getOptionsFor,
           <div className="grid grid-cols-2 gap-2.5">
             <div>
               <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 font-semibold">Date</p>
-              <input type="date" className="w-full px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-orange-400 bg-white"
-                value={dateFilter} onChange={e => { setDateFilter(e.target.value); setClientPage(1); }} />
+              <MultiSelect options={getOptionsFor("date")} selected={dateFilter} onChange={setF(setDateFilter)} />
             </div>
             <div>
               <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 font-semibold">Status</p>
@@ -285,7 +316,7 @@ const AllChallan = () => {
   const [zoneFilter,        setZoneFilter]        = useState([]);
   const [modelFilter,       setModelFilter]       = useState([]);
   const [productNameFilter, setProductNameFilter] = useState([]);
-  const [dateFilter,        setDateFilter]        = useState("");
+  const [dateFilter,        setDateFilter]        = useState([]);
   const [statusFilter,      setStatusFilter]      = useState("");
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year,  setYear]  = useState(new Date().getFullYear());
@@ -348,7 +379,7 @@ const AllChallan = () => {
     if (setSearchText) setSearchText("");
     setCustomerFilter([]); setAddressFilter([]); setThanaFilter([]);
     setDistrictFilter([]); setLocationFilter([]); setReceiverFilter([]); setZoneFilter([]);
-    setModelFilter([]); setProductNameFilter([]); setDateFilter(""); setStatusFilter("");
+    setModelFilter([]); setProductNameFilter([]); setDateFilter([]); setStatusFilter("");
     setShowMobileFilters(false);
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
   };
@@ -360,12 +391,24 @@ const AllChallan = () => {
       c.customerName, c.address, c.thana, c.district, cLocation,
       c.receiverNumber, c.zone, c.currentUser, p.productName, p.model
     ].some(v => v?.toLowerCase().includes(s));
-    const check = (field, filter, val) =>
-      field === excludeField || filter.length === 0 || filter.some(f => val?.toLowerCase() === f.toLowerCase());
+    // Generic column check.  Supports the special "(Blank)" sentinel:
+    // when selected, it matches rows whose value is empty/missing.  A
+    // real value matches when it case-insensitively equals a non-blank
+    // selected option.
+    const check = (field, filter, val) => {
+      if (field === excludeField || filter.length === 0) return true;
+      const isEmpty = !val || !val.toString().trim();
+      return filter.some(f =>
+        f === BLANK_OPTION
+          ? isEmpty
+          : !isEmpty && val.toString().toLowerCase() === f.toLowerCase()
+      );
+    };
     const matchesStatus = !statusFilter ||
       (statusFilter === "delivered" && c.status === "delivered") ||
       (statusFilter === "pending"   && c.status !== "delivered");
     return matchesSearch && matchesStatus &&
+      check("date",           dateFilter,        formatDate(c)) &&
       check("customerName",   customerFilter,    c.customerName) &&
       check("address",        addressFilter,     c.address) &&
       check("thana",          thanaFilter,       c.thana) &&
@@ -374,9 +417,7 @@ const AllChallan = () => {
       check("receiverNumber", receiverFilter,    c.receiverNumber) &&
       check("zone",           zoneFilter,        c.zone) &&
       check("productName",    productNameFilter, p.productName) &&
-      check("model",          modelFilter,       p.model) &&
-      (excludeField === "date" || !dateFilter ||
-        (c.createdAt && new Date(c.createdAt).toISOString().slice(0, 10) === dateFilter));
+      check("model",          modelFilter,       p.model);
   }, [searchText, statusFilter, customerFilter, addressFilter, thanaFilter, districtFilter, locationFilter,
       receiverFilter, zoneFilter, productNameFilter, modelFilter, dateFilter]);
 
@@ -396,20 +437,37 @@ const AllChallan = () => {
 
   const getOptionsFor = React.useCallback((field) => {
     const map = new Map();
+    let hasBlank = false;
     challans.forEach(c => {
       (c.products || []).forEach(p => {
         if (!rowMatchesAll(c, p, field)) return;
         let val;
         if (field === "productName" || field === "model") val = p[field]?.toString().trim();
         else if (field === "location") val = resolveLocation(c);    // fall back to compute for older challans
+        else if (field === "date") val = formatDate(c);
         else val = c[field]?.toString().trim();
-        if (val && !map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
+        if (val) {
+          if (!map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
+        } else {
+          hasBlank = true;   // some row has an empty value for this column
+        }
       });
     });
-    return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
+    const sorted = Array.from(map.values()).sort((a, b) => {
+      // Date column: newest first (parse dd/mm/yyyy).  Others: alphabetical.
+      if (field === "date") {
+        const toTs = (d) => { const [dd, mm, yy] = d.split("/"); return new Date(`${yy}-${mm}-${dd}`).getTime(); };
+        return toTs(b) - toTs(a);
+      }
+      return a.localeCompare(b);
+    });
+    // Blank option goes last so real values stay easy to scan.
+    if (hasBlank) sorted.push(BLANK_OPTION);
+    return sorted;
   }, [challans, rowMatchesAll]);
 
   const activeFilterGroups = [
+    { label: "Date",     values: dateFilter,        clear: () => { setDateFilter([]);        setClientPage(1); } },
     { label: "Customer", values: customerFilter,    clear: () => { setCustomerFilter([]);    setClientPage(1); } },
     { label: "Address",  values: addressFilter,     clear: () => { setAddressFilter([]);     setClientPage(1); } },
     { label: "Thana",    values: thanaFilter,       clear: () => { setThanaFilter([]);       setClientPage(1); } },
@@ -419,7 +477,6 @@ const AllChallan = () => {
     { label: "Zone",     values: zoneFilter,        clear: () => { setZoneFilter([]);        setClientPage(1); } },
     { label: "Product",  values: productNameFilter, clear: () => { setProductNameFilter([]); setClientPage(1); } },
     { label: "Model",    values: modelFilter,       clear: () => { setModelFilter([]);       setClientPage(1); } },
-    ...(dateFilter   ? [{ label: "Date",   values: [dateFilter],   clear: () => { setDateFilter("");   setClientPage(1); } }] : []),
     ...(statusFilter ? [{ label: "Status", values: [statusFilter], clear: () => { setStatusFilter(""); setClientPage(1); } }] : []),
   ].filter(f => f.values.length > 0 && (isAdmin || !f.adminOnly));
 
@@ -613,8 +670,7 @@ const AllChallan = () => {
 
                     <tr className="bg-slate-50 border-b-2 border-slate-200">
                       <th className="p-1 border-r border-slate-200">
-                        <input type="date" value={dateFilter} onChange={e => { setDateFilter(e.target.value); setClientPage(1); }}
-                          className="w-full px-1.5 py-1 border border-slate-200 rounded-lg text-[10px] outline-none focus:border-orange-400 bg-white" />
+                        <MultiSelect options={getOptionsFor("date")} selected={dateFilter} onChange={setFilter(setDateFilter)} />
                       </th>
                       <th className="p-1 border-r border-slate-200">
                         <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setClientPage(1); }}

@@ -532,6 +532,7 @@ export const THANA_ALIASES = {
   "savar":               { thana: "Savar",                 district: "Dhaka" },
   "keraniganj":          { thana: "Keraniganj",            district: "Dhaka" },
   "tejgaon industrial":  { thana: "Tejgaon Industrial Area", district: "Dhaka" },
+  "rajarbagh":  { thana: "Shahjahanpur", district: "Dhaka" },
 
   // Dhaka — Popular bazar / sub-area names mapping to real thana
   "bashundhara":         { thana: "Bhatara",               district: "Dhaka" },
@@ -583,6 +584,7 @@ export const THANA_ALIASES = {
   //  GAZIPUR DISTRICT
   // ──────────────────────────────────────────────────────────
   "gazipur sadar":       { thana: "Gazipur Sadar",         district: "Gazipur" },
+  "sadar gazipur":       { thana: "Gazipur Sadar",         district: "Gazipur" },
   "chowrasta":           { thana: "Gazipur Sadar",         district: "Gazipur" },
   "board bazar":         { thana: "Gacha",                 district: "Gazipur" },
   "national university": { thana: "Gacha",                 district: "Gazipur" },
@@ -594,6 +596,7 @@ export const THANA_ALIASES = {
   //  NARAYANGANJ DISTRICT
   // ──────────────────────────────────────────────────────────
   "narayanganj sadar":   { thana: "Narayanganj Sadar",     district: "Narayanganj" },
+  "sadar narayanganj":   { thana: "Narayanganj Sadar",     district: "Narayanganj" },
   "fatullah":            { thana: "Fatullah Model",        district: "Narayanganj" },
   "chashara":            { thana: "Narayanganj Sadar",     district: "Narayanganj" },
 
@@ -601,6 +604,7 @@ export const THANA_ALIASES = {
   //  NARSINGDI DISTRICT — including Madhobdi / Madhabdi case
   // ──────────────────────────────────────────────────────────
   "narsingdi sadar":     { thana: "Narsingdi Sadar",       district: "Narsingdi" },
+  "sadar narsingdi":     { thana: "Narsingdi Sadar",       district: "Narsingdi" },
   "madhobdi":            { thana: "Narsingdi Sadar",       district: "Narsingdi" },
   "madhabdi":            { thana: "Narsingdi Sadar",       district: "Narsingdi" },
   "ghorashal":           { thana: "Palash",                district: "Narsingdi" },
@@ -610,132 +614,197 @@ export const THANA_ALIASES = {
   //  Other Dhaka Division Sadar disambiguation
   // ──────────────────────────────────────────────────────────
   "tangail sadar":       { thana: "Tangail Sadar",         district: "Tangail" },
+  "sadar tangail":       { thana: "Tangail Sadar",         district: "Tangail" },
   "kishoreganj sadar":   { thana: "Kishoreganj Sadar",     district: "Kishoreganj" },
+  "sadar kishoreganj":   { thana: "Kishoreganj Sadar",     district: "Kishoreganj" },
   "manikganj sadar":     { thana: "Manikganj Sadar",       district: "Manikganj" },
+  "sadar manikganj":     { thana: "Manikganj Sadar",       district: "Manikganj" },
   "munshiganj sadar":    { thana: "Munshiganj Sadar",      district: "Munshiganj" },
+  "sadar munshiganj":    { thana: "Munshiganj Sadar",      district: "Munshiganj" },
   "faridpur sadar":      { thana: "Faridpur Sadar",        district: "Faridpur" },
+  "sadar faridpur":      { thana: "Faridpur Sadar",        district: "Faridpur" },
   "gopalganj sadar":     { thana: "Gopalganj Sadar",       district: "Gopalganj" },
+  "sadar gopalganj":     { thana: "Gopalganj Sadar",       district: "Gopalganj" },
   "madaripur sadar":     { thana: "Madaripur Sadar",       district: "Madaripur" },
+  "sadar madaripur":     { thana: "Madaripur Sadar",       district: "Madaripur" },
   // ✅ FIX: Shariatpur Sadar → canonical "Palong"
   "shariatpur sadar":    { thana: "Palong",                district: "Shariatpur" },
+  "sadar shariatpur":    { thana: "Palong",                district: "Shariatpur" },
   "palong":              { thana: "Palong",                district: "Shariatpur" },
   "rajbari sadar":       { thana: "Rajbari Sadar",         district: "Rajbari" },
+  "sadar rajbari":       { thana: "Rajbari Sadar",         district: "Rajbari" },
 
   // ──────────────────────────────────────────────────────────
   //  CHATTOGRAM DIVISION
   // ──────────────────────────────────────────────────────────
   // ✅ FIX: Chattogram Sadar → canonical "Kotwali" (under Chattogram)
   "chattogram sadar":    { thana: "Kotwali",               district: "Chattogram" },
+  "sadar chattogram ":    { thana: "Kotwali",               district: "Chattogram" },
   "chittagong sadar":    { thana: "Kotwali",               district: "Chattogram" },
+  "sadar chittagong":    { thana: "Kotwali",               district: "Chattogram" },
+  "sadar ctg":    { thana: "Kotwali",               district: "Chattogram" },
+  "ctg sadar":    { thana: "Kotwali",               district: "Chattogram" },
   "agrabad":             { thana: "Double Mooring",        district: "Chattogram" },
   "gec":                 { thana: "Panchlaish",            district: "Chattogram" },
   "nasirabad":           { thana: "Panchlaish",            district: "Chattogram" },
   "oxygen":              { thana: "Bayezid Bostami",       district: "Chattogram" },
   "muradpur":            { thana: "Panchlaish",            district: "Chattogram" },
   "coxs bazar sadar":    { thana: "Cox's Bazar Sadar",     district: "Cox's Bazar" },
+  "sadar coxs bazar":    { thana: "Cox's Bazar Sadar",     district: "Cox's Bazar" },
   "cumilla sadar":       { thana: "Cumilla Sadar",         district: "Cumilla" },
+  "sadar cumilla":       { thana: "Cumilla Sadar",         district: "Cumilla" },
   "comilla sadar":       { thana: "Cumilla Sadar",         district: "Cumilla" },
+  "sadar comilla":       { thana: "Cumilla Sadar",         district: "Cumilla" },
   "comilla kotwali":     { thana: "Cumilla Sadar",         district: "Cumilla" },
   "kandirpar":           { thana: "Cumilla Sadar",         district: "Cumilla" },
   "brahmanbaria sadar":  { thana: "Brahmanbaria Sadar",    district: "Brahmanbaria" },
+  "sadar brahmanbaria":  { thana: "Brahmanbaria Sadar",    district: "Brahmanbaria" },
   "chandpur sadar":      { thana: "Chandpur Sadar",        district: "Chandpur" },
+  "sadar chandpur":      { thana: "Chandpur Sadar",        district: "Chandpur" },
   "feni sadar":          { thana: "Feni Sadar",            district: "Feni" },
+  "sadar feni":          { thana: "Feni Sadar",            district: "Feni" },
   "lakshmipur sadar":    { thana: "Lakshmipur Sadar",      district: "Lakshmipur" },
+  "sadar lakshmipur":    { thana: "Lakshmipur Sadar",      district: "Lakshmipur" },
   // ✅ FIX: Noakhali Sadar → canonical "Sudharam"
   "noakhali sadar":      { thana: "Sudharam",              district: "Noakhali" },
+  "sadar noakhali":      { thana: "Sudharam",              district: "Noakhali" },
   "sudharam":            { thana: "Sudharam",              district: "Noakhali" },
   "maijdee":             { thana: "Sudharam",              district: "Noakhali" },
   "maijdi":              { thana: "Sudharam",              district: "Noakhali" },
   "chowmuhani":          { thana: "Begumganj",             district: "Noakhali" },
   // ✅ FIX: Rangamati Sadar → canonical "Kotwali" (under Rangamati)
   "rangamati sadar":     { thana: "Kotwali",               district: "Rangamati" },
+  "sadar rangamati":     { thana: "Kotwali",               district: "Rangamati" },
   "khagrachari":         { thana: "Khagrachhari Sadar",    district: "Khagrachhari" },
   "khagrachari sadar":   { thana: "Khagrachhari Sadar",    district: "Khagrachhari" },
+  "sadar khagrachari":   { thana: "Khagrachhari Sadar",    district: "Khagrachhari" },
   "bandarban sadar":     { thana: "Bandarban Sadar",       district: "Bandarban" },
+  "sadar bandarban":     { thana: "Bandarban Sadar",       district: "Bandarban" },
 
   // ──────────────────────────────────────────────────────────
   //  RAJSHAHI DIVISION
   // ──────────────────────────────────────────────────────────
   // ✅ FIX: Rajshahi Sadar → canonical "Boalia"
   "rajshahi sadar":      { thana: "Boalia",                district: "Rajshahi" },
+  "sadar rajshahi":      { thana: "Boalia",                district: "Rajshahi" },
   "rajsahi":             { thana: "Boalia",                district: "Rajshahi" },  // typo
   "shaheb bazar":        { thana: "Boalia",                district: "Rajshahi" },
   "boalia":              { thana: "Boalia",                district: "Rajshahi" },
   "binodpur":            { thana: "Motihar",               district: "Rajshahi" },
   "chapainawabganj sadar": { thana: "Chapainawabganj Sadar", district: "Chapainawabganj" },
+  "sadar chapainawabganj": { thana: "Chapainawabganj Sadar", district: "Chapainawabganj" },
   "chapai":              { thana: "Chapainawabganj Sadar", district: "Chapainawabganj" },
   "nawabganj":           { thana: "Chapainawabganj Sadar", district: "Chapainawabganj" },
   "naogaon sadar":       { thana: "Naogaon Sadar",         district: "Naogaon" },
+  "sadar naogaon":       { thana: "Naogaon Sadar",         district: "Naogaon" },
   "natore sadar":        { thana: "Natore Sadar",          district: "Natore" },
+  "sadar natore":        { thana: "Natore Sadar",          district: "Natore" },
   "pabna sadar":         { thana: "Pabna Sadar",           district: "Pabna" },
+  "sadar pabna":         { thana: "Pabna Sadar",           district: "Pabna" },
   "sirajganj sadar":     { thana: "Sirajganj Sadar",       district: "Sirajganj" },
+  "sadar sirajganj":     { thana: "Sirajganj Sadar",       district: "Sirajganj" },
   "bogura sadar":        { thana: "Bogura Sadar",          district: "Bogura" },
+  "sadar bogura":        { thana: "Bogura Sadar",          district: "Bogura" },
   "bogra":               { thana: "Bogura Sadar",          district: "Bogura" },
   "bogra sadar":         { thana: "Bogura Sadar",          district: "Bogura" },
   "joypurhat sadar":     { thana: "Joypurhat Sadar",       district: "Joypurhat" },
+  "sadar joypurhat":     { thana: "Joypurhat Sadar",       district: "Joypurhat" },
 
   // ──────────────────────────────────────────────────────────
   //  RANGPUR DIVISION
   // ──────────────────────────────────────────────────────────
   // ✅ FIX: Rangpur Sadar → canonical "Kotwali" (under Rangpur)
   "rangpur sadar":       { thana: "Kotwali",               district: "Rangpur" },
+  "sadar rangpur":       { thana: "Kotwali",               district: "Rangpur" },
   "modern more":         { thana: "Kotwali",               district: "Rangpur" },
   "dinajpur sadar":      { thana: "Dinajpur Sadar",        district: "Dinajpur" },
+  "sadar dinajpur":      { thana: "Dinajpur Sadar",        district: "Dinajpur" },
   "kurigram sadar":      { thana: "Kurigram Sadar",        district: "Kurigram" },
+  "sadar kurigram":      { thana: "Kurigram Sadar",        district: "Kurigram" },
   "gaibandha sadar":     { thana: "Gaibandha Sadar",       district: "Gaibandha" },
+  "sadar gaibandha":     { thana: "Gaibandha Sadar",       district: "Gaibandha" },
   "lalmonirhat sadar":   { thana: "Lalmonirhat Sadar",     district: "Lalmonirhat" },
+  "sadar lalmonirhat":   { thana: "Lalmonirhat Sadar",     district: "Lalmonirhat" },
   "nilphamari sadar":    { thana: "Nilphamari Sadar",      district: "Nilphamari" },
+  "sadar nilphamari":    { thana: "Nilphamari Sadar",      district: "Nilphamari" },
   "panchagarh sadar":    { thana: "Panchagarh Sadar",      district: "Panchagarh" },
+  "sadar panchagarh":    { thana: "Panchagarh Sadar",      district: "Panchagarh" },
   "thakurgaon sadar":    { thana: "Thakurgaon Sadar",      district: "Thakurgaon" },
+  "sadar thakurgaon":    { thana: "Thakurgaon Sadar",      district: "Thakurgaon" },
   "syedpur":             { thana: "Saidpur",               district: "Nilphamari" },
 
   // ──────────────────────────────────────────────────────────
   //  KHULNA DIVISION
   // ──────────────────────────────────────────────────────────
   "khulna sadar":        { thana: "Khulna Sadar",          district: "Khulna" },
+  "sadar khulna":        { thana: "Khulna Sadar",          district: "Khulna" },
   "newmarket khulna":    { thana: "Khulna Sadar",          district: "Khulna" },
   "bagerhat sadar":      { thana: "Bagerhat Sadar",        district: "Bagerhat" },
+  "sadar bagerhat":      { thana: "Bagerhat Sadar",        district: "Bagerhat" },
   "satkhira sadar":      { thana: "Satkhira Sadar",        district: "Satkhira" },
+  "sadar satkhira":      { thana: "Satkhira Sadar",        district: "Satkhira" },
   "jashore sadar":       { thana: "Jashore Sadar",         district: "Jashore" },
+  "sadar jashore":       { thana: "Jashore Sadar",         district: "Jashore" },
   "jessore":             { thana: "Jashore Sadar",         district: "Jashore" },
   "jessore sadar":       { thana: "Jashore Sadar",         district: "Jashore" },
   "magura sadar":        { thana: "Magura Sadar",          district: "Magura" },
+  "sadar magura":        { thana: "Magura Sadar",          district: "Magura" },
   "jhenaidah sadar":     { thana: "Jhenaidah Sadar",       district: "Jhenaidah" },
+  "sadar jhenaidah":     { thana: "Jhenaidah Sadar",       district: "Jhenaidah" },
   "jhenaidha":           { thana: "Jhenaidah Sadar",       district: "Jhenaidah" },
   "narail sadar":        { thana: "Narail Sadar",          district: "Narail" },
+  "sadar narail":        { thana: "Narail Sadar",          district: "Narail" },
   "kushtia sadar":       { thana: "Kushtia Sadar",         district: "Kushtia" },
+  "sadar kushtia":       { thana: "Kushtia Sadar",         district: "Kushtia" },
   "kustia":              { thana: "Kushtia Sadar",         district: "Kushtia" },
   "chuadanga sadar":     { thana: "Chuadanga Sadar",       district: "Chuadanga" },
+  "sadar chuadanga":     { thana: "Chuadanga Sadar",       district: "Chuadanga" },
   "meherpur sadar":      { thana: "Meherpur Sadar",        district: "Meherpur" },
+  "sadar meherpur":      { thana: "Meherpur Sadar",        district: "Meherpur" },
 
   // ──────────────────────────────────────────────────────────
   //  BARISHAL DIVISION
   // ──────────────────────────────────────────────────────────
   "barishal sadar":      { thana: "Barishal Sadar",        district: "Barishal" },
+  "sadar barishal":      { thana: "Barishal Sadar",        district: "Barishal" },
   "barisal sadar":       { thana: "Barishal Sadar",        district: "Barishal" },
+  "sadar barisal":       { thana: "Barishal Sadar",        district: "Barishal" },
   "bhola sadar":         { thana: "Bhola Sadar",           district: "Bhola" },
+  "sadar bhola":         { thana: "Bhola Sadar",           district: "Bhola" },
   "pirojpur sadar":      { thana: "Pirojpur Sadar",        district: "Pirojpur" },
+  "sadar pirojpur":      { thana: "Pirojpur Sadar",        district: "Pirojpur" },
   "patuakhali sadar":    { thana: "Patuakhali Sadar",      district: "Patuakhali" },
+  "sadar patuakhali":    { thana: "Patuakhali Sadar",      district: "Patuakhali" },
   "barguna sadar":       { thana: "Barguna Sadar",         district: "Barguna" },
+  "sadar barguna":       { thana: "Barguna Sadar",         district: "Barguna" },
   "jhalokati sadar":     { thana: "Jhalokati Sadar",       district: "Jhalokati" },
+  "sadar jhalokati":     { thana: "Jhalokati Sadar",       district: "Jhalokati" },
   "jhalokathi":          { thana: "Jhalokati Sadar",       district: "Jhalokati" },
 
   // ──────────────────────────────────────────────────────────
   //  SYLHET DIVISION
   // ──────────────────────────────────────────────────────────
   "sylhet sadar":        { thana: "Sylhet Sadar",          district: "Sylhet" },
+  "sadar sylhet":        { thana: "Sylhet Sadar",          district: "Sylhet" },
   "zindabazar":          { thana: "Sylhet Sadar",          district: "Sylhet" },
   "amberkhana":          { thana: "Sylhet Sadar",          district: "Sylhet" },
   "moulvibazar sadar":   { thana: "Moulvibazar Sadar",     district: "Moulvibazar" },
-  "habiganj sadar":      { thana: "Habiganj Sadar",        district: "Habiganj" },
+  "sadar moulvibazar":   { thana: "Moulvibazar Sadar",     district: "Moulvibazar" },
   "sunamganj sadar":     { thana: "Sunamganj Sadar",       district: "Sunamganj" },
+  "sadar sunamganj":     { thana: "Sunamganj Sadar",       district: "Sunamganj" },
+  "habiganj sadar":      { thana: "Habiganj Sadar",        district: "Habiganj" },
+  "sadar habiganj":      { thana: "Habiganj Sadar",        district: "Habiganj" },
 
   // ──────────────────────────────────────────────────────────
   //  MYMENSINGH DIVISION
   // ──────────────────────────────────────────────────────────
   "mymensingh sadar":    { thana: "Mymensingh Sadar",      district: "Mymensingh" },
+  "sadar mymensingh":    { thana: "Mymensingh Sadar",      district: "Mymensingh" },
   "jamalpur sadar":      { thana: "Jamalpur Sadar",        district: "Jamalpur" },
+  "sadar jamalpur":      { thana: "Jamalpur Sadar",        district: "Jamalpur" },
   "netrokona sadar":     { thana: "Netrokona Sadar",       district: "Netrokona" },
+  "sadar netrokona":     { thana: "Netrokona Sadar",       district: "Netrokona" },
   "netrakona":           { thana: "Netrokona Sadar",       district: "Netrokona" },
   "sherpur sadar":       { thana: "Sherpur Sadar",         district: "Sherpur" },
+  "sadar sherpur":       { thana: "Sherpur Sadar",         district: "Sherpur" },
 };

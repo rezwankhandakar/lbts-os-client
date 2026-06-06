@@ -222,7 +222,7 @@ const MobileCard = ({ row, isAdmin, onSplit }) => {
       </div>
       {challan.address && <p className="text-[11px] text-slate-500 mb-1.5 leading-tight">{challan.address}</p>}
       <div className="grid grid-cols-2 gap-1 mb-2">
-        {[["District", challan.district],["Thana", challan.thana],["Location", resolveLocation(challan)],["Receiver", challan.receiverNumber]].map(([l, v]) => (
+        {[["CSD", challan.csd],["District", challan.district],["Thana", challan.thana],["Location", resolveLocation(challan)],["Receiver", challan.receiverNumber]].map(([l, v]) => (
           <div key={l}>
             <p className="text-[9px] text-slate-400 uppercase font-bold">{l}</p>
             {l === "Location" && v
@@ -328,6 +328,7 @@ const DeliveredPage = () => {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const [customerFilter, setCustomerFilter] = useState([]);
+  const [csdFilter,      setCsdFilter]      = useState([]);   // NEW: CSD column filter
   const [zoneFilter,     setZoneFilter]     = useState([]);
   const [districtFilter, setDistrictFilter] = useState([]);
   const [thanaFilter,    setThanaFilter]    = useState([]);
@@ -337,7 +338,7 @@ const DeliveredPage = () => {
   const [capacityFilter, setCapacityFilter] = useState([]);   // NEW: Capacity column filter
   const [addressFilter,  setAddressFilter]  = useState([]);
   const [receiverFilter, setReceiverFilter] = useState([]);
-  const [dateFilter,     setDateFilter]     = useState("");
+  const [dateFilter,     setDateFilter]     = useState([]);
   const [typeFilter,     setTypeFilter]     = useState("");
   const [noteFilter,     setNoteFilter]     = useState([]);
   const [tripDoFilter,   setTripDoFilter]   = useState([]);   // NEW: Trip Do column filter
@@ -382,10 +383,10 @@ const DeliveredPage = () => {
   const handleResetAll = () => {
     setMonth(new Date().getMonth() + 1); setYear(new Date().getFullYear());
     if (setSearchText) setSearchText("");
-    setCustomerFilter([]); setZoneFilter([]); setDistrictFilter([]);
+    setCustomerFilter([]); setCsdFilter([]); setZoneFilter([]); setDistrictFilter([]);
     setThanaFilter([]); setLocationFilter([]); setProductFilter([]); setModelFilter([]);
     setCapacityFilter([]);
-    setAddressFilter([]); setReceiverFilter([]); setDateFilter("");
+    setAddressFilter([]); setReceiverFilter([]); setDateFilter([]);
     setTypeFilter(""); setNoteFilter([]); setTripDoFilter([]); setShowMobileFilters(false);
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
   };
@@ -399,10 +400,12 @@ const DeliveredPage = () => {
         if (typeFilter && typeFilter !== rowType) return;
         (challan.products || []).forEach(product => {
           const s = searchText?.toLowerCase() || "";
-          const matchesSearch = !searchText || [challan.customerName, challan.zone, challan.address, challan.receiverNumber, challan.district, challan.thana, resolveLocation(challan), product.productName, product.model, product.tripDo].some(v => v?.toString().toLowerCase().includes(s));
+          const matchesSearch = !searchText || [challan.customerName, challan.csd, challan.zone, challan.address, challan.receiverNumber, challan.district, challan.thana, resolveLocation(challan), product.productName, product.model, product.tripDo].some(v => v?.toString().toLowerCase().includes(s));
           if (!matchesSearch) return;
-          const challanDate = new Date(trip.createdAt).toISOString().slice(0, 10);
-          if (dateFilter && challanDate !== dateFilter) return;
+          // Date column now behaves like the other text columns: a
+          // MultiSelect over dd/mm/yyyy labels with All / (Blanks) support
+          // instead of a single calendar value.
+          const challanDateLabel = new Date(trip.createdAt).toLocaleDateString("en-GB");
           // Blank-aware filter:
           //   filter.length === 0       → pass-through (no filter active)
           //   filter contains __blank__ → empty values match
@@ -414,12 +417,14 @@ const DeliveredPage = () => {
             return filter.some(f => f !== BLANK_TOKEN && v.toLowerCase() === f.toLowerCase());
           };
 
+          if (!check(dateFilter, challanDateLabel)) return;
           // Resolve effective capacity + rate FIRST so the rest of the
           // filter/sort/display pipeline can use the on-the-fly value
           // for older challans that don't have these fields saved.
           const eff = resolveProductRate(challan, product);
 
           if (!check(customerFilter, challan.customerName)) return;
+          if (!check(csdFilter,      challan.csd))          return;
           if (!check(zoneFilter,     challan.zone))         return;
           if (!check(addressFilter,  challan.address))      return;
           if (!check(receiverFilter, challan.receiverNumber)) return;
@@ -446,6 +451,7 @@ const DeliveredPage = () => {
             effectiveAmount:   qty * rate,    // NEW — qty × rate per row
             rateSource:        eff.source,   // "saved" | "computed" | "unresolved"
             tripDo:            product.tripDo || "",  // NEW — bubble up for cell access
+            csd:               challan.csd || "",      // NEW — editable per-challan CSD
             date: new Date(trip.createdAt), isReturn, rowType,
             deliveryStatus: challan.deliveryStatus,
             challanReturnStatus: challan.challanReturnStatus,
@@ -455,7 +461,7 @@ const DeliveredPage = () => {
       });
     });
     return rows;
-  }, [deliveries, searchText, typeFilter, dateFilter, customerFilter, zoneFilter, addressFilter, receiverFilter, districtFilter, thanaFilter, locationFilter, productFilter, modelFilter, capacityFilter, tripDoFilter, noteFilter]);
+  }, [deliveries, searchText, typeFilter, dateFilter, customerFilter, csdFilter, zoneFilter, addressFilter, receiverFilter, districtFilter, thanaFilter, locationFilter, productFilter, modelFilter, capacityFilter, tripDoFilter, noteFilter]);
 
   const filteredRows  = useMemo(() => buildRows(), [buildRows]);
   const totalPages    = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
@@ -483,7 +489,11 @@ const DeliveredPage = () => {
     for (const row of filteredRows) {
       const { challan, product } = row;
       let val;
-      if (field === "capacity") {
+      if (field === "date") {
+        // Use the row's Date object → dd/mm/yyyy label (matches the cell
+        // display and the buildRows filter).
+        val = row.date ? row.date.toLocaleDateString("en-GB") : "";
+      } else if (field === "capacity") {
         // Use the row's already-resolved effective capacity instead of
         // re-running resolveProductRate. Includes on-the-fly resolved
         // values for older challans.
@@ -501,7 +511,13 @@ const DeliveredPage = () => {
       }
       if (val && !map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
     }
-    return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
+    const values = Array.from(map.values());
+    if (field === "date") {
+      // Newest first — parse dd/mm/yyyy back into a timestamp.
+      const toTs = (d) => { const [dd, mm, yy] = d.split("/"); return new Date(`${yy}-${mm}-${dd}`).getTime(); };
+      return values.sort((a, b) => toTs(b) - toTs(a));
+    }
+    return values.sort((a, b) => a.localeCompare(b));
   }, [filteredRows]);
 
   const getNoteOptions = useCallback(() => {
@@ -519,7 +535,9 @@ const DeliveredPage = () => {
   }, [filteredRows]);
 
   const activeFilterGroups = [
+    { label: "Date",     values: dateFilter,     clear: () => setDateFilter([]) },
     { label: "Customer", values: customerFilter, clear: () => setCustomerFilter([]) },
+    { label: "CSD",      values: csdFilter,      clear: () => setCsdFilter([]) },
     { label: "Zone",     values: zoneFilter,     clear: () => setZoneFilter([]) },
     { label: "Address",  values: addressFilter,  clear: () => setAddressFilter([]) },
     { label: "Receiver", values: receiverFilter, clear: () => setReceiverFilter([]) },
@@ -530,7 +548,6 @@ const DeliveredPage = () => {
     { label: "Model",    values: modelFilter,    clear: () => setModelFilter([]) },
     { label: "Capacity", values: capacityFilter, clear: () => setCapacityFilter([]), adminOnly: true },
     { label: "Trip Do",  values: tripDoFilter,   clear: () => setTripDoFilter([]),  adminOnly: true },
-    ...(dateFilter ? [{ label: "Date", values: [dateFilter], clear: () => setDateFilter("") }] : []),
     ...(typeFilter ? [{ label: "Type", values: [typeFilter], clear: () => setTypeFilter("") }] : []),
     { label: "Note", values: noteFilter, clear: () => setNoteFilter([]) },
   ].filter(f => f.values.length > 0 && (isAdmin || !f.adminOnly));
@@ -570,6 +587,7 @@ const DeliveredPage = () => {
         return {
           Date: row.date.toLocaleDateString(), Type: row.isReturn ? "Return" : "Delivery",
           "Trip No": row.trip.tripNumber || "", Customer: row.challan.customerName,
+          CSD: row.challan.csd || "",
           Zone: row.challan.zone, Address: row.challan.address,
           "Receiver Number": row.challan.receiverNumber, District: row.challan.district,
           Thana: row.challan.thana,
@@ -626,6 +644,40 @@ const DeliveredPage = () => {
   // (challanId, productId) is currently open.
   const [editingCell, setEditingCell] = useState(null);   // { challanId, productId, value }
   const [savingCell,  setSavingCell]  = useState(false);
+
+  // CSD inline-edit state — CSD is a per-challan field (one value per
+  // challan), so we key the open editor by challanId only.
+  const [editingCsd, setEditingCsd] = useState(null);     // { challanId, value }
+  const [savingCsd,  setSavingCsd]  = useState(false);
+
+  /**
+   * Save an inline CSD edit for a challan.  CSD is challan-level, so the
+   * endpoint needs the trip _id + the embedded challanId.  After saving
+   * we re-fetch so every row sharing this challan reflects the new value.
+   */
+  const saveCsd = useCallback(async (trip, challan, newValue) => {
+    setSavingCsd(true);
+    try {
+      const clean = (newValue ?? "").toString().trim();
+      const tripId    = trip?._id;
+      const challanId = challan.challanId || challan._id;
+      await axiosSecure.patch(`/deliveries/${tripId}/challan/${challanId}/csd`, {
+        csd: clean,
+      });
+      await fetchDeliveries(monthRef.current, yearRef.current, searchRef.current);
+      Swal.fire({
+        toast: true, position: "top-end", icon: "success",
+        title: clean ? `CSD set to ${clean}` : "CSD cleared",
+        showConfirmButton: false, timer: 1300,
+      });
+    } catch (err) {
+      console.error("CSD save failed", err);
+      Swal.fire("Error", "Failed to save CSD", "error");
+    } finally {
+      setSavingCsd(false);
+      setEditingCsd(null);
+    }
+  }, [axiosSecure, fetchDeliveries]);
 
   /**
    * Save a single-row Trip Do edit. Uses the bulk endpoint so server-side
@@ -716,6 +768,58 @@ const DeliveredPage = () => {
   }, [axiosSecure, fetchDeliveries, filteredRows]);
 
   /**
+   * Bulk CSD — stamps one CSD name onto every challan currently shown by
+   * the active filters. CSD is per-challan, so we de-duplicate by
+   * challanId (not product). Empty value clears CSD on those challans.
+   */
+  const handleBulkCsd = useCallback(async () => {
+    if (filteredRows.length === 0) {
+      Swal.fire({ icon: "info", title: "No rows", text: "Apply filters first or load data." });
+      return;
+    }
+
+    // Distinct challans across the filtered rows.
+    const seen = new Set();
+    const challanIds = [];
+    for (const r of filteredRows) {
+      const challanId = r.challan.challanId || r.challan._id;
+      if (!challanId || seen.has(challanId)) continue;
+      seen.add(challanId);
+      challanIds.push(challanId);
+    }
+
+    const { value, isDismissed } = await Swal.fire({
+      title: `Set CSD for ${challanIds.length} challan${challanIds.length > 1 ? "s" : ""}`,
+      input: "text",
+      inputLabel: "CSD name",
+      inputPlaceholder: "Type CSD name — leave blank to clear",
+      showCancelButton: true,
+      confirmButtonColor: "#059669",
+      confirmButtonText: "Apply to all",
+      inputValidator: () => null,   // empty allowed (clears)
+    });
+    if (isDismissed) return;
+
+    try {
+      const res = await axiosSecure.patch("/deliveries/bulk-csd", {
+        csd: value || "",
+        challanIds,
+      });
+      await fetchDeliveries(monthRef.current, yearRef.current, searchRef.current);
+      Swal.fire({
+        toast: true, position: "top-end", icon: "success",
+        title: value
+          ? `CSD "${value}" applied to ${res.data?.touched ?? challanIds.length} challans`
+          : `CSD cleared on ${res.data?.touched ?? challanIds.length} challans`,
+        showConfirmButton: false, timer: 2000,
+      });
+    } catch (err) {
+      console.error("bulk csd failed", err);
+      Swal.fire("Error", "Bulk CSD failed", "error");
+    }
+  }, [axiosSecure, fetchDeliveries, filteredRows]);
+
+  /**
    * Split a product row by quantity.
    *
    * Use case: a row has qty = 2 (or any n > 1) and the user wants to
@@ -795,20 +899,21 @@ const DeliveredPage = () => {
     { key: "date",     header: "Date",     w: 78  },
     { key: "type",     header: "Type",     w: 72  },
     { key: "customer", header: "Customer", w: 90  },
-    { key: "zone",     header: "Zone",     w: 65  },
-    { key: "address",  header: "Address",  w: 88  },
+    { key: "csd",      header: "CSD",      w: 90  },
     { key: "receiver", header: "Receiver", w: 88  },
+    { key: "address",  header: "Address",  w: 88  },
     { key: "district", header: "District", w: 68  },
     { key: "thana",    header: "Thana",    w: 68  },
     { key: "location", header: "Location", w: 80,  adminOnly: true },
-    { key: "product",  header: "Product",  w: 110 },
     { key: "model",    header: "Model",    w: 140 },
-    { key: "capacity", header: "Capacity", w: 95,  adminOnly: true },
     { key: "qty",      header: "Qty",      w: 60  },
     { key: "rate",     header: "Rate",     w: 60,  adminOnly: true },
     { key: "amount",   header: "Amount",   w: 80,  adminOnly: true },
+    { key: "product",  header: "Product",  w: 110 },
     { key: "tripDo",   header: "Trip Do",  w: 70,  adminOnly: true },
+    { key: "capacity", header: "Capacity", w: 95,  adminOnly: true },
     { key: "note",     header: "Note",     w: 88  },
+    { key: "zone",     header: "Zone",     w: 65  },
   ].filter(c => isAdmin || !c.adminOnly);
   const tableW = COLS.reduce((s, c) => s + c.w, 0);
   const tbtn = "flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg border transition-all shrink-0 font-semibold whitespace-nowrap";
@@ -865,6 +970,14 @@ const DeliveredPage = () => {
               {filteredRows.length > 0 && <span className="text-[9px] bg-white/20 rounded px-1">{filteredRows.length}</span>}
             </button>
           )}
+          <button
+            onClick={handleBulkCsd}
+            disabled={filteredRows.length === 0}
+            className={`${tbtn} bg-teal-600 text-white border-teal-600 hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed`}
+            title="Apply a CSD name to every challan currently shown by the filters">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+            <span className="hidden sm:inline">Bulk CSD</span><span className="sm:hidden">CSD</span>
+          </button>
           <button onClick={handleResetAll} className={`${tbtn} border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500`}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
             <span className="hidden sm:inline">Reset</span>
@@ -894,14 +1007,14 @@ const DeliveredPage = () => {
               <div className="bg-white border border-slate-200 rounded-xl p-3 mb-3 shadow-sm">
                 <div className="grid grid-cols-2 gap-2.5">
                   <div><p className="text-[10px] text-slate-400 font-semibold uppercase mb-1">Date</p>
-                    <input type="date" className="w-full px-2 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-orange-400 bg-white"
-                      value={dateFilter} onChange={e => setDateFilter(e.target.value)} />
+                    <MultiSelect options={getOptionsFor("date")} selected={dateFilter} onChange={setDateFilter} />
                   </div>
                   <div><p className="text-[10px] text-slate-400 font-semibold uppercase mb-1">Type</p>
                     <TypeSelect value={typeFilter} onChange={setTypeFilter} />
                   </div>
                   {[
                     ["Customer", getOptionsFor("customerName"), customerFilter, setCustomerFilter, false],
+                    ["CSD",      getOptionsFor("csd"),          csdFilter,      setCsdFilter,      false],
                     ["Zone",     getOptionsFor("zone"),         zoneFilter,     setZoneFilter,     false],
                     ["District", getOptionsFor("district"),     districtFilter, setDistrictFilter, false],
                     ["Thana",    getOptionsFor("thana"),        thanaFilter,    setThanaFilter,    false],
@@ -955,38 +1068,34 @@ const DeliveredPage = () => {
                       ))}
                     </tr>
                     <tr className="bg-slate-50 border-b-2 border-slate-200">
-                      <th className="p-0.5 border-r border-slate-200">
-                        <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
-                          className="w-full px-1 py-0.5 border border-slate-200 rounded-lg text-[10px] outline-none focus:border-orange-400 bg-white" />
-                      </th>
-                      <th className="p-0.5 border-r border-slate-200"><TypeSelect value={typeFilter} onChange={setTypeFilter} /></th>
-                      <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("customerName")} selected={customerFilter} onChange={setCustomerFilter} /></th>
-                      <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("zone")}         selected={zoneFilter}     onChange={setZoneFilter} /></th>
-                      <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("address")}      selected={addressFilter}  onChange={setAddressFilter} /></th>
-                      <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("receiverNumber")} selected={receiverFilter} onChange={setReceiverFilter} /></th>
-                      <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("district")}     selected={districtFilter} onChange={setDistrictFilter} /></th>
-                      <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("thana")}        selected={thanaFilter}    onChange={setThanaFilter} /></th>
-                      {isAdmin && (
-                        <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("location")}     selected={locationFilter} onChange={setLocationFilter} /></th>
-                      )}
-                      <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("productName")}  selected={productFilter}  onChange={setProductFilter} /></th>
-                      <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("model")}        selected={modelFilter}    onChange={setModelFilter} /></th>
-                      {isAdmin && (
-                        <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("capacity")}     selected={capacityFilter} onChange={setCapacityFilter} /></th>
-                      )}
-                      <th className="p-0.5 border-r border-slate-200 text-center text-xs font-black text-slate-700">{totalQtyAll}</th>
-                      {isAdmin && (
-                        <>
-                          {/* Rate column — no summary (Amount column carries the total) */}
-                          <th className="p-0.5 border-r border-slate-200"></th>
-                          {/* Amount summary — sum of (qty × rate) across all filtered rows */}
-                          <th className="p-0.5 border-r border-slate-200 text-center text-[10px] font-black text-emerald-700 whitespace-nowrap">
-                            ৳{totalAmountAll.toLocaleString()}
-                          </th>
-                          <th className="p-0.5 border-r border-slate-200"><MultiSelect options={getOptionsFor("tripDo")} selected={tripDoFilter} onChange={setTripDoFilter} /></th>
-                        </>
-                      )}
-                      <th className="p-0.5"><MultiSelect options={getNoteOptions()} selected={noteFilter} onChange={setNoteFilter} /></th>
+                      {COLS.map(c => {
+                        // Each column's filter control. Keys map 1:1 to the
+                        // COLS order above, so reordering COLS reorders these
+                        // automatically with no risk of misalignment.
+                        let el = null;
+                        switch (c.key) {
+                          case "date":     el = <MultiSelect options={getOptionsFor("date")} selected={dateFilter} onChange={setDateFilter} />; break;
+                          case "type":     el = <TypeSelect value={typeFilter} onChange={setTypeFilter} />; break;
+                          case "customer": el = <MultiSelect options={getOptionsFor("customerName")} selected={customerFilter} onChange={setCustomerFilter} />; break;
+                          case "csd":      el = <MultiSelect options={getOptionsFor("csd")} selected={csdFilter} onChange={setCsdFilter} />; break;
+                          case "zone":     el = <MultiSelect options={getOptionsFor("zone")} selected={zoneFilter} onChange={setZoneFilter} />; break;
+                          case "address":  el = <MultiSelect options={getOptionsFor("address")} selected={addressFilter} onChange={setAddressFilter} />; break;
+                          case "receiver": el = <MultiSelect options={getOptionsFor("receiverNumber")} selected={receiverFilter} onChange={setReceiverFilter} />; break;
+                          case "district": el = <MultiSelect options={getOptionsFor("district")} selected={districtFilter} onChange={setDistrictFilter} />; break;
+                          case "thana":    el = <MultiSelect options={getOptionsFor("thana")} selected={thanaFilter} onChange={setThanaFilter} />; break;
+                          case "location": el = <MultiSelect options={getOptionsFor("location")} selected={locationFilter} onChange={setLocationFilter} />; break;
+                          case "product":  el = <MultiSelect options={getOptionsFor("productName")} selected={productFilter} onChange={setProductFilter} />; break;
+                          case "model":    el = <MultiSelect options={getOptionsFor("model")} selected={modelFilter} onChange={setModelFilter} />; break;
+                          case "capacity": el = <MultiSelect options={getOptionsFor("capacity")} selected={capacityFilter} onChange={setCapacityFilter} />; break;
+                          case "tripDo":   el = <MultiSelect options={getOptionsFor("tripDo")} selected={tripDoFilter} onChange={setTripDoFilter} />; break;
+                          case "note":     el = <MultiSelect options={getNoteOptions()} selected={noteFilter} onChange={setNoteFilter} />; break;
+                          case "qty":      el = <div className="text-center text-xs font-black text-slate-700">{totalQtyAll}</div>; break;
+                          case "rate":     el = null; break;   // no summary — Amount carries the total
+                          case "amount":   el = <div className="text-center text-[10px] font-black text-emerald-700 whitespace-nowrap">৳{totalAmountAll.toLocaleString()}</div>; break;
+                          default:         el = null;
+                        }
+                        return <th key={c.key} className="p-0.5 border-r border-slate-200 last:border-0">{el}</th>;
+                      })}
                     </tr>
                   </thead>
                   <tbody>
@@ -994,121 +1103,151 @@ const DeliveredPage = () => {
                       const { challan, product, date, isReturn, note, returnNote } = row;
                       const displayNote = isReturn ? returnNote : note;
                       const loc = resolveLocation(challan);
+                      // Cell renderer keyed by column. Keeps the body in
+                      // lockstep with COLS so the order above is the single
+                      // source of truth for column sequence.
+                      const renderCell = (key) => {
+                        switch (key) {
+                          case "date":
+                            return <span className="block truncate">{date.toLocaleDateString("en-GB")}</span>;
+                          case "type":
+                            return isReturn
+                              ? <span className="inline-flex px-1.5 py-0.5 bg-orange-100 text-orange-700 border border-orange-200 rounded-full text-[9px] font-bold whitespace-nowrap">↩ Return</span>
+                              : <span className="inline-flex px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-[9px] font-bold whitespace-nowrap">↗ Delivery</span>;
+                          case "customer":
+                            return <span className="block truncate font-semibold text-slate-800">{challan.customerName}</span>;
+                          case "csd":
+                            return (
+                              <CsdCell
+                                row={row}
+                                editingCsd={editingCsd}
+                                setEditingCsd={setEditingCsd}
+                                savingCsd={savingCsd}
+                                onSave={saveCsd}
+                              />
+                            );
+                          case "zone":
+                            return <span className="block truncate">{challan.zone}</span>;
+                          case "address":
+                            return <span className="block truncate">{challan.address}</span>;
+                          case "receiver":
+                            return <span className="block truncate">{challan.receiverNumber}</span>;
+                          case "district":
+                            return <span className="block truncate">{challan.district}</span>;
+                          case "thana":
+                            return <span className="block truncate">{challan.thana}</span>;
+                          case "location":
+                            return loc
+                              ? <span className={
+                                  `inline-flex px-1.5 py-0.5 rounded-md text-[9px] font-bold border whitespace-nowrap ` +
+                                  (loc === "ISD"
+                                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                                      : loc === "OSD-Metro"
+                                      ? "bg-purple-50 text-purple-700 border-purple-200"
+                                      : "bg-amber-50 text-amber-700 border-amber-200")
+                                }>{loc}</span>
+                              : <span className="text-slate-300">—</span>;
+                          case "product":
+                            return <span className="block truncate text-slate-800">{product.productName || <span className="text-slate-300">—</span>}</span>;
+                          case "model":
+                            return <span className="block truncate uppercase font-mono text-[11px]">{product.model}</span>;
+                          case "capacity": {
+                            const savedCap   = product.capacity || "";
+                            const display    = savedCap || row.effectiveCapacity || "";
+                            const isComputed = !savedCap && !!row.effectiveCapacity;
+                            if (!display) return <span className="text-slate-300">—</span>;
+                            return (
+                              <span className={"block truncate text-[11px] " + (isComputed ? "text-blue-600 italic" : "text-slate-700")}>
+                                {display}
+                              </span>
+                            );
+                          }
+                          case "qty":
+                            return (
+                              <div className="inline-flex items-center justify-center gap-1 font-black text-slate-700">
+                                <span>{product.quantity}</span>
+                                {isAdmin && Number(product.quantity) > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => splitProductRow(challan, product)}
+                                    title={`Split this row (qty ${product.quantity}) into two — peel off some qty into a new row so it can take a different Trip Do`}
+                                    className="inline-flex items-center justify-center w-4 h-4 rounded border border-sky-200 text-sky-600 hover:bg-sky-500 hover:text-white hover:border-sky-500 transition-colors"
+                                  >
+                                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                      <line x1="6" y1="3" x2="6" y2="15"/>
+                                      <circle cx="18" cy="6" r="3"/>
+                                      <circle cx="6" cy="18" r="3"/>
+                                      <path d="M18 9a9 9 0 0 1-9 9"/>
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          case "rate":
+                            return row.effectiveRate ? (
+                              <span
+                                title={row.rateSource === "computed" ? "Auto-resolved from rate table (not yet saved)" : "Saved rate"}
+                                className={
+                                  "inline-block text-[11px] font-black rounded-md px-1.5 py-0.5 border " +
+                                  (row.rateSource === "computed"
+                                    ? "text-blue-700 bg-blue-50 border-blue-200 border-dashed"
+                                    : "text-emerald-700 bg-emerald-50 border-emerald-200")
+                                }
+                              >
+                                ৳{row.effectiveRate}
+                              </span>
+                            ) : (
+                              <span className="text-slate-300 text-[10px]">—</span>
+                            );
+                          case "amount":
+                            return row.effectiveAmount > 0
+                              ? <span className="text-[11px] font-black text-emerald-700">৳{row.effectiveAmount.toLocaleString()}</span>
+                              : <span className="text-slate-300 text-[10px]">—</span>;
+                          case "tripDo":
+                            return (
+                              <TripDoCell
+                                row={row}
+                                editingCell={editingCell}
+                                setEditingCell={setEditingCell}
+                                savingCell={savingCell}
+                                onSave={saveTripDo}
+                              />
+                            );
+                          case "note":
+                            return displayNote
+                              ? <span className={`block truncate text-[10px] font-medium ${isReturn ? "text-orange-500" : "text-amber-600"}`}>{displayNote}</span>
+                              : <span className="text-slate-300">—</span>;
+                          default:
+                            return null;
+                        }
+                      };
+                      const cellAlign = (key) =>
+                        key === "qty" || key === "rate" || key === "amount" ? "text-center" : "";
+                      // Tooltip text for truncatable text columns (full value
+                      // on hover). Interactive/badge columns get no title.
+                      const cellTitle = (key) => {
+                        switch (key) {
+                          case "customer": return challan.customerName || "";
+                          case "zone":     return challan.zone || "";
+                          case "address":  return challan.address || "";
+                          case "receiver": return challan.receiverNumber || "";
+                          case "district": return challan.district || "";
+                          case "thana":    return challan.thana || "";
+                          case "product":  return product.productName || "";
+                          case "model":    return product.model || "";
+                          case "capacity": return product.capacity || row.effectiveCapacity || "";
+                          case "note":     return displayNote || "";
+                          case "csd":      return row.csd || challan.csd || "";
+                          default:         return undefined;
+                        }
+                      };
                       return (
                         <tr key={idx} className={`border-b border-slate-100 transition-colors text-[12px] ${isReturn ? "bg-orange-50/40 hover:bg-orange-50" : "hover:bg-amber-50/30 even:bg-slate-50/40"}`}>
-                          <td className="px-2 py-1.5 text-black whitespace-nowrap overflow-hidden text-ellipsis">{date.toLocaleDateString("en-GB")}</td>
-                          <td className="px-1 py-1.5 overflow-hidden">
-                            {isReturn
-                              ? <span className="inline-flex px-1.5 py-0.5 bg-orange-100 text-orange-700 border border-orange-200 rounded-full text-[9px] font-bold whitespace-nowrap">↩ Return</span>
-                              : <span className="inline-flex px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-[9px] font-bold whitespace-nowrap">↗ Delivery</span>
-                            }
-                          </td>
-                          <td className="px-2 py-1.5 font-semibold text-slate-800 overflow-hidden"title={challan.customerName}><span className="block truncate">{challan.customerName}</span></td>
-                          <td className="px-2 py-1.5 text-black overflow-hidden"title={challan.zone}><span className="block truncate">{challan.zone}</span></td>
-                          <td className="px-2 py-1.5 text-black overflow-hidden" title={challan.address}><span className="block truncate">{challan.address}</span></td>
-                          <td className="px-2 py-1.5 text-black overflow-hidden"><span className="block truncate">{challan.receiverNumber}</span></td>
-                          <td className="px-2 py-1.5 text-black "><span className="">{challan.district}</span></td>
-                          <td className="px-2 py-1.5 text-black "><span className="">{challan.thana}</span></td>
-                          {isAdmin && (
-                            <td className="px-2 py-1.5 overflow-hidden">
-                              {loc
-                                ? <span className={
-                                    `inline-flex px-1.5 py-0.5 rounded-md text-[9px] font-bold border whitespace-nowrap ` +
-                                    (loc === "ISD"
-                                        ? "bg-blue-50 text-blue-700 border-blue-200"
-                                        : loc === "OSD-Metro"
-                                        ? "bg-purple-50 text-purple-700 border-purple-200"
-                                        : "bg-amber-50 text-amber-700 border-amber-200")
-                                  }>{loc}</span>
-                                : <span className="text-slate-300">—</span>
-                              }
+                          {COLS.map(c => (
+                            <td key={c.key} className={`px-2 py-1.5 text-black overflow-hidden ${cellAlign(c.key)}`} title={cellTitle(c.key)}>
+                              {renderCell(c.key)}
                             </td>
-                          )}
-                          <td className="px-2 py-1.5 overflow-hidden" title={product.productName || ""}>
-                            <span className="block truncate text-slate-800">{product.productName || <span className="text-slate-300">—</span>}</span>
-                          </td>
-                          <td className="px-2 py-1.5 text-black uppercase font-mono text-[11px]"title={product.model}><span className="">{product.model}</span></td>
-                          {isAdmin && (
-                            <td className="px-2 py-1.5 overflow-hidden text-[11px]" title={product.capacity || row.effectiveCapacity || ""}>
-                              {(() => {
-                                const savedCap   = product.capacity || "";
-                                const display    = savedCap || row.effectiveCapacity || "";
-                                const isComputed = !savedCap && !!row.effectiveCapacity;
-                                if (!display) return <span className="text-slate-300">—</span>;
-                                return (
-                                  <span className={"block truncate " + (isComputed ? "text-blue-600 italic" : "text-slate-700")}>
-                                    {display}
-                                  </span>
-                                );
-                              })()}
-                            </td>
-                          )}
-                          <td className="px-2 py-1.5 text-center font-black text-slate-700">
-                            <div className="inline-flex items-center justify-center gap-1">
-                              <span>{product.quantity}</span>
-                              {isAdmin && Number(product.quantity) > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => splitProductRow(challan, product)}
-                                  title={`Split this row (qty ${product.quantity}) into two — peel off some qty into a new row so it can take a different Trip Do`}
-                                  className="inline-flex items-center justify-center w-4 h-4 rounded border border-sky-200 text-sky-600 hover:bg-sky-500 hover:text-white hover:border-sky-500 transition-colors"
-                                >
-                                  {/* split / branch icon */}
-                                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                    <line x1="6" y1="3" x2="6" y2="15"/>
-                                    <circle cx="18" cy="6" r="3"/>
-                                    <circle cx="6" cy="18" r="3"/>
-                                    <path d="M18 9a9 9 0 0 1-9 9"/>
-                                  </svg>
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                          {isAdmin && (
-                            <>
-                              <td className="px-2 py-1.5 text-center overflow-hidden">
-                                {row.effectiveRate ? (
-                                  <span
-                                    title={row.rateSource === "computed" ? "Auto-resolved from rate table (not yet saved)" : "Saved rate"}
-                                    className={
-                                      "inline-block text-[11px] font-black rounded-md px-1.5 py-0.5 border " +
-                                      (row.rateSource === "computed"
-                                        ? "text-blue-700 bg-blue-50 border-blue-200 border-dashed"
-                                        : "text-emerald-700 bg-emerald-50 border-emerald-200")
-                                    }
-                                  >
-                                    ৳{row.effectiveRate}
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-300 text-[10px]">—</span>
-                                )}
-                              </td>
-                              {/* Amount = qty × rate */}
-                              <td className="px-2 py-1.5 text-center overflow-hidden whitespace-nowrap">
-                                {row.effectiveAmount > 0
-                                  ? <span className="text-[11px] font-black text-emerald-700">৳{row.effectiveAmount.toLocaleString()}</span>
-                                  : <span className="text-slate-300 text-[10px]">—</span>}
-                              </td>
-                              {/* Trip Do — inline editable */}
-                              <td className="px-2 py-1.5 overflow-hidden">
-                                <TripDoCell
-                                  row={row}
-                                  editingCell={editingCell}
-                                  setEditingCell={setEditingCell}
-                                  savingCell={savingCell}
-                                  onSave={saveTripDo}
-                                />
-                              </td>
-                            </>
-                          )}
-                          {/* Note */}
-                          <td className="px-2 py-1.5 overflow-hidden" title={displayNote || ""}>
-                            {displayNote
-                              ? <span className={`block truncate text-[10px] font-medium ${isReturn ? "text-orange-500" : "text-amber-600"}`}>{displayNote}</span>
-                              : <span className="text-slate-300">—</span>
-                            }
-                          </td>
-
+                          ))}
                         </tr>
                       );
                     })}
@@ -1211,6 +1350,64 @@ const TripDoCell = ({ row, editingCell, setEditingCell, savingCell, onSave }) =>
         autoComplete="off"
         placeholder="e.g. 4681835"
         className="w-full px-1.5 py-0.5 border border-indigo-400 rounded text-[11px] outline-none focus:ring-2 focus:ring-indigo-300"
+      />
+      <div className="absolute top-full left-0 mt-0.5 text-[8px] text-slate-400">
+        Enter to save · Esc to cancel
+      </div>
+    </div>
+  );
+};
+
+/* ════════════════════════════════════════════════════════════════════
+   Inline editable cell for the CSD column on the Delivered page.
+
+   CSD is a per-challan field (one value per challan, shared across that
+   challan's product rows).  editingCsd is keyed by challanId only.
+═══════════════════════════════════════════════════════════════════ */
+const CsdCell = ({ row, editingCsd, setEditingCsd, savingCsd, onSave }) => {
+  const { trip, challan } = row;
+  const challanKey = challan.challanId || challan._id;
+  const editing = editingCsd && editingCsd.challanId === challanKey;
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) inputRef.current.focus();
+  }, [editing]);
+
+  if (!editing) {
+    const display = row.csd || challan.csd || "";
+    return (
+      <button
+        type="button"
+        onClick={() => setEditingCsd({ challanId: challanKey, value: display })}
+        title={display ? "Click to edit CSD" : "Click to set CSD"}
+        className="block w-full text-left truncate hover:bg-emerald-50 hover:text-emerald-700 px-1 -mx-1 rounded transition-colors text-[11px]"
+      >
+        {display ? (
+          <span className="block truncate font-semibold text-slate-700">{display}</span>
+        ) : (
+          <span className="text-emerald-400 italic">click to set</span>
+        )}
+      </button>
+    );
+  }
+
+  const value = editingCsd.value ?? "";
+
+  return (
+    <div className="relative">
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => setEditingCsd((cur) => ({ ...cur, value: e.target.value }))}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setEditingCsd(null);
+          if (e.key === "Enter") onSave(trip, challan, (value || "").trim());
+        }}
+        disabled={savingCsd}
+        autoComplete="off"
+        placeholder="CSD name"
+        className="w-full px-1.5 py-0.5 border border-emerald-400 rounded text-[11px] outline-none focus:ring-2 focus:ring-emerald-300"
       />
       <div className="absolute top-full left-0 mt-0.5 text-[8px] text-slate-400">
         Enter to save · Esc to cancel

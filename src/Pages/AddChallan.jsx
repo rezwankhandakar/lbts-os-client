@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -156,9 +157,6 @@ const AddChallan = () => {
         Swal.fire({
           icon: "success",
           title: "Challan Created!",
-          html: autoLocation
-            ? `<p style="font-size:12px;color:#10b981">Location: <b>${autoLocation}</b></p>`
-            : `<p style="font-size:12px;color:#dc2626">Location skipped — please review later</p>`,
           showConfirmButton: false,
           timer: 1500,
         });

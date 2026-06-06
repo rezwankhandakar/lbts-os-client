@@ -1,8 +1,15 @@
-import React, { useState, useEffect, useRef } from "react";
+
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Swal from "sweetalert2";
 import { X, Save } from "lucide-react";
 import { findRate, suggestProducts } from "../utils/rateMatcher";
-import { computeLocation } from "../utils/localAddressMatcher";
+import {
+  computeLocation,
+  suggestThanas,
+  suggestDistricts,
+} from "../utils/localAddressMatcher";
+import AIAddressParser from "./AIAddressParser";
+import LocalAddressDropdown from "./LocalAddressDropdown";
 
 const EditChallanModal = ({ open, onClose, challan, product, axiosSecure, refetchChallans }) => {
   const [formData, setFormData] = useState({
@@ -12,6 +19,13 @@ const EditChallanModal = ({ open, onClose, challan, product, axiosSecure, refetc
   // Local product-name typeahead state
   const [showProductSuggest, setShowProductSuggest] = useState(false);
   const productSuggestRef = useRef(null);
+
+  // ── Local typeahead for thana / district (built-in 64-districts list) ──
+  //   `activeField` mirrors the pattern used in AddChallan so the shared
+  //   LocalAddressDropdown component can be reused as-is.
+  const [activeField,   setActiveField]   = useState(null);
+  const [thanaQuery,    setThanaQuery]    = useState("");
+  const [districtQuery, setDistrictQuery] = useState("");
 
   useEffect(() => {
     if (open && challan && product) {
@@ -23,6 +37,9 @@ const EditChallanModal = ({ open, onClose, challan, product, axiosSecure, refetc
         quantity: product.quantity || 0,
       });
       setShowProductSuggest(false);
+      setActiveField(null);
+      setThanaQuery(challan.thana || "");
+      setDistrictQuery(challan.district || "");
     }
   }, [open, challan, product]);
 
@@ -37,6 +54,16 @@ const EditChallanModal = ({ open, onClose, challan, product, axiosSecure, refetc
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, [showProductSuggest]);
+
+  // Local typeahead suggestions (memoised, instant — no network)
+  const districtSuggestions = useMemo(
+    () => suggestDistricts(districtQuery, 8),
+    [districtQuery]
+  );
+  const thanaSuggestions = useMemo(
+    () => suggestThanas(thanaQuery, 10, districtQuery.trim() || null),
+    [thanaQuery, districtQuery]
+  );
 
   if (!open) return null;
 
@@ -138,18 +165,107 @@ const EditChallanModal = ({ open, onClose, challan, product, axiosSecure, refetc
               <label className={lbl}>Customer Name</label>
               <input required name="customerName" value={formData.customerName} onChange={handleChange} className={inp} placeholder="Customer name" />
             </div>
+
+            {/* Street Address + AI Detect Thana & District */}
             <div>
               <label className={lbl}>Street Address</label>
               <input required name="address" value={formData.address} onChange={handleChange} className={inp} placeholder="Address" />
+              <AIAddressParser
+                axiosSecure={axiosSecure}
+                getAddress={() => formData.address}
+                setAddress={(v) =>
+                  setFormData(prev => ({ ...prev, address: v }))
+                }
+                setThana={(v) => {
+                  setFormData(prev => ({ ...prev, thana: v || "" }));
+                  setThanaQuery(v || "");
+                }}
+                setDistrict={(v) => {
+                  setFormData(prev => ({ ...prev, district: v || "" }));
+                  setDistrictQuery(v || "");
+                }}
+              />
             </div>
+
+            {/* Thana + District (local typeahead — built-in 64 districts / all thanas) */}
             <div className="grid grid-cols-2 gap-3">
-              <div>
+              <div className="relative">
                 <label className={lbl}>Thana</label>
-                <input required name="thana" value={formData.thana} onChange={handleChange} className={inp} />
+                <input
+                  required
+                  name="thana"
+                  value={formData.thana}
+                  autoComplete="off"
+                  onChange={e => {
+                    const v = e.target.value;
+                    setFormData(prev => ({ ...prev, thana: v }));
+                    setThanaQuery(v);
+                    if (v.trim().length >= 1) setActiveField("thana-local");
+                    else setActiveField(null);
+                  }}
+                  onFocus={e => {
+                    const v = e.target.value;
+                    setThanaQuery(v);
+                    if (v.trim().length >= 1) setActiveField("thana-local");
+                  }}
+                  className={inp}
+                  placeholder="Type 1-2 letters for suggestions"
+                />
+                <LocalAddressDropdown
+                  fieldKey="thana-local"
+                  activeField={activeField}
+                  setActiveField={setActiveField}
+                  suggestions={thanaSuggestions}
+                  mode="thana"
+                  onPick={(thanaName, item) => {
+                    setFormData(prev => {
+                      const currentDistrict = (prev.district || "").trim();
+                      const next = { ...prev, thana: thanaName };
+                      // Auto-fill district from the picked thana if the
+                      // district field is empty.
+                      if (!currentDistrict) {
+                        next.district = item.district;
+                        setDistrictQuery(item.district);
+                      }
+                      return next;
+                    });
+                    setThanaQuery(thanaName);
+                  }}
+                />
               </div>
-              <div>
+              <div className="relative">
                 <label className={lbl}>District</label>
-                <input required name="district" value={formData.district} onChange={handleChange} className={inp} />
+                <input
+                  required
+                  name="district"
+                  value={formData.district}
+                  autoComplete="off"
+                  onChange={e => {
+                    const v = e.target.value;
+                    setFormData(prev => ({ ...prev, district: v }));
+                    setDistrictQuery(v);
+                    if (v.trim().length >= 1) setActiveField("district-local");
+                    else setActiveField(null);
+                  }}
+                  onFocus={e => {
+                    const v = e.target.value;
+                    setDistrictQuery(v);
+                    if (v.trim().length >= 1) setActiveField("district-local");
+                  }}
+                  className={inp}
+                  placeholder="Type 1-2 letters for suggestions"
+                />
+                <LocalAddressDropdown
+                  fieldKey="district-local"
+                  activeField={activeField}
+                  setActiveField={setActiveField}
+                  suggestions={districtSuggestions}
+                  mode="district"
+                  onPick={(districtName) => {
+                    setFormData(prev => ({ ...prev, district: districtName }));
+                    setDistrictQuery(districtName);
+                  }}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
