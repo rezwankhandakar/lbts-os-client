@@ -76,28 +76,37 @@ const EditChallanModal = ({ open, onClose, challan, product, axiosSecure, refetc
     }
   };
 
-  // Where is this challan delivered?  Prefer the stored field; fall back
-  // to local compute so older challans (pre-feature) still get a sensible
-  // location for rate lookup.
+  // Where is this challan delivered?  If the user has thana/district set we
+  // always recompute the location from them (so editing the thana actually
+  // changes the location + rate). Only when both are empty do we fall back to
+  // the stored location for older challans.
   const resolveLocation = () => {
-    if (challan?.location) return challan.location;
-    return computeLocation(formData.thana, formData.district) || null;
+    const t = (formData.thana || "").trim();
+    const d = (formData.district || "").trim();
+    if (t || d) {
+      return computeLocation(t, d) || null;
+    }
+    return challan?.location || null;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Resolve the effective location once from the (possibly edited)
+      // thana/district so both the challan update and the rate lookup use it.
+      const loc = resolveLocation();
+
       const resMain = await axiosSecure.patch(`/challan/${challan._id}`, {
         customerName: formData.customerName, address: formData.address,
         thana: formData.thana, district: formData.district,
         receiverNumber: formData.receiverNumber, zone: formData.zone,
+        location: loc || "",
       });
       if (!resMain.data.success) throw new Error("Main challan update failed");
 
       // Resolve capacity + rate fresh — handles typo fixes, model edits,
       // location-driven changes.  Pre-existing capacity (when present)
       // helps disambiguate without-model multi-capacity products.
-      const loc = resolveLocation();
       const { capacity, rate } = findRate({
         productName: formData.productName,
         model: formData.model,

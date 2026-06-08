@@ -1,12 +1,17 @@
-import React, { useState, useEffect } from "react";
+
+import React, { useState, useEffect, useCallback } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import Swal from "sweetalert2";
 import {
   X, Truck, User, Package, PhoneForwarded,
   Plus, Trash2, Pencil, Check, RotateCcw, StickyNote, Save, Wallet, ChevronDown,
-  Building2, ArrowLeft
+  Building2, ArrowLeft, Search, Loader2
 } from "lucide-react";
 import useAuth from "../hooks/useAuth";
+// Re-resolve capacity + rate from (product, model, location) so a challan
+// added to an existing trip carries the same rate the Delivered page expects.
+import { findRate } from "../utils/rateMatcher";
+import { computeLocation } from "../utils/localAddressMatcher";
 
 /* ── বাংলায় টাকার পরিমাণ ──
    Bangla te 1-99 prottek number er nijoshsho naam ache — English er
@@ -585,6 +590,256 @@ const NoteModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy })
   );
 };
 
+/* ─── Add Challan Modal ───
+   Pick existing PENDING challans (same search as Create Delivery) and add
+   them to THIS trip. On confirm they get embedded in the trip, marked
+   delivered in /all-challan, and show up on the Delivered page. */
+const AddChallanModal = ({ trip, onAdded, onClose, axiosSecure, addedBy }) => {
+  const [search, setSearch] = useState("");
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState([]);   // array of challan objects
+  const [submitting, setSubmitting] = useState(false);
+
+  // challanIds already in this trip — exclude them from results.
+  const existingIds = new Set((trip.challans || []).map(c => String(c.challanId)));
+
+  const runSearch = useCallback(async (term) => {
+    if (!term || term.trim().length < 1) { setResults([]); return; }
+    setLoading(true);
+    try {
+      const res = await axiosSecure.get(`/challans?search=${encodeURIComponent(term.trim())}&page=1&limit=5000`);
+      const all = res.data?.data || res.data?.challans || res.data || [];
+      const list = Array.isArray(all) ? all : [];
+      // Only pending (not delivered) and not already in this trip.
+      setResults(list.filter(c => c.status !== "delivered" && !existingIds.has(String(c._id))));
+    } catch {
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [axiosSecure]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Debounced search as the user types.
+  useEffect(() => {
+    const t = setTimeout(() => runSearch(search), 350);
+    return () => clearTimeout(t);
+  }, [search, runSearch]);
+
+  const isSelected = (id) => selected.some(s => s._id === id);
+  const toggle = (challan) => {
+    setSelected(prev =>
+      prev.some(s => s._id === challan._id)
+        ? prev.filter(s => s._id !== challan._id)
+        : [...prev, challan]
+    );
+  };
+
+  const handleConfirm = async () => {
+    if (selected.length === 0) {
+      return Swal.fire({ icon: "warning", title: "Select at least one challan" });
+    }
+    setSubmitting(true);
+    try {
+      // Build payload — re-resolve location + per-product capacity/rate so the
+      // Delivered page shows correct rates (same logic as Create Delivery).
+      const payloadChallans = selected.map(c => {
+        const location = c.location || computeLocation(c.thana, c.district) || null;
+        const products = (c.products || []).map(p => {
+          const r = findRate({
+            productName: p.productName,
+            model: p.model,
+            location,
+            capacity: p.capacity || "",
+          });
+          return {
+            _id: p._id,
+            productName: p.productName,
+            model: p.model,
+            quantity: Number(p.quantity) || 0,
+            capacity: r.capacity || p.capacity || "",
+            rate: r.rate || Number(p.rate) || 0,
+          };
+        });
+        return {
+          challanId: c._id,
+          customerName: c.customerName,
+          zone: c.zone,
+          address: c.address,
+          thana: c.thana,
+          district: c.district,
+          location,
+          receiverNumber: c.receiverNumber,
+          products,
+        };
+      });
+
+      const res = await axiosSecure.post(`/deliveries/${trip._id}/add-challans`, {
+        challans: payloadChallans,
+        addedBy,
+      });
+
+      if (res.data?.success) {
+        Swal.fire({
+          toast: true, position: "top-end", icon: "success",
+          title: `${res.data.added} challan added`, showConfirmButton: false, timer: 1600,
+        });
+        onAdded(res.data.addedChallans || []);
+        onClose();
+      } else {
+        throw new Error(res.data?.message || "Failed to add");
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.message || err.message || "Failed to add challans";
+      Swal.fire({ icon: "error", title: "Could not add", text: msg });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] flex justify-center items-end sm:items-center z-[80] p-0 sm:p-3"
+         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-slate-50 w-full max-w-2xl max-h-[92vh] overflow-hidden rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col">
+
+        {/* ── Top bar (CreateDelivery "DELIVERY PLANNER" style) ── */}
+        <div className="bg-slate-950 px-4 py-3 flex justify-between items-center gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-emerald-500 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Truck className="text-white" size={15} />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-black text-white leading-tight">
+                ADD <span className="text-emerald-400">CHALLAN</span>
+              </h2>
+              <p className="text-slate-500 text-[9px] font-bold uppercase tracking-widest mt-0.5">{trip.tripNumber}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <div className="text-right">
+              <p className="text-slate-500 text-[9px] font-bold uppercase">Results</p>
+              <p className="text-white font-black text-lg leading-tight">{results.length}</p>
+            </div>
+            {selected.length > 0 && (
+              <span className="bg-emerald-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase flex-shrink-0">
+                {selected.length} selected
+              </span>
+            )}
+            <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition"><X size={16} /></button>
+          </div>
+        </div>
+
+        {/* ── Search ── */}
+        <div className="px-3 sm:px-4 py-3 bg-white border-b border-slate-100">
+          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Search Pending Challans</label>
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              autoFocus
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Name, phone, address…"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-400 focus:bg-white transition-all placeholder-slate-400"
+            />
+          </div>
+        </div>
+
+        {/* ── Results (ChallanCard style) ── */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          {loading ? (
+            <div className="bg-white rounded-2xl p-3 border border-slate-100 animate-pulse space-y-2">
+              <div className="h-3 bg-slate-100 rounded-lg w-1/3" />
+              <div className="h-5 bg-slate-100 rounded-lg w-3/4" />
+              <div className="space-y-1.5"><div className="h-2.5 bg-slate-50 rounded-lg" /><div className="h-2.5 bg-slate-50 rounded-lg w-5/6" /></div>
+            </div>
+          ) : search.trim().length === 0 ? (
+            <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-10 text-center">
+              <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <Package className="text-slate-300" size={26} />
+              </div>
+              <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">Search to find challans</p>
+            </div>
+          ) : results.length === 0 ? (
+            <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-10 text-center">
+              <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <Package className="text-slate-300" size={26} />
+              </div>
+              <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">No pending challans found</p>
+            </div>
+          ) : (
+            results.map(c => {
+              const sel = isSelected(c._id);
+              return (
+                <div
+                  key={c._id}
+                  className={`bg-white rounded-2xl border overflow-hidden shadow-sm transition-all
+                    ${sel ? "border-emerald-300 ring-2 ring-emerald-100" : "border-slate-100 hover:shadow-md hover:border-emerald-200"}`}
+                >
+                  {/* Card header */}
+                  <div className="bg-slate-50 px-3 py-2 flex justify-between items-center border-b border-slate-100">
+                    <span className="text-[10px] font-semibold text-slate-400">
+                      {c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-GB") : "—"}
+                    </span>
+                    <button
+                      onClick={() => toggle(c)}
+                      className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-1 transition-all shadow-sm
+                        ${sel
+                          ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                          : "bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-50"}`}
+                    >
+                      {sel ? <><Check size={11} /> Added</> : <><Plus size={11} /> Add</>}
+                    </button>
+                  </div>
+                  {/* Card body */}
+                  <div className="p-3">
+                    <h4 className="text-sm font-black text-slate-800 uppercase leading-tight mb-0.5">{c.customerName}</h4>
+                    <p className="text-[10px] text-emerald-600 font-black uppercase mb-2 tracking-widest">Zone: {c.zone || "—"}</p>
+                    <div className="space-y-0.5 mb-3 text-[11px] text-slate-500">
+                      <p className="flex gap-1 flex-wrap"><span className="font-bold text-slate-600">Location:</span><span className="break-words">{c.address}</span></p>
+                      <p className="flex gap-1 flex-wrap">
+                        <span className="font-bold text-slate-600">District:</span><span>{c.district || "—"}</span>
+                        <span className="font-bold text-slate-600">Thana:</span><span>{c.thana || "—"}</span>
+                      </p>
+                      <p className="flex gap-1"><span className="font-bold text-slate-600">Receiver:</span>{c.receiverNumber || "—"}</p>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-2 border border-slate-100">
+                      {(c.products || []).map((p, i) => (
+                        <div key={i} className="flex justify-between text-[10px] py-0.5">
+                          <span className="text-slate-600 font-bold truncate pr-3 uppercase">{p.model || p.productName}</span>
+                          <span className="text-blue-600 font-black flex-shrink-0">{p.quantity} PCS</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* ── Footer / Confirm bar ── */}
+        <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-t border-slate-200 bg-white">
+          <p className="text-[11px] font-black text-slate-500 uppercase tracking-wider">
+            {selected.length > 0 ? `${selected.length} challan ready` : "Select challans to add"}
+          </p>
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} disabled={submitting}
+                    className="px-4 py-2 text-xs font-black uppercase text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
+              Cancel
+            </button>
+            <button onClick={handleConfirm} disabled={submitting || selected.length === 0}
+                    className="flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition disabled:opacity-50 shadow-sm">
+              {submitting ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+              {submitting ? "Adding…" : `Add to Trip${selected.length ? ` (${selected.length})` : ""}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 /* ════════════════════════════════════════════════════════════════
    MAIN — TripDetails (renders as modal or full page)
    ─────────────────────────────────────────────────────────────────
@@ -615,6 +870,7 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
   const [savingAdvance,        setSavingAdvance]        = useState(false);
   const [statsOpen,            setStatsOpen]            = useState(false);
   const [openActionMenu,       setOpenActionMenu]       = useState(null); // ← নতুন state
+  const [showAddChallan,       setShowAddChallan]       = useState(false);
 
   useEffect(() => {
     if (!selectedTrip) { setTrip(null); return; }
@@ -661,6 +917,17 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
       Swal.fire({ icon: "success", title: "Updated", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
     } catch { Swal.fire({ icon: "error", title: "Error", text: "Update failed" }); }
     finally { setLoadingId(null); }
+  };
+
+  const handleChallansAdded = (addedChallans) => {
+    // Merge the newly-embedded challans into the local trip so the Delivered
+    // page / trip list update immediately (server already persisted them).
+    const withNum = (addedChallans || []).map(c => ({ ...c, _tripNumber: trip.tripNumber }));
+    syncTrip({
+      ...trip,
+      challans: [...(trip.challans || []), ...withNum],
+      totalChallan: (trip.totalChallan || trip.challans?.length || 0) + withNum.length,
+    });
   };
 
   const handleDeleteChallan = async (challanId, customerName) => {
@@ -868,6 +1135,17 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
 
           {/* ════ CHALLAN GRID ════ */}
           <div className="flex-1 overflow-y-auto p-2 sm:p-2.5 md:p-3">
+            <div className="flex items-center justify-between mb-2.5">
+              <p className="text-xs font-black text-slate-500 uppercase tracking-wider">
+                Challans <span className="text-slate-400">({trip.challans?.length || 0})</span>
+              </p>
+              <button
+                onClick={() => setShowAddChallan(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition shadow-sm"
+              >
+                <Plus size={13} /> Add Challan
+              </button>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 md:gap-3">
              {trip.challans.map((c, i) => {
   const isReturnCard = c.isReturn === true;
@@ -964,6 +1242,13 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
                   >
                     <span className="text-[12px] shrink-0">🏢</span>
                     {c.floor ? `Floor: ${c.floor}তলা` : c.carrying ? `Carry: ${c.carrying}` : "Floor / Carrying"}
+                  </button>
+                  <div className="border-t border-slate-100" />
+                  <button
+                    onClick={() => { setOpenActionMenu(null); handleDeleteChallan(c.challanId, c.customerName); }}
+                    className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[11px] font-semibold text-red-600 hover:bg-red-50 transition text-left"
+                  >
+                    <Trash2 size={12} className="shrink-0" /> Remove Challan
                   </button>
                 </div>
               </>
@@ -1178,6 +1463,13 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
             challans: trip.challans.map(c => c.challanId === updatedChallan.challanId ? { ...c, floor: updatedChallan.floor, carrying: updatedChallan.carrying } : c),
           })}
           onClose={() => setFloorCarryingChallan(null)}
+        />
+      )}
+      {showAddChallan && (
+        <AddChallanModal
+          trip={trip} axiosSecure={axiosSecure} addedBy={loggedInUser}
+          onAdded={handleChallansAdded}
+          onClose={() => setShowAddChallan(false)}
         />
       )}
     </>

@@ -8,11 +8,13 @@
 
 export const WITH_MODEL_DATA = [
   { product: "Refrigerator", model: "JET", capacity: "Gross 50-126 Litre", "ISD": 500, "OSD-Metro": 800, "OSD-Thana": 900 },
+  { product: "Refrigerator", model: "TE0", capacity: "Gross 50-126 Litre", "ISD": 500, "OSD-Metro": 800, "OSD-Thana": 900 },
   { product: "Refrigerator", model: "1X1", capacity: "Gross 50-126 Litre", "ISD": 500, "OSD-Metro": 800, "OSD-Thana": 900 },
   { product: "Refrigerator", model: "TG2", capacity: "Gross 50-126 Litre", "ISD": 500, "OSD-Metro": 800, "OSD-Thana": 900 },
   { product: "Refrigerator", model: "TN3", capacity: "Gross 50-126 Litre", "ISD": 500, "OSD-Metro": 800, "OSD-Thana": 900 },
   { product: "Refrigerator", model: "1B5", capacity: "Gross 50-126 Litre", "ISD": 500, "OSD-Metro": 800, "OSD-Thana": 900 },
   { product: "Refrigerator", model: "1D5", capacity: "Gross 127-265 Litre", "ISD": 750, "OSD-Metro": 1250, "OSD-Thana": 1380 },
+  { product: "Refrigerator", model: "2A0", capacity: "Gross 127-265 Litre", "ISD": 750, "OSD-Metro": 1250, "OSD-Thana": 1380 },
   { product: "Refrigerator", model: "1N3", capacity: "Gross 127-265 Litre", "ISD": 750, "OSD-Metro": 1250, "OSD-Thana": 1380 },
   { product: "Refrigerator", model: "1G7", capacity: "Gross 127-265 Litre", "ISD": 750, "OSD-Metro": 1250, "OSD-Thana": 1380 },
   { product: "Refrigerator", model: "1H5", capacity: "Gross 127-265 Litre", "ISD": 750, "OSD-Metro": 1250, "OSD-Thana": 1380 },
@@ -77,6 +79,7 @@ export const WITH_MODEL_DATA = [
   { product: "Air Conditioner", model: "42", capacity: "Split AC: 3 Ton", "ISD": 1170, "OSD-Metro": 1560, "OSD-Thana": 2080 },
   { product: "Air Conditioner", model: "48", capacity: "Split AC: 4-5Ton", "ISD": 1300, "OSD-Metro": 1690, "OSD-Thana": 2340 },
   { product: "Air Conditioner", model: "60", capacity: "Split AC: 4-5Ton", "ISD": 1300, "OSD-Metro": 1690, "OSD-Thana": 2340 },
+  { product: "Air Conditioner", model: "09", capacity: "Split AC: up to 1.5 Ton", "ISD": 780, "OSD-Metro": 1040, "OSD-Thana": 1300 },
   { product: "Television", model: "24", capacity: "24-43 Inch", "ISD": 350, "OSD-Metro": 450, "OSD-Thana": 600 },
   { product: "Television", model: "32", capacity: "24-43 Inch", "ISD": 350, "OSD-Metro": 450, "OSD-Thana": 600 },
   { product: "Television", model: "40", capacity: "24-43 Inch", "ISD": 350, "OSD-Metro": 450, "OSD-Thana": 600 },

@@ -8,13 +8,16 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import Swal from "sweetalert2";
 import LoadingSpinner from "../Component/LoadingSpinner";
-import { computeLocation } from "../utils/localAddressMatcher";   // for on-the-fly fallback when older challans don't have location saved
-// Local rate matcher — still used on the read path to compute a fallback
-// rate for older challans that have no `rate` field saved on the product.
-// The inline product-name / capacity editors were removed, so the
-// typeahead helpers (suggestProducts, suggestCapacities, getCapacityOptions)
-// are no longer imported.
-import { findRate } from "../utils/rateMatcher";
+import AIAddressParser from "../Component/AIAddressParser";
+import LocalAddressDropdown from "../Component/LocalAddressDropdown";
+// localAddressMatcher: computeLocation for the read-path fallback + the
+// thana / district typeahead helpers used by the full-row Edit modal.
+import { computeLocation, suggestThanas, suggestDistricts } from "../utils/localAddressMatcher";
+// Local rate matcher.  Used on the read path to compute a fallback rate for
+// older challans with no saved rate, AND now in the Edit modal to recompute
+// capacity + rate live whenever Location / Model / Product / Capacity change.
+import { findRate, suggestProducts, suggestCapacities, getCapacityOptions } from "../utils/rateMatcher";
+import { X, Plus, Trash2, Save, Navigation, Building, MapPin, Edit3 } from "lucide-react";
 
 const ITEMS_PER_PAGE = 100;
 const MONTHS_FULL  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -336,6 +339,7 @@ const DeliveredPage = () => {
   const [productFilter,  setProductFilter]  = useState([]);
   const [modelFilter,    setModelFilter]    = useState([]);
   const [capacityFilter, setCapacityFilter] = useState([]);   // NEW: Capacity column filter
+  const [rateFilter,     setRateFilter]     = useState([]);   // NEW: Rate column filter
   const [addressFilter,  setAddressFilter]  = useState([]);
   const [receiverFilter, setReceiverFilter] = useState([]);
   const [dateFilter,     setDateFilter]     = useState([]);
@@ -386,6 +390,7 @@ const DeliveredPage = () => {
     setCustomerFilter([]); setCsdFilter([]); setZoneFilter([]); setDistrictFilter([]);
     setThanaFilter([]); setLocationFilter([]); setProductFilter([]); setModelFilter([]);
     setCapacityFilter([]);
+    setRateFilter([]);
     setAddressFilter([]); setReceiverFilter([]); setDateFilter([]);
     setTypeFilter(""); setNoteFilter([]); setTripDoFilter([]); setShowMobileFilters(false);
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
@@ -434,6 +439,10 @@ const DeliveredPage = () => {
           if (!check(productFilter,  product.productName))  return;
           if (!check(modelFilter,    product.model))        return;
           if (!check(capacityFilter, eff.capacity))         return;
+          if (rateFilter.length > 0) {
+            const rateLabel = (Number(eff.rate) || 0) === 0 ? "" : String(Number(eff.rate) || 0);
+            if (!check(rateFilter, rateLabel)) return;
+          }
           if (!check(tripDoFilter,   product.tripDo))       return;
           if (noteFilter.length > 0) {
             const noteVal = isReturn ? (challan.returnNote || "") : (challan.note || "");
@@ -461,7 +470,7 @@ const DeliveredPage = () => {
       });
     });
     return rows;
-  }, [deliveries, searchText, typeFilter, dateFilter, customerFilter, csdFilter, zoneFilter, addressFilter, receiverFilter, districtFilter, thanaFilter, locationFilter, productFilter, modelFilter, capacityFilter, tripDoFilter, noteFilter]);
+  }, [deliveries, searchText, typeFilter, dateFilter, customerFilter, csdFilter, zoneFilter, addressFilter, receiverFilter, districtFilter, thanaFilter, locationFilter, productFilter, modelFilter, capacityFilter, rateFilter, tripDoFilter, noteFilter]);
 
   const filteredRows  = useMemo(() => buildRows(), [buildRows]);
   const totalPages    = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
@@ -498,6 +507,11 @@ const DeliveredPage = () => {
         // re-running resolveProductRate. Includes on-the-fly resolved
         // values for older challans.
         val = row.effectiveCapacity;
+      } else if (field === "rate") {
+        // Effective rate as a plain string label (e.g. "1200"). Zero / unset
+        // rates are skipped so the dropdown only lists real rate values.
+        const r = Number(row.effectiveRate) || 0;
+        val = r === 0 ? "" : String(r);
       } else if (field === "productName" || field === "model" || field === "tripDo") {
         val = product[field]?.toString().trim();
       } else if (field === "location") {
@@ -516,6 +530,10 @@ const DeliveredPage = () => {
       // Newest first — parse dd/mm/yyyy back into a timestamp.
       const toTs = (d) => { const [dd, mm, yy] = d.split("/"); return new Date(`${yy}-${mm}-${dd}`).getTime(); };
       return values.sort((a, b) => toTs(b) - toTs(a));
+    }
+    if (field === "rate") {
+      // Numeric ascending so 90 sorts before 1200.
+      return values.sort((a, b) => (Number(a) || 0) - (Number(b) || 0));
     }
     return values.sort((a, b) => a.localeCompare(b));
   }, [filteredRows]);
@@ -547,6 +565,7 @@ const DeliveredPage = () => {
     { label: "Product",  values: productFilter,  clear: () => setProductFilter([]) },
     { label: "Model",    values: modelFilter,    clear: () => setModelFilter([]) },
     { label: "Capacity", values: capacityFilter, clear: () => setCapacityFilter([]), adminOnly: true },
+    { label: "Rate",     values: rateFilter,     clear: () => setRateFilter([]),     adminOnly: true },
     { label: "Trip Do",  values: tripDoFilter,   clear: () => setTripDoFilter([]),  adminOnly: true },
     ...(typeFilter ? [{ label: "Type", values: [typeFilter], clear: () => setTypeFilter("") }] : []),
     { label: "Note", values: noteFilter, clear: () => setNoteFilter([]) },
@@ -649,6 +668,13 @@ const DeliveredPage = () => {
   // challan), so we key the open editor by challanId only.
   const [editingCsd, setEditingCsd] = useState(null);     // { challanId, value }
   const [savingCsd,  setSavingCsd]  = useState(false);
+
+  // Full-row Edit modal target — { trip, challan }. Null when closed.
+  // Opening it lets the user edit every field of the delivered row
+  // (customer/receiver/zone/address + AI-detect thana/district) and the
+  // product list, with Rate auto-recomputed on Location/Model/Product/
+  // Capacity change.
+  const [editTarget, setEditTarget] = useState(null);
 
   /**
    * Save an inline CSD edit for a challan.  CSD is challan-level, so the
@@ -914,6 +940,7 @@ const DeliveredPage = () => {
     { key: "capacity", header: "Capacity", w: 95,  adminOnly: true },
     { key: "note",     header: "Note",     w: 88  },
     { key: "zone",     header: "Zone",     w: 65  },
+    { key: "edit",     header: "Edit",     w: 56,  adminOnly: true },
   ].filter(c => isAdmin || !c.adminOnly);
   const tableW = COLS.reduce((s, c) => s + c.w, 0);
   const tbtn = "flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg border transition-all shrink-0 font-semibold whitespace-nowrap";
@@ -1089,8 +1116,9 @@ const DeliveredPage = () => {
                           case "capacity": el = <MultiSelect options={getOptionsFor("capacity")} selected={capacityFilter} onChange={setCapacityFilter} />; break;
                           case "tripDo":   el = <MultiSelect options={getOptionsFor("tripDo")} selected={tripDoFilter} onChange={setTripDoFilter} />; break;
                           case "note":     el = <MultiSelect options={getNoteOptions()} selected={noteFilter} onChange={setNoteFilter} />; break;
+                          case "edit":     el = null; break;
                           case "qty":      el = <div className="text-center text-xs font-black text-slate-700">{totalQtyAll}</div>; break;
-                          case "rate":     el = null; break;   // no summary — Amount carries the total
+                          case "rate":     el = <MultiSelect options={getOptionsFor("rate")} selected={rateFilter} onChange={setRateFilter} />; break;
                           case "amount":   el = <div className="text-center text-[10px] font-black text-emerald-700 whitespace-nowrap">৳{totalAmountAll.toLocaleString()}</div>; break;
                           default:         el = null;
                         }
@@ -1217,6 +1245,17 @@ const DeliveredPage = () => {
                             return displayNote
                               ? <span className={`block truncate text-[10px] font-medium ${isReturn ? "text-orange-500" : "text-amber-600"}`}>{displayNote}</span>
                               : <span className="text-slate-300">—</span>;
+                          case "edit":
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => setEditTarget({ trip: row.trip, challan })}
+                                title="Edit this row (customer, address, thana/district, products & rate)"
+                                className="inline-flex items-center justify-center w-6 h-6 rounded-md border border-orange-200 text-orange-600 hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-colors"
+                              >
+                                <Edit3 size={13} />
+                              </button>
+                            );
                           default:
                             return null;
                         }
@@ -1274,6 +1313,16 @@ const DeliveredPage = () => {
         )}
       </div>
 
+      {/* Full-row Edit modal */}
+      {editTarget && (
+        <EditDeliveredModal
+          trip={editTarget.trip}
+          challan={editTarget.challan}
+          axiosSecure={axiosSecure}
+          onClose={() => setEditTarget(null)}
+          onSaved={() => fetchDeliveries(monthRef.current, yearRef.current, searchRef.current)}
+        />
+      )}
 
     </div>
   );
@@ -1411,6 +1460,567 @@ const CsdCell = ({ row, editingCsd, setEditingCsd, savingCsd, onSave }) => {
       />
       <div className="absolute top-full left-0 mt-0.5 text-[8px] text-slate-400">
         Enter to save · Esc to cancel
+      </div>
+    </div>
+  );
+};
+
+/* ════════════════════════════════════════════════════════════════════
+   EditDeliveredModal — full edit for a single challan row on the Delivered
+   page (challan-level fields + its product list).
+
+   Behaviour requested:
+     • Edit every field of the delivered row.
+     • Address / Thana / District use the same AI-detect + local typeahead
+       as AddChallan (type 1-2 letters → suggestions, AI Detect button).
+     • When Location (derived from Thana+District) / Model / Product /
+       Capacity change → the product Rate auto-recomputes from the rate
+       table, so saved rates stay correct.
+
+   Save strategy:
+     • PATCH /deliveries/:tripId/challan/:challanId   → challan fields + location
+     • PATCH /deliveries/:tripId/challan/:challanId/product/:productId
+                                                      → per product (incl. capacity + rate)
+═══════════════════════════════════════════════════════════════════ */
+const EditDeliveredModal = ({ trip, challan, axiosSecure, onClose, onSaved }) => {
+  // Deep-clone so edits don't mutate the table's data until we save.
+  const [form, setForm] = useState(() => ({
+    customerName:   challan.customerName   || "",
+    receiverNumber: challan.receiverNumber || "",
+    zone:           challan.zone           || "",
+    address:        challan.address        || "",
+    thana:          challan.thana          || "",
+    district:       challan.district       || "",
+    products: (challan.products || []).map(p => ({
+      _id:         p._id,
+      productName: p.productName || "",
+      model:       p.model       || "",
+      capacity:    p.capacity    || "",
+      quantity:    p.quantity ?? "",
+      rate:        Number(p.rate) || 0,
+      // When true, the user typed the rate by hand — auto-recompute on
+      // product/model/capacity/location change will NOT overwrite it until
+      // they clear the override (the "auto" reset button).
+      rateManual:  false,
+    })),
+  }));
+  const [saving, setSaving] = useState(false);
+
+  // Which typeahead dropdown is currently open. We use a single string key
+  // so only one popup shows at a time (same pattern as AddChallan).
+  //   "thana-local" | "district-local" | `product-${i}` | `capacity-${i}`
+  const [activeField, setActiveField] = useState(null);
+  // Raw query text driving thana / district suggestion lists.
+  const [thanaQuery,    setThanaQuery]    = useState(challan.thana    || "");
+  const [districtQuery, setDistrictQuery] = useState(challan.district || "");
+  // Per-product typeahead query text (product name + capacity).
+  const [prodQuery, setProdQuery] = useState({});   // { [idx]: string }
+  const [capQuery,  setCapQuery]  = useState({});   // { [idx]: string }
+
+  // Resolve the effective location for the CURRENT thana/district in the form.
+  // If thana/district are set we always recompute from them (so editing the
+  // thana actually changes the location); only when both are empty do we fall
+  // back to the row's original saved location.
+  const resolveLocation = useCallback((thana, district) => {
+    const t = (thana || "").trim();
+    const d = (district || "").trim();
+    if (t || d) {
+      return computeLocation(t, d) || null;
+    }
+    return challan.location || null;
+  }, [challan.location]);
+
+  // Live location derived from the currently-typed thana + district.
+  const liveLocation = useMemo(
+    () => resolveLocation(form.thana, form.district),
+    [form.thana, form.district, resolveLocation]
+  );
+
+  // ── thana / district suggestions (instant, local, no network) ──
+  const districtSuggestions = useMemo(
+    () => suggestDistricts(districtQuery, 8),
+    [districtQuery]
+  );
+  const thanaSuggestions = useMemo(
+    () => suggestThanas(thanaQuery, 10, districtQuery.trim() || null),
+    [thanaQuery, districtQuery]
+  );
+
+  /**
+   * Recompute a single product's capacity + rate from the rate table using
+   * the supplied location. Returns a patched product object. Quantity-only
+   * edits never call this.
+   */
+  const recomputeProduct = useCallback((prod, location, changedField, changedValue) => {
+    const next = { ...prod };
+    const r = findRate({
+      productName: next.productName,
+      model:       next.model,
+      location,
+      // Honour an explicit capacity edit; otherwise keep the existing one so
+      // multi-capacity without-model products stay on the right row.
+      capacity: changedField === "capacity" ? changedValue : (next.capacity || ""),
+    });
+    if (r.capacity) next.capacity = r.capacity;
+    else if (changedField === "capacity") next.capacity = changedValue;
+    // Only auto-fill the rate when the user hasn't manually overridden it.
+    if (!next.rateManual) {
+      next.rate = r.rate || 0;
+    }
+    return next;
+  }, []);
+
+  // When thana / district change → location may change → recompute ALL rates.
+  // Apply a thana and/or district change and recompute every product's rate.
+  // Pass `undefined` for a field you don't want to touch — we read the current
+  // value from `prev` inside the functional update so two back-to-back calls
+  // (e.g. AI parser firing setThana then setDistrict) don't clobber each other
+  // with a stale `form` closure.
+  const recomputeAllRates = useCallback((nextThana, nextDistrict) => {
+    setForm(prev => {
+      const thana    = nextThana    === undefined ? prev.thana    : nextThana;
+      const district = nextDistrict === undefined ? prev.district : nextDistrict;
+      const location = resolveLocation(thana, district);
+      return {
+        ...prev,
+        thana,
+        district,
+        products: prev.products.map(p => recomputeProduct(p, location, null, null)),
+      };
+    });
+  }, [resolveLocation, recomputeProduct]);
+
+  // Generic challan-level field setter.
+  const setField = (name, value) => setForm(prev => ({ ...prev, [name]: value }));
+
+  // Product field setter.
+  //  - rate           → manual override (sets rateManual = true)
+  //  - product/model/capacity → recompute capacity + (auto) rate
+  //  - quantity       → no rate recompute
+  const setProductField = (idx, field, value) => {
+    setForm(prev => {
+      const products = [...prev.products];
+      let p = { ...products[idx], [field]: value };
+      if (field === "rate") {
+        // Manual rate entry. Keep it as a number, flag as overridden.
+        p.rate = value === "" ? "" : (Number(value) || 0);
+        p.rateManual = true;
+      } else if (field === "productName" || field === "model" || field === "capacity") {
+        const location = resolveLocation(prev.thana, prev.district);
+        p = recomputeProduct(p, location, field, value);
+      }
+      products[idx] = p;
+      return { ...prev, products };
+    });
+  };
+
+  // Reset a product's rate back to the auto rate-table value (clears override).
+  const resetRate = (idx) => {
+    setForm(prev => {
+      const products = [...prev.products];
+      const location = resolveLocation(prev.thana, prev.district);
+      let p = { ...products[idx], rateManual: false };
+      p = recomputeProduct(p, location, null, null);
+      products[idx] = p;
+      return { ...prev, products };
+    });
+  };
+
+  const addProduct = () =>
+    setForm(prev => ({
+      ...prev,
+      products: [...prev.products, { _id: null, productName: "", model: "", capacity: "", quantity: "", rate: 0, rateManual: false }],
+    }));
+
+  const removeProduct = (idx) =>
+    setForm(prev => ({ ...prev, products: prev.products.filter((_, i) => i !== idx) }));
+
+  // ── Save: challan fields first, then each product. ──
+  const handleSave = async () => {
+    if (!form.customerName.trim() || !form.receiverNumber.trim()) {
+      Swal.fire({ icon: "warning", title: "Required", text: "Customer name and Receiver number are required." });
+      return;
+    }
+    const tripId    = trip?._id;
+    const challanId = challan.challanId || challan._id;
+    if (!tripId || !challanId) {
+      Swal.fire("Error", "Missing trip/challan reference.", "error");
+      return;
+    }
+    setSaving(true);
+    try {
+      // 1) Challan-level fields + recomputed location.
+      await axiosSecure.patch(`/deliveries/${tripId}/challan/${challanId}`, {
+        customerName:   form.customerName.trim(),
+        receiverNumber: form.receiverNumber.trim(),
+        zone:           form.zone.trim(),
+        address:        form.address.trim(),
+        thana:          form.thana.trim(),
+        district:       form.district.trim(),
+        location:       liveLocation || "",
+      });
+
+      // 2) Each EXISTING product (those with a stored _id). New rows added in
+      //    this modal use the dedicated add-product endpoint instead.
+      for (const p of form.products) {
+        const payload = {
+          productName: (p.productName || "").trim(),
+          model:       (p.model || "").trim(),
+          quantity:    Number(p.quantity) || 0,
+          capacity:    p.capacity || "",
+          rate:        Number(p.rate) || 0,
+        };
+        if (!payload.productName || !payload.model || payload.quantity < 1) continue;
+        if (p._id) {
+          await axiosSecure.patch(
+            `/deliveries/${tripId}/challan/${challanId}/product/${p._id}`,
+            payload
+          );
+        } else {
+          await axiosSecure.post(
+            `/deliveries/${tripId}/challan/${challanId}/product`,
+            payload
+          );
+        }
+      }
+
+      Swal.fire({
+        toast: true, position: "top-end", icon: "success",
+        title: "Row updated", showConfirmButton: false, timer: 1400,
+      });
+      await onSaved();
+      onClose();
+    } catch (err) {
+      console.error("Edit save failed", err);
+      const msg = err?.response?.data?.message || "Failed to save changes";
+      Swal.fire("Error", msg, "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inp =
+    "w-full pl-9 pr-3 py-2 text-sm bg-white border border-slate-200 rounded-lg " +
+    "outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400";
+  const inpPlain =
+    "w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg " +
+    "outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400";
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3"
+         onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl shadow-2xl">
+        {/* Header */}
+        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-white">
+          <div>
+            <h2 className="text-base font-black text-slate-800">Edit Delivered Row</h2>
+            <p className="text-[11px] text-slate-400 font-semibold">
+              {challan.customerName || "—"} · Location:{" "}
+              <span className="font-bold text-orange-600">{liveLocation || "—"}</span>
+            </p>
+          </div>
+          <button onClick={onClose}
+                  className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Customer + Receiver */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Customer Name</label>
+              <input value={form.customerName} onChange={e => setField("customerName", e.target.value)}
+                     className={inpPlain} placeholder="Customer name" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Receiver Number</label>
+              <input value={form.receiverNumber} onChange={e => setField("receiverNumber", e.target.value)}
+                     className={inpPlain} placeholder="Receiver number" />
+            </div>
+          </div>
+
+          {/* Zone */}
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Zone</label>
+            <input value={form.zone} onChange={e => setField("zone", e.target.value)}
+                   className={inpPlain} placeholder="Zone" />
+          </div>
+
+          {/* Address + AI Detect */}
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Delivery Address</label>
+            <div className="relative">
+              <MapPin size={14} className="absolute left-3 top-3 text-slate-400" />
+              <input value={form.address} onChange={e => setField("address", e.target.value)}
+                     className={inp} placeholder="Full delivery address" />
+            </div>
+            {/* AI Detect Thana & District (same component as AddChallan) */}
+            <AIAddressParser
+              axiosSecure={axiosSecure}
+              getAddress={() => form.address}
+              setAddress={(v) => setField("address", v)}
+              setThana={(v) => { setThanaQuery(v || ""); recomputeAllRates(v || "", undefined); }}
+              setDistrict={(v) => { setDistrictQuery(v || ""); recomputeAllRates(undefined, v || ""); }}
+            />
+          </div>
+
+          {/* Thana + District typeahead */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="relative">
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Thana</label>
+              <div className="relative">
+                <Navigation size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={form.thana}
+                  autoComplete="off"
+                  onChange={e => {
+                    const v = e.target.value;
+                    setThanaQuery(v);
+                    recomputeAllRates(v, undefined);
+                    if (v.trim().length >= 1) setActiveField("thana-local"); else setActiveField(null);
+                  }}
+                  onFocus={() => { if ((form.thana || "").trim().length >= 1) setActiveField("thana-local"); }}
+                  className={inp} placeholder="Type 1-2 letters for suggestions"
+                />
+              </div>
+              <LocalAddressDropdown
+                fieldKey="thana-local"
+                activeField={activeField}
+                setActiveField={setActiveField}
+                suggestions={thanaSuggestions}
+                mode="thana"
+                onPick={(thanaName, item) => {
+                  setThanaQuery(thanaName);
+                  // Auto-fill district only if it's currently empty. Read the
+                  // live value from prev inside the functional update so a
+                  // rapid pick can't act on a stale `form.district`.
+                  setForm(prev => {
+                    const currentDistrict = (prev.district || "").trim();
+                    const nextDistrict = currentDistrict || item.district || "";
+                    if (!currentDistrict && item.district) setDistrictQuery(item.district);
+                    const location = resolveLocation(thanaName, nextDistrict);
+                    return {
+                      ...prev,
+                      thana: thanaName,
+                      district: nextDistrict,
+                      products: prev.products.map(p => recomputeProduct(p, location, null, null)),
+                    };
+                  });
+                }}
+              />
+            </div>
+            <div className="relative">
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">District</label>
+              <div className="relative">
+                <Building size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={form.district}
+                  autoComplete="off"
+                  onChange={e => {
+                    const v = e.target.value;
+                    setDistrictQuery(v);
+                    recomputeAllRates(undefined, v);
+                    if (v.trim().length >= 1) setActiveField("district-local"); else setActiveField(null);
+                  }}
+                  onFocus={() => { if ((form.district || "").trim().length >= 1) setActiveField("district-local"); }}
+                  className={inp} placeholder="Type 1-2 letters for suggestions"
+                />
+              </div>
+              <LocalAddressDropdown
+                fieldKey="district-local"
+                activeField={activeField}
+                setActiveField={setActiveField}
+                suggestions={districtSuggestions}
+                mode="district"
+                onPick={(districtName) => {
+                  setDistrictQuery(districtName);
+                  recomputeAllRates(undefined, districtName);
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Location preview */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-100 rounded-lg">
+            <span className="text-[10px] font-black text-orange-500 uppercase tracking-wider">Location</span>
+            <span className="text-sm font-black text-orange-700">{liveLocation || "—"}</span>
+            <span className="text-[10px] text-orange-400 ml-auto">auto-detected from Thana + District · drives Rate</span>
+          </div>
+
+          {/* Products */}
+          <div className="border-t border-slate-100 pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-black text-slate-700">Products</h3>
+              <button type="button" onClick={addProduct}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors">
+                <Plus size={13} /> Add Item
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {form.products.map((p, i) => {
+                const prodSuggestions = (prodQuery[i] ?? "").trim().length >= 1
+                  ? suggestProducts(prodQuery[i], 8) : [];
+                const capOptions = (capQuery[i] !== undefined)
+                  ? suggestCapacities(p.productName, capQuery[i] ?? "", 8)
+                  : getCapacityOptions(p.productName);
+                return (
+                  <div key={i} className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <div className="grid grid-cols-12 gap-2 items-start">
+                      {/* Product Name */}
+                      <div className="col-span-12 sm:col-span-5 relative">
+                        <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Product</label>
+                        <input
+                          value={p.productName}
+                          autoComplete="off"
+                          onChange={e => {
+                            const v = e.target.value;
+                            setProductField(i, "productName", v);
+                            setProdQuery(q => ({ ...q, [i]: v }));
+                            if (v.trim().length >= 1) setActiveField(`product-${i}`); else setActiveField(null);
+                          }}
+                          onFocus={() => { if ((p.productName || "").trim().length >= 1) setActiveField(`product-${i}`); }}
+                          className={inpPlain} placeholder="Product name"
+                        />
+                        {activeField === `product-${i}` && prodSuggestions.length > 0 && (
+                          <ul className="absolute top-full left-0 w-full bg-white border border-slate-200 rounded-lg shadow-lg z-50 max-h-56 overflow-y-auto mt-1">
+                            {prodSuggestions.map((s, si) => (
+                              <li key={si}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  setProductField(i, "productName", s.name);
+                                  setProdQuery(q => ({ ...q, [i]: s.name }));
+                                  setActiveField(null);
+                                }}
+                                className="px-3 py-2 hover:bg-orange-50 cursor-pointer flex items-center justify-between gap-2 border-b border-slate-50 last:border-0">
+                                <span className="text-sm text-slate-800 font-medium truncate">{s.name}</span>
+                                {s.hasModel && <span className="text-[9px] text-blue-500 font-bold uppercase shrink-0">model</span>}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+
+                      {/* Model */}
+                      <div className="col-span-6 sm:col-span-3">
+                        <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Model</label>
+                        <input value={p.model} onChange={e => setProductField(i, "model", e.target.value)}
+                               className={inpPlain + " uppercase"} placeholder="Model" />
+                      </div>
+
+                      {/* Quantity */}
+                      <div className="col-span-6 sm:col-span-2">
+                        <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Qty</label>
+                        <input type="number" min="1" value={p.quantity}
+                               onChange={e => setProductField(i, "quantity", e.target.value)}
+                               className={inpPlain} placeholder="Qty" />
+                      </div>
+
+                      {/* Remove */}
+                      <div className="col-span-12 sm:col-span-2 flex sm:justify-end items-end">
+                        {form.products.length > 1 && (
+                          <button type="button" onClick={() => removeProduct(i)}
+                            className="flex items-center gap-1 px-2 py-2 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors w-full sm:w-auto justify-center">
+                            <Trash2 size={13} /> <span className="sm:hidden">Remove</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Capacity + Rate row */}
+                    <div className="grid grid-cols-12 gap-2 mt-2 items-end">
+                      {/* Capacity — always editable (manual typing + suggestions) */}
+                      <div className="col-span-6 sm:col-span-5 relative">
+                        <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Capacity</label>
+                        <input
+                          value={p.capacity}
+                          autoComplete="off"
+                          onChange={e => {
+                            const v = e.target.value;
+                            setProductField(i, "capacity", v);
+                            setCapQuery(q => ({ ...q, [i]: v }));
+                            setActiveField(`capacity-${i}`);
+                          }}
+                          onFocus={() => { setCapQuery(q => ({ ...q, [i]: q[i] ?? "" })); setActiveField(`capacity-${i}`); }}
+                          className={inpPlain} placeholder="e.g. 1.5 Ton"
+                        />
+                        {activeField === `capacity-${i}` && capOptions.length > 0 && (
+                          <ul className="absolute top-full left-0 w-full bg-white border border-slate-200 rounded-lg shadow-lg z-50 max-h-56 overflow-y-auto mt-1">
+                            {capOptions.map((c, ci) => (
+                              <li key={ci}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  setProductField(i, "capacity", c);
+                                  setCapQuery(q => ({ ...q, [i]: c }));
+                                  setActiveField(null);
+                                }}
+                                className="px-3 py-2 hover:bg-orange-50 cursor-pointer text-sm text-slate-800 font-medium border-b border-slate-50 last:border-0">
+                                {c}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+
+                      {/* Rate — editable. Auto-filled from the rate table, but
+                          the user can type their own value. A small "auto"
+                          button restores the table rate. */}
+                      <div className="col-span-6 sm:col-span-4">
+                        <label className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase mb-1">
+                          Rate
+                          {p.rateManual
+                            ? <span className="px-1 py-0.5 rounded bg-amber-100 text-amber-600 text-[8px] font-black tracking-wide">manual</span>
+                            : <span className="px-1 py-0.5 rounded bg-emerald-100 text-emerald-600 text-[8px] font-black tracking-wide">auto</span>}
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">৳</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={p.rate}
+                            onChange={e => setProductField(i, "rate", e.target.value)}
+                            className={
+                              "w-full pl-7 pr-14 py-2 text-sm font-black rounded-lg border outline-none focus:ring-2 focus:ring-orange-300 " +
+                              (p.rateManual
+                                ? "bg-amber-50 border-amber-200 text-amber-700"
+                                : (Number(p.rate) > 0
+                                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                    : "bg-white border-slate-200 text-slate-700"))
+                            }
+                            placeholder="0"
+                          />
+                          {p.rateManual && (
+                            <button
+                              type="button"
+                              onClick={() => resetRate(i)}
+                              title="Reset to auto rate from rate table"
+                              className="absolute right-1.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded text-[9px] font-black uppercase text-orange-600 bg-orange-100 hover:bg-orange-200 transition-colors"
+                            >
+                              auto
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="sticky bottom-0 flex items-center justify-end gap-2 px-5 py-3.5 border-t border-slate-100 bg-white">
+          <button onClick={onClose} disabled={saving}
+                  className="px-4 py-2 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+            Cancel
+          </button>
+          <button onClick={handleSave} disabled={saving}
+                  className="flex items-center gap-1.5 px-5 py-2 text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors disabled:opacity-60">
+            <Save size={15} /> {saving ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
       </div>
     </div>
   );
