@@ -77,7 +77,7 @@ export const DISTRICTS_WITH_THANAS = {
   ],
   "Narsingdi": [
     "Narsingdi Sadar", "Palash", "Shibpur", "Monohardi", "Belabo",
-    "Raipura"
+    "Raipura","Madhabdi"
   ],
   "Faridpur": [
     "Faridpur Sadar", "Boalmari", "Alfadanga", "Madhukhali", "Bhanga",
@@ -91,7 +91,7 @@ export const DISTRICTS_WITH_THANAS = {
   ],
   // ✅ FIX: Shariatpur — removed "Shariatpur Sadar" duplicate; Palong is canonical.
   "Shariatpur": [
-    "Palong", "Naria", "Zajira", "Gosairhat", "Bhedarganj", "Damudya"
+    "Shariatpur Sadar", "Naria", "Zajira", "Gosairhat", "Bhedarganj", "Damudya"
   ],
   "Rajbari": [
     "Rajbari Sadar", "Goalanda", "Pangsha", "Baliakandi", "Kalukhali"
@@ -100,7 +100,7 @@ export const DISTRICTS_WITH_THANAS = {
   // ───── 2. Chattogram Division ─────
   // ✅ FIX: Chattogram — removed "Chattogram Sadar" duplicate; Kotwali is canonical.
   "Chattogram": [
-    "Kotwali", "Panchlaish", "Chandgaon", "Double Mooring", "Pahartali",
+    "Chattogram Sadar", "Panchlaish", "Chandgaon", "Double Mooring", "Pahartali",
     "Bandar", "Bayezid Bostami", "Halishahar", "Karnaphuli", "Patenga",
     "Bakalia", "Akbar Shah", "Sadarghat", "EPZ", "Chawkbazar", "Khulshi",
     "Mirsharai", "Sitakunda", "Sandwip", "Fatikchhari", "Hathazari",
@@ -134,12 +134,12 @@ export const DISTRICTS_WITH_THANAS = {
   ],
   // ✅ FIX: Noakhali — removed "Noakhali Sadar" duplicate; Sudharam is canonical.
   "Noakhali": [
-    "Sudharam", "Companiganj", "Begumganj", "Hatiya", "Subarnachar",
+    "Noakhali Sadar", "Companiganj", "Begumganj", "Hatiya", "Subarnachar",
     "Kabirhat", "Senbagh", "Chatkhil", "Sonaimuri"
   ],
   // ✅ FIX: Rangamati — removed "Rangamati Sadar" duplicate; Kotwali is canonical.
   "Rangamati": [
-    "Kotwali", "Kaptai", "Kawkhali", "Baghaichhari", "Barkal", "Langadu",
+    "Rangamati Sadar", "Kaptai", "Kawkhali", "Baghaichhari", "Barkal", "Langadu",
     "Rajasthali", "Bilaichhari", "Juraichhari", "Naniarchar"
   ],
   "Khagrachhari": [
@@ -154,7 +154,7 @@ export const DISTRICTS_WITH_THANAS = {
   // ───── 3. Rajshahi Division ─────
   // ✅ FIX: Rajshahi — removed "Rajshahi Sadar" duplicate; Boalia is canonical.
   "Rajshahi": [
-    "Boalia", "Rajpara", "Motihar", "Chandrima", "Shah Makhdum",
+    "Rajshahi Sadar", "Rajpara", "Motihar", "Chandrima", "Shah Makhdum",
     "Kashiadanga", "Airport", "Damkura", "Karnahar", "Katakhali", "Paba",
     "Belpukur",
     "Godagari", "Tanore", "Mohonpur", "Bagmara", "Durgapur", "Puthia",
@@ -175,11 +175,11 @@ export const DISTRICTS_WITH_THANAS = {
   ],
   "Pabna": [
     "Pabna Sadar", "Sujanagar", "Ishwardi", "Bhangura", "Chatmohar",
-    "Faridpur", "Bera", "Atgharia", "Santhia"
+    "Faridpur", "Bera", "Atgharia", "Santhia","Aminpur"
   ],
   "Sirajganj": [
     "Sirajganj Sadar", "Belkuchi", "Chauhali", "Kamarkhanda", "Kazipur",
-    "Raiganj", "Shahjadpur", "Tarash", "Ullapara"
+    "Raiganj", "Shahjadpur", "Tarash", "Ullapara","Solonga"
   ],
   "Bogura": [
     "Bogura Sadar", "Kahaloo", "Shajahanpur", "Shibganj", "Sariakandi",
@@ -193,7 +193,7 @@ export const DISTRICTS_WITH_THANAS = {
   // ───── 4. Rangpur Division ─────
   // ✅ FIX: Rangpur — removed "Rangpur Sadar" duplicate; Kotwali is canonical.
   "Rangpur": [
-    "Kotwali", "Haragach", "Mahiganj", "Tajhat", "Parshuram", "Hajirhat",
+    "Rangpur Sadar", "Haragach", "Mahiganj", "Tajhat", "Parshuram", "Hajirhat",
     "Badarganj", "Mithapukur", "Pirganj", "Kaunia", "Taraganj",
     "Pirgachha", "Gangachara"
   ],
@@ -362,8 +362,7 @@ export const SADAR_METRO_THANAS = {
   ]),
   // ── Gazipur District: GMP (Metropolitan) thanas ──
   "Gazipur": new Set([
-    "Gazipur Sadar", "Joydebpur", "Basan", "Konabari", "Gacha",
-    "Tongi East", "Tongi West", "Kashimpur", "Pubail"
+    "Gazipur Sadar", "Joydebpur", "Basan", "Konabari", "Gacha","Kashimpur", "Pubail"
   ]),
   "Narayanganj":   new Set(["Narayanganj Sadar"]),
   "Tangail":       new Set(["Tangail Sadar"]),
@@ -374,13 +373,13 @@ export const SADAR_METRO_THANAS = {
   "Faridpur":      new Set(["Faridpur Sadar"]),
   "Gopalganj":     new Set(["Gopalganj Sadar"]),
   "Madaripur":     new Set(["Madaripur Sadar"]),
-  "Shariatpur":    new Set(["Palong"]),                  // ✅ FIX
+  "Shariatpur":    new Set(["Shariatpur Sadar"]),                  // ✅ FIX
   "Rajbari":       new Set(["Rajbari Sadar"]),
 
   // ── Chattogram District: CMP (Metropolitan) thanas ──
   "Chattogram": new Set([
-    "Kotwali", "Panchlaish", "Chandgaon", "Double Mooring", "Pahartali",
-    "Bandar", "Bayezid Bostami", "Halishahar", "Karnaphuli", "Patenga",
+    "Chattogram Sadar", "Panchlaish", "Chandgaon", "Double Mooring", "Pahartali",
+    "Bandar", "Bayezid Bostami", "Halishahar", "Patenga",
     "Bakalia", "Akbar Shah", "Sadarghat", "EPZ", "Chawkbazar", "Khulshi"
   ]),                                                     // ✅ FIX (removed Chattogram Sadar)
   "Cox's Bazar":   new Set(["Cox's Bazar Sadar"]),
@@ -389,16 +388,15 @@ export const SADAR_METRO_THANAS = {
   "Chandpur":      new Set(["Chandpur Sadar"]),
   "Feni":          new Set(["Feni Sadar"]),
   "Lakshmipur":    new Set(["Lakshmipur Sadar"]),
-  "Noakhali":      new Set(["Sudharam"]),                 // ✅ FIX
-  "Rangamati":     new Set(["Kotwali"]),                  // ✅ FIX
+  "Noakhali":      new Set(["Noakhali Sadar"]),                 // ✅ FIX
+  "Rangamati":     new Set(["Rangamati Sadar"]),                  // ✅ FIX
   "Khagrachhari":  new Set(["Khagrachhari Sadar"]),
   "Bandarban":     new Set(["Bandarban Sadar"]),
 
   // ── Rajshahi District: RMP (Metropolitan) thanas ──
   "Rajshahi": new Set([
-    "Boalia", "Rajpara", "Motihar", "Chandrima",
-    "Shah Makhdum", "Kashiadanga", "Airport", "Damkura",
-    "Karnahar", "Katakhali", "Paba", "Belpukur"
+    "Rajshahi Sadar", "Rajpara", "Motihar", "Chandrima",
+    "Shah Makhdum", "Kashiadanga", "Airport",
   ]),                                                     // ✅ FIX (removed Rajshahi Sadar)
   "Chapainawabganj": new Set(["Chapainawabganj Sadar"]),
   "Naogaon":      new Set(["Naogaon Sadar"]),
@@ -410,7 +408,7 @@ export const SADAR_METRO_THANAS = {
 
   // ── Rangpur District: RpMP (Metropolitan) thanas ──
   "Rangpur": new Set([
-    "Kotwali", "Haragach", "Mahiganj", "Tajhat", "Parshuram", "Hajirhat"
+    "Rangpur Sadar"
   ]),                                                     // ✅ FIX (removed Rangpur Sadar)
   "Dinajpur":     new Set(["Dinajpur Sadar"]),
   "Kurigram":     new Set(["Kurigram Sadar"]),
@@ -422,8 +420,7 @@ export const SADAR_METRO_THANAS = {
 
   // ── Khulna District: KMP (Metropolitan) thanas ──
   "Khulna": new Set([
-    "Khulna Sadar", "Sonadanga", "Khalishpur", "Daulatpur",
-    "Khanjahan Ali", "Labanchara", "Harintana", "Aranghata"
+    "Khulna Sadar"
   ]),
   "Bagerhat":     new Set(["Bagerhat Sadar"]),
   "Satkhira":     new Set(["Satkhira Sadar"]),
@@ -437,7 +434,7 @@ export const SADAR_METRO_THANAS = {
 
   // ── Barishal District: BMP (Metropolitan) thanas ──
   "Barishal": new Set([
-    "Barishal Sadar", "Kawnia", "Bandar", "Airport"
+    "Barishal Sadar"
   ]),
   "Bhola":        new Set(["Bhola Sadar"]),
   "Pirojpur":     new Set(["Pirojpur Sadar"]),
@@ -447,8 +444,7 @@ export const SADAR_METRO_THANAS = {
 
   // ── Sylhet District: SMP (Metropolitan) thanas ──
   "Sylhet": new Set([
-    "Sylhet Sadar", "Jalalabad", "Airport",
-    "South Surma", "Shahporan", "Moglabazar"
+    "Sylhet Sadar"
   ]),
   "Moulvibazar":  new Set(["Moulvibazar Sadar"]),
   "Habiganj":     new Set(["Habiganj Sadar"]),
@@ -606,8 +602,8 @@ export const THANA_ALIASES = {
   // ──────────────────────────────────────────────────────────
   "narsingdi sadar":     { thana: "Narsingdi Sadar",       district: "Narsingdi" },
   "sadar narsingdi":     { thana: "Narsingdi Sadar",       district: "Narsingdi" },
-  "madhobdi":            { thana: "Narsingdi Sadar",       district: "Narsingdi" },
-  "madhabdi":            { thana: "Narsingdi Sadar",       district: "Narsingdi" },
+  "madhobdi":            { thana: "Madhabdi",       district: "Narsingdi" },
+  "madobdi":            { thana: "Madhabdi",       district: "Narsingdi" },
   "ghorashal":           { thana: "Palash",                district: "Narsingdi" },
   "panchdona":           { thana: "Narsingdi Sadar",       district: "Narsingdi" },
 
@@ -629,9 +625,9 @@ export const THANA_ALIASES = {
   "madaripur sadar":     { thana: "Madaripur Sadar",       district: "Madaripur" },
   "sadar madaripur":     { thana: "Madaripur Sadar",       district: "Madaripur" },
   // ✅ FIX: Shariatpur Sadar → canonical "Palong"
-  "shariatpur sadar":    { thana: "Palong",                district: "Shariatpur" },
-  "sadar shariatpur":    { thana: "Palong",                district: "Shariatpur" },
-  "palong":              { thana: "Palong",                district: "Shariatpur" },
+  "shariatpur sadar":    { thana: "Shariatpur Sadar",                district: "Shariatpur" },
+  "sadar shariatpur":    { thana: "Shariatpur Sadar",                district: "Shariatpur" },
+  "palong":              { thana: "Shariatpur Sadar",                district: "Shariatpur" },
   "rajbari sadar":       { thana: "Rajbari Sadar",         district: "Rajbari" },
   "sadar rajbari":       { thana: "Rajbari Sadar",         district: "Rajbari" },
 
@@ -639,12 +635,18 @@ export const THANA_ALIASES = {
   //  CHATTOGRAM DIVISION
   // ──────────────────────────────────────────────────────────
   // ✅ FIX: Chattogram Sadar → canonical "Kotwali" (under Chattogram)
-  "chattogram sadar":    { thana: "Kotwali",               district: "Chattogram" },
-  "sadar chattogram ":    { thana: "Kotwali",               district: "Chattogram" },
-  "chittagong sadar":    { thana: "Kotwali",               district: "Chattogram" },
-  "sadar chittagong":    { thana: "Kotwali",               district: "Chattogram" },
-  "sadar ctg":    { thana: "Kotwali",               district: "Chattogram" },
-  "ctg sadar":    { thana: "Kotwali",               district: "Chattogram" },
+  "chattogram sadar":    { thana: "Chattogram Sadar",               district: "Chattogram" },
+  "sadar chattogram ":    { thana: "Chattogram Sadar",               district: "Chattogram" },
+  "chittagong sadar":    { thana: "Chattogram Sadar",               district: "Chattogram" },
+  "sadar chittagong":    { thana: "Chattogram Sadar",               district: "Chattogram" },
+  "sadar ctg":    { thana: "Chattogram Sadar",               district: "Chattogram" },
+  "ctg sadar":    { thana: "Chattogram Sadar",               district: "Chattogram" },
+  "kotwali chattogram":    { thana: "Chattogram Sadar",               district: "Chattogram" },
+  "chattogram kotwali":    { thana: "Chattogram Sadar",               district: "Chattogram" },
+  "chittagong kotwali":    { thana: "Chattogram Sadar",               district: "Chattogram" },
+  "kotwali chittagong":    { thana: "Chattogram Sadar",               district: "Chattogram" },
+  "kotwali ctg":    { thana: "Chattogram Sadar",               district: "Chattogram" },
+  "ctg kotwali":    { thana: "Chattogram Sadar",               district: "Chattogram" },
   "agrabad":             { thana: "Double Mooring",        district: "Chattogram" },
   "gec":                 { thana: "Panchlaish",            district: "Chattogram" },
   "nasirabad":           { thana: "Panchlaish",            district: "Chattogram" },
@@ -657,6 +659,9 @@ export const THANA_ALIASES = {
   "comilla sadar":       { thana: "Cumilla Sadar",         district: "Cumilla" },
   "sadar comilla":       { thana: "Cumilla Sadar",         district: "Cumilla" },
   "comilla kotwali":     { thana: "Cumilla Sadar",         district: "Cumilla" },
+  "kotwali comilla":     { thana: "Cumilla Sadar",         district: "Cumilla" },
+  "kotwali cumilla":     { thana: "Cumilla Sadar",         district: "Cumilla" },
+  "cumilla kotwali":     { thana: "Cumilla Sadar",         district: "Cumilla" },
   "kandirpar":           { thana: "Cumilla Sadar",         district: "Cumilla" },
   "brahmanbaria sadar":  { thana: "Brahmanbaria Sadar",    district: "Brahmanbaria" },
   "sadar brahmanbaria":  { thana: "Brahmanbaria Sadar",    district: "Brahmanbaria" },
@@ -667,15 +672,17 @@ export const THANA_ALIASES = {
   "lakshmipur sadar":    { thana: "Lakshmipur Sadar",      district: "Lakshmipur" },
   "sadar lakshmipur":    { thana: "Lakshmipur Sadar",      district: "Lakshmipur" },
   // ✅ FIX: Noakhali Sadar → canonical "Sudharam"
-  "noakhali sadar":      { thana: "Sudharam",              district: "Noakhali" },
-  "sadar noakhali":      { thana: "Sudharam",              district: "Noakhali" },
-  "sudharam":            { thana: "Sudharam",              district: "Noakhali" },
-  "maijdee":             { thana: "Sudharam",              district: "Noakhali" },
-  "maijdi":              { thana: "Sudharam",              district: "Noakhali" },
+  "noakhali sadar":      { thana: "Noakhali Sadar",              district: "Noakhali" },
+  "sadar noakhali":      { thana: "Noakhali Sadar",              district: "Noakhali" },
+  "sudharam":            { thana: "Noakhali Sadar",              district: "Noakhali" },
+  "maijdee":             { thana: "Noakhali Sadar",              district: "Noakhali" },
+  "maijdi":              { thana: "Noakhali Sadar",              district: "Noakhali" },
   "chowmuhani":          { thana: "Begumganj",             district: "Noakhali" },
   // ✅ FIX: Rangamati Sadar → canonical "Kotwali" (under Rangamati)
-  "rangamati sadar":     { thana: "Kotwali",               district: "Rangamati" },
-  "sadar rangamati":     { thana: "Kotwali",               district: "Rangamati" },
+  "rangamati sadar":     { thana: "Rangamati Sadar",               district: "Rangamati" },
+  "sadar rangamati":     { thana: "Rangamati Sadar",               district: "Rangamati" },
+  "kotwali rangamati":     { thana: "Rangamati Sadar",               district: "Rangamati" },
+  "rangamati kotwali":     { thana: "Rangamati Sadar",               district: "Rangamati" },
   "khagrachari":         { thana: "Khagrachhari Sadar",    district: "Khagrachhari" },
   "khagrachari sadar":   { thana: "Khagrachhari Sadar",    district: "Khagrachhari" },
   "sadar khagrachari":   { thana: "Khagrachhari Sadar",    district: "Khagrachhari" },
@@ -686,11 +693,11 @@ export const THANA_ALIASES = {
   //  RAJSHAHI DIVISION
   // ──────────────────────────────────────────────────────────
   // ✅ FIX: Rajshahi Sadar → canonical "Boalia"
-  "rajshahi sadar":      { thana: "Boalia",                district: "Rajshahi" },
-  "sadar rajshahi":      { thana: "Boalia",                district: "Rajshahi" },
-  "rajsahi":             { thana: "Boalia",                district: "Rajshahi" },  // typo
-  "shaheb bazar":        { thana: "Boalia",                district: "Rajshahi" },
-  "boalia":              { thana: "Boalia",                district: "Rajshahi" },
+  "rajshahi sadar":      { thana: "Rajshahi Sadar",                district: "Rajshahi" },
+  "sadar rajshahi":      { thana: "Rajshahi Sadar",                district: "Rajshahi" },
+  "rajsahi":             { thana: "Rajshahi Sadar",                district: "Rajshahi" },  // typo
+  "shaheb bazar":        { thana: "Rajshahi Sadar",                district: "Rajshahi" },
+  "boalia":              { thana: "Rajshahi Sadar",                district: "Rajshahi" },
   "binodpur":            { thana: "Motihar",               district: "Rajshahi" },
   "chapainawabganj sadar": { thana: "Chapainawabganj Sadar", district: "Chapainawabganj" },
   "sadar chapainawabganj": { thana: "Chapainawabganj Sadar", district: "Chapainawabganj" },
@@ -715,9 +722,11 @@ export const THANA_ALIASES = {
   //  RANGPUR DIVISION
   // ──────────────────────────────────────────────────────────
   // ✅ FIX: Rangpur Sadar → canonical "Kotwali" (under Rangpur)
-  "rangpur sadar":       { thana: "Kotwali",               district: "Rangpur" },
-  "sadar rangpur":       { thana: "Kotwali",               district: "Rangpur" },
-  "modern more":         { thana: "Kotwali",               district: "Rangpur" },
+  "rangpur sadar":       { thana: "Rangpur Sadar",               district: "Rangpur" },
+  "sadar rangpur":       { thana: "Rangpur Sadar",               district: "Rangpur" },
+  "modern more":         { thana: "Rangpur Sadar",               district: "Rangpur" },
+  "kotwali rangpur":         { thana: "Rangpur Sadar",               district: "Rangpur" },
+  "rangpur kotwali":         { thana: "Rangpur Sadar",               district: "Rangpur" },
   "dinajpur sadar":      { thana: "Dinajpur Sadar",        district: "Dinajpur" },
   "sadar dinajpur":      { thana: "Dinajpur Sadar",        district: "Dinajpur" },
   "kurigram sadar":      { thana: "Kurigram Sadar",        district: "Kurigram" },

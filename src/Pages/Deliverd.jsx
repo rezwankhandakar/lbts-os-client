@@ -493,23 +493,88 @@ const DeliveredPage = () => {
   // that column's dropdown collapses to just that value (since only rows
   // with that value remain visible). To add more values, remove the
   // chip via the X first.
+
+  const allRows = useMemo(() => {
+    const rows = [];
+    deliveries.forEach(trip => {
+      (trip.challans || []).forEach(challan => {
+        const isReturn = challan.isReturn === true;
+        const rowType  = isReturn ? "return" : "delivery";
+        if (typeFilter && typeFilter !== rowType) return;
+        (challan.products || []).forEach(product => {
+          const s = searchText?.toLowerCase() || "";
+          const matchesSearch = !searchText || [challan.customerName, challan.csd, challan.zone, challan.address, challan.receiverNumber, challan.district, challan.thana, resolveLocation(challan), product.productName, product.model, product.tripDo].some(v => v?.toString().toLowerCase().includes(s));
+          if (!matchesSearch) return;
+          const eff = resolveProductRate(challan, product);
+          rows.push({
+            trip, challan, product,
+            effectiveCapacity: eff.capacity,
+            effectiveRate:     Number(eff.rate) || 0,
+            effectiveAmount:   (Number(product.quantity) || 0) * (Number(eff.rate) || 0),
+            rateSource:        eff.source,
+            tripDo:            product.tripDo || "",
+            csd:               challan.csd || "",
+            date: new Date(trip.createdAt), isReturn, rowType,
+            deliveryStatus: challan.deliveryStatus,
+            challanReturnStatus: challan.challanReturnStatus,
+            note: challan.note || "", returnNote: challan.returnNote || "",
+          });
+        });
+      });
+    });
+    return rows;
+  }, [deliveries, searchText, typeFilter]);
+
+  // একটি row কে নির্দিষ্ট field বাদ দিয়ে সব active filter দিয়ে check করে
+  const rowMatchesAllExcept = useCallback((row, excludeField) => {
+    const { challan, product } = row;
+    const check = (filter, val) => {
+      if (filter.length === 0) return true;
+      const v = (val ?? "").toString().trim();
+      if (v === "") return filter.includes(BLANK_TOKEN);
+      return filter.some(f => f !== BLANK_TOKEN && v.toLowerCase() === f.toLowerCase());
+    };
+    const challanDateLabel = row.date.toLocaleDateString("en-GB");
+    const eff = { capacity: row.effectiveCapacity, rate: row.effectiveRate };
+
+    if (excludeField !== "date"     && !check(dateFilter,     challanDateLabel))              return false;
+    if (excludeField !== "customerName" && !check(customerFilter, challan.customerName))      return false;
+    if (excludeField !== "csd"      && !check(csdFilter,      challan.csd))                  return false;
+    if (excludeField !== "zone"     && !check(zoneFilter,     challan.zone))                  return false;
+    if (excludeField !== "address"  && !check(addressFilter,  challan.address))               return false;
+    if (excludeField !== "receiverNumber" && !check(receiverFilter, challan.receiverNumber))  return false;
+    if (excludeField !== "district" && !check(districtFilter, challan.district))              return false;
+    if (excludeField !== "thana"    && !check(thanaFilter,    challan.thana))                 return false;
+    if (excludeField !== "location" && !check(locationFilter, resolveLocation(challan)))      return false;
+    if (excludeField !== "productName" && !check(productFilter, product.productName))         return false;
+    if (excludeField !== "model"    && !check(modelFilter,    product.model))                 return false;
+    if (excludeField !== "capacity" && !check(capacityFilter, eff.capacity))                  return false;
+    if (excludeField !== "rate" && rateFilter.length > 0) {
+      const rateLabel = (Number(eff.rate) || 0) === 0 ? "" : String(Number(eff.rate) || 0);
+      if (!check(rateFilter, rateLabel)) return false;
+    }
+    if (excludeField !== "tripDo"   && !check(tripDoFilter,   product.tripDo))               return false;
+    if (excludeField !== "note" && noteFilter.length > 0) {
+      const noteVal = row.isReturn ? (challan.returnNote || "") : (challan.note || "");
+      if (!check(noteFilter, noteVal)) return false;
+    }
+    return true;
+  }, [dateFilter, customerFilter, csdFilter, zoneFilter, addressFilter, receiverFilter,
+      districtFilter, thanaFilter, locationFilter, productFilter, modelFilter,
+      capacityFilter, rateFilter, tripDoFilter, noteFilter]);
+
   const getOptionsFor = useCallback((field) => {
     const map = new Map();
-    for (const row of filteredRows) {
+    for (const row of allRows) {
+      // এই column-এর filter বাদ দিয়ে বাকি সব filter apply করে দেখি row টি pass করে কিনা
+      if (!rowMatchesAllExcept(row, field)) continue;
       const { challan, product } = row;
       let val;
       if (field === "date") {
-        // Use the row's Date object → dd/mm/yyyy label (matches the cell
-        // display and the buildRows filter).
         val = row.date ? row.date.toLocaleDateString("en-GB") : "";
       } else if (field === "capacity") {
-        // Use the row's already-resolved effective capacity instead of
-        // re-running resolveProductRate. Includes on-the-fly resolved
-        // values for older challans.
         val = row.effectiveCapacity;
       } else if (field === "rate") {
-        // Effective rate as a plain string label (e.g. "1200"). Zero / unset
-        // rates are skipped so the dropdown only lists real rate values.
         const r = Number(row.effectiveRate) || 0;
         val = r === 0 ? "" : String(r);
       } else if (field === "productName" || field === "model" || field === "tripDo") {
@@ -517,8 +582,6 @@ const DeliveredPage = () => {
       } else if (field === "location") {
         val = resolveLocation(challan);
       } else if (field === "note") {
-        // Note filter is shared between delivery (note) and return rows
-        // (returnNote); pick whichever applies to this row.
         val = (row.isReturn ? row.returnNote : row.note)?.toString().trim();
       } else {
         val = challan[field]?.trim();
@@ -527,22 +590,19 @@ const DeliveredPage = () => {
     }
     const values = Array.from(map.values());
     if (field === "date") {
-      // Newest first — parse dd/mm/yyyy back into a timestamp.
       const toTs = (d) => { const [dd, mm, yy] = d.split("/"); return new Date(`${yy}-${mm}-${dd}`).getTime(); };
       return values.sort((a, b) => toTs(b) - toTs(a));
     }
     if (field === "rate") {
-      // Numeric ascending so 90 sorts before 1200.
       return values.sort((a, b) => (Number(a) || 0) - (Number(b) || 0));
     }
     return values.sort((a, b) => a.localeCompare(b));
-  }, [filteredRows]);
+  }, [allRows, rowMatchesAllExcept]);
 
   const getNoteOptions = useCallback(() => {
-    // Same strict-mode rule: only show notes that appear in the
-    // currently filtered rows.
     const map = new Map();
-    for (const row of filteredRows) {
+    for (const row of allRows) {
+      if (!rowMatchesAllExcept(row, "note")) continue;
       const note = row.isReturn ? (row.returnNote || "") : (row.note || "");
       const trimmed = note.trim();
       if (trimmed && !map.has(trimmed.toLowerCase())) {
@@ -550,8 +610,11 @@ const DeliveredPage = () => {
       }
     }
     return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
-  }, [filteredRows]);
+  }, [allRows, rowMatchesAllExcept]);
 
+
+
+  
   const activeFilterGroups = [
     { label: "Date",     values: dateFilter,     clear: () => setDateFilter([]) },
     { label: "Customer", values: customerFilter, clear: () => setCustomerFilter([]) },
