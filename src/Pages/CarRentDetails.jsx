@@ -10,9 +10,16 @@ import { ArrowLeft } from "lucide-react";
    ───────────────────────────────────────────────────────────────
    Two fast paths (same pattern as TripDetails):
      1. Navigated from BillPage / VendorTripSummary → rental passed
-        via location.state.rental → renders instantly, no fetch.
-     2. Direct URL hit (bookmark / share / reload) → walks back up to
-        6 months of /car-rents data to find the matching rental.
+        via location.state.rental → renders instantly, no spinner.
+     2. Direct URL hit (bookmark / share / reload) → no instant
+        preview, show the spinner while fetching.
+
+   IMPORTANT: even when an instant preview is available (path 1), we
+   STILL fetch fresh data in the background and replace it once it
+   arrives — see the matching comment in TripDetails.jsx for why
+   (the router-state snapshot can be stale, e.g. survives a reload
+   via browser history-state restore and silently hides anything
+   updated since, like a trip note).
 
    `readOnly` can also be passed via state for vendor-summary use
    (where edits are disabled).
@@ -27,26 +34,22 @@ const CarRentDetails = () => {
   // when navigating to vendor-visible rental view).  Defaults to false.
   const readOnly = !!location.state?.readOnly;
 
-  // Optional onSaved callback hint from caller — when present, signals
-  // that the caller wants to react to a save (e.g. flip a filter).  We
-  // don't actually invoke it across navigation; we keep the logic
-  // simple — the user will see updated data when they navigate back
-  // (window-focus refetch on the source page handles it).
-  const initialRental = location.state?.rental && location.state.rental._id === id
+  // Instant preview only — NOT trusted as the final source of truth.
+  // The fetch below always runs and overwrites it once confirmed.
+  const previewRental = location.state?.rental && location.state.rental._id === id
     ? location.state.rental
     : null;
 
-  const [rental, setRental] = useState(initialRental);
-  const [loading, setLoading] = useState(!initialRental);
+  const [rental, setRental] = useState(previewRental);
+  const [loading, setLoading] = useState(!previewRental);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (initialRental) return;
     if (!id) { setError("Missing rental id"); setLoading(false); return; }
 
     let cancelled = false;
     (async () => {
-      setLoading(true);
+      if (!previewRental) setLoading(true);
       try {
         const now = new Date();
         for (let i = 0; i < 6; i++) {
@@ -64,20 +67,21 @@ const CarRentDetails = () => {
           }
         }
         if (!cancelled) {
-          setError("Rental not found in the last 6 months");
+          if (!previewRental) setError("Rental not found in the last 6 months");
           setLoading(false);
         }
       } catch (err) {
         console.error("fetch rental failed", err);
         if (!cancelled) {
-          setError(err?.response?.data?.message || "Failed to load rental");
+          if (!previewRental) setError(err?.response?.data?.message || "Failed to load rental");
           setLoading(false);
         }
       }
     })();
 
     return () => { cancelled = true; };
-  }, [id, initialRental, axiosSecure]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, axiosSecure]);
 
   // Local syncs from edits inside the inner component
   const handleRentalUpdate = useCallback((updated) => {

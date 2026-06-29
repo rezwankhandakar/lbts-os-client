@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import useAuth from "../hooks/useAuth";
+import useRole from "../hooks/useRole";
 import Swal from "sweetalert2";
 import {
   X, Truck, User, Package, PhoneForwarded, Save, Wallet, Pencil, ChevronDown, RotateCcw,
-  ArrowLeft,
+  ArrowLeft, StickyNote,
 } from "lucide-react";
 import RentSummaryModal from "./RentSummaryModal";
 
@@ -61,6 +62,69 @@ function takaInWords(amount) {
   return toBanglaWords(n) + " টাকা";
 }
 
+/* ─── Trip Note Modal ───
+   Same /deliveries/:tripId/note endpoint as the Trip Details page — a
+   car-rent "rental" IS a trip document (the /car-rents list reads the
+   same `deliveries` collection), so the note lives on the same field.
+
+   Vendor visibility: unlike Trip Details, this modal's route
+   (/car-rent/:id) is reachable by vendors (read-only mode), so we
+   can't rely on a route guard alone. The Note button/banner is hidden
+   here whenever the logged-in user's role is "vendor", and the server
+   also strips tripNote out of GET /car-rents for vendor requests — so
+   even a direct API call from a vendor account never receives it. */
+const TripNoteModal = ({ rental, onSave, onClose, axiosSecure, updatedBy }) => {
+  const [note, setNote] = useState(rental.tripNote || "");
+  const [saving, setSaving] = useState(false);
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await axiosSecure.patch(`/deliveries/${rental._id}/note`, { note, updatedBy });
+      Swal.fire({ icon: "success", title: "Trip Note Saved!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
+      onSave({ tripNote: note, tripNoteUpdatedAt: new Date().toISOString(), tripNoteUpdatedBy: updatedBy });
+      onClose();
+    } catch (err) {
+      console.error("Save trip note failed:", err?.response?.status, err?.response?.data, err?.message);
+      const msg = err?.response?.data?.message
+        || (err?.response?.status ? `Server error (${err.response.status})` : err?.message)
+        || "Failed to save note";
+      Swal.fire({ icon: "error", title: "Failed to save note", text: msg });
+    }
+    setSaving(false);
+  };
+  return (
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[100] p-0 sm:p-4">
+      <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="px-4 py-3 bg-indigo-600 flex items-center justify-between text-white shrink-0">
+          <div>
+            <p className="font-bold text-sm flex items-center gap-2"><StickyNote size={13} /> Trip Note</p>
+            <p className="text-indigo-100 text-[10px] font-mono">{rental.tripNumber}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg transition"><X size={16} /></button>
+        </div>
+        <div className="p-4">
+          <p className="text-[10px] text-slate-400 mb-2">Visible to admin / manager / operator only — vendors cannot see this note.</p>
+          <textarea rows={5} value={note} onChange={e => setNote(e.target.value)}
+            placeholder="Write any note about this whole trip..."
+            className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-indigo-400 resize-none" autoFocus />
+          {rental.tripNoteUpdatedAt && (
+            <p className="text-[10px] text-slate-400 mt-1">
+              Last updated: {new Date(rental.tripNoteUpdatedAt).toLocaleString()}{rental.tripNoteUpdatedBy ? ` by ${rental.tripNoteUpdatedBy}` : ""}
+            </p>
+          )}
+        </div>
+        <div className="px-4 py-3 border-t flex items-center justify-end gap-2 bg-slate-50 shrink-0">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-500 hover:bg-slate-100 rounded-lg transition">Cancel</button>
+          <button onClick={handleSave} disabled={saving}
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg transition flex items-center gap-2 disabled:opacity-60">
+            <Save size={13} /> {saving ? "Saving…" : "Save Note"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ════════════════════════════════════════════════════════════════
    CAR RENT DETAILS  (modal or full-page surface)
    ─────────────────────────────────────────────────────────────────
@@ -79,6 +143,12 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
   const axiosSecure = useAxiosSecure();
   const { user } = useAuth();
   const loggedInUser = user?.displayName || "Unknown";
+  // Defensive role check — this page is reachable by vendors (in
+  // readOnly mode via VendorTripSummary), unlike Trip Details which is
+  // fully NON_VENDOR-gated. So the Note button/banner must check the
+  // actual role, not just the readOnly prop.
+  const { role } = useRole();
+  const isVendor = role === "vendor";
 
   const [rental,      setRental]      = useState(null);
   const [rent,        setRent]        = useState("");
@@ -86,6 +156,7 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
   const [saving,      setSaving]      = useState(false);
   const [statsOpen,   setStatsOpen]   = useState(false);
   const [showSummary, setShowSummary] = useState(false);
+  const [showTripNote, setShowTripNote] = useState(false);
 
   useEffect(() => {
     if (selectedRental) {
@@ -196,6 +267,17 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
         />
       )}
 
+      {showTripNote && !isVendor && (
+        <TripNoteModal
+          rental={rental} axiosSecure={axiosSecure} updatedBy={loggedInUser}
+          onSave={(noteData) => {
+            setRental(prev => ({ ...prev, ...noteData }));
+            if (onRentalUpdate) onRentalUpdate(noteData);
+          }}
+          onClose={() => setShowTripNote(false)}
+        />
+      )}
+
       <div {...outerProps}>
         <div {...innerProps}>
 
@@ -240,6 +322,17 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                 </span>
               </div>
               <div className="flex items-center gap-0.5 shrink-0">
+                {!isVendor && (
+                  <button
+                    onClick={e => { e.stopPropagation(); setShowTripNote(true); }}
+                    title="Trip note (not visible to vendors)"
+                    className={`p-1.5 rounded-lg transition ${
+                      rental.tripNote ? "text-indigo-300 hover:bg-white/10" : "text-slate-400 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <StickyNote size={14} />
+                  </button>
+                )}
                 <ChevronDown size={12} className={`text-slate-500 transition-transform duration-200 ${statsOpen ? "rotate-180" : ""}`} />
                 {/* X close — only in modal mode; page mode uses Back on left */}
                 {!isPage && (
@@ -374,6 +467,22 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
             )}
           </div>
 
+          {/* ── Trip Note banner — only shown when a note exists.
+              Hidden for vendors (role-checked, not just readOnly, since
+              this page is reachable by vendors directly). ── */}
+          {!isVendor && rental.tripNote && rental.tripNote.trim() && (
+            <button
+              type="button"
+              onClick={() => setShowTripNote(true)}
+              className="shrink-0 mx-2 sm:mx-3 mt-2 mb-1 flex items-start gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-xl text-left hover:bg-indigo-100 transition"
+            >
+              <StickyNote size={13} className="text-indigo-500 shrink-0 mt-0.5" />
+              <span className="text-[11px] text-indigo-800 font-medium leading-snug whitespace-pre-wrap break-words">
+                {rental.tripNote}
+              </span>
+            </button>
+          )}
+
           {/* ══ CHALLAN GRID ══ */}
           <div className="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4">
             {challans.length === 0 ? (
@@ -400,6 +509,9 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                         {isReturnCard ? (
                           /* Return badge + date */
                           <div className="flex items-center gap-1.5">
+                            <span className="flex items-center justify-center w-5 h-5 bg-slate-700 text-white text-[9px] font-black rounded-full shrink-0">
+                              {i + 1}
+                            </span>
                             <span className="flex items-center gap-1 px-2 py-0.5 bg-orange-600 text-white text-[9px] font-black rounded uppercase">
                               <RotateCcw size={8} /> Return Challan
                             </span>
@@ -412,6 +524,9 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                         ) : (
                           /* D + C status badges */
                           <div className="flex items-center gap-1 flex-wrap">
+                            <span className="flex items-center justify-center w-5 h-5 bg-slate-700 text-white text-[9px] font-black rounded-full shrink-0">
+                              {i + 1}
+                            </span>
                             <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold border uppercase whitespace-nowrap ${getStatusBadge(c.deliveryStatus)}`}>
                               D: {c.deliveryStatus || "Pending"}
                             </span>

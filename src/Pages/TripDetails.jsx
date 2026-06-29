@@ -14,12 +14,19 @@ import { ArrowLeft } from "lucide-react";
 
    Two fast paths:
      1. Navigated from TripInventory  → trip object is passed in
-        `location.state.trip`, so render immediately, no fetch.
-     2. Direct URL hit (bookmark / share / reload) → fetch the
-        current month's deliveries and pick the matching trip out.
-        We use the existing /deliveries endpoint instead of adding a
-        new GET-by-id route on the server — the data shape matches
-        exactly what the modal expects.
+        `location.state.trip`, so render immediately, no spinner.
+     2. Direct URL hit (bookmark / share / reload) → no instant
+        preview available, show the spinner while fetching.
+
+   IMPORTANT: even when an instant preview is available (path 1), we
+   STILL fetch fresh data in the background and replace it once it
+   arrives. `location.state.trip` is a snapshot frozen at the moment
+   the user clicked into the list — it can be stale (e.g. survives a
+   page reload via the browser's history-state restore, or just
+   doesn't include something changed after that snapshot, like a trip
+   note added in this very session). Without the background refetch,
+   a reload can show old data indefinitely with no errors and nothing
+   in the Network tab, which is exactly the bug this fixes.
 
    `onTripUpdate` flows back into local state so edits made inside
    stay reflected without a refetch.
@@ -30,28 +37,30 @@ const TripDetails = () => {
   const location = useLocation();
   const axiosSecure = useAxiosSecure();
 
-  // Trip passed in via router state (from TripInventoryPage) skips the
-  // fetch entirely — opens instantly.  Falls back to fetch on direct URL.
-  const initialTrip = location.state?.trip && location.state.trip._id === id
+  // Instant preview only — NOT trusted as the final source of truth.
+  // Used so navigating in from TripInventory shows content immediately
+  // instead of a spinner, while the fetch below still runs to confirm/
+  // refresh it.
+  const previewTrip = location.state?.trip && location.state.trip._id === id
     ? location.state.trip
     : null;
 
-  const [trip, setTrip] = useState(initialTrip);
-  const [loading, setLoading] = useState(!initialTrip);
+  const [trip, setTrip] = useState(previewTrip);
+  const [loading, setLoading] = useState(!previewTrip);
   const [error, setError] = useState(null);
 
-  // ── Fetch fallback for direct URL access ──
-  // The list endpoint is month-scoped; try the current month first, and
-  // if not found, walk back month-by-month for up to 6 months.  Trips
-  // older than 6 months are uncommon to deep-link to; if needed the
-  // user can navigate via the inventory page instead.
+  // ── Always fetch fresh data, regardless of whether a preview was
+  //    available. The preview (if any) is shown immediately via the
+  //    initial state above; this effect runs on every mount/id change
+  //    and overwrites it once the real response arrives. ──
   useEffect(() => {
-    if (initialTrip) return;
     if (!id) { setError("Missing trip id"); setLoading(false); return; }
 
     let cancelled = false;
     (async () => {
-      setLoading(true);
+      // Only show the spinner if we have nothing to show yet — if we
+      // already have a preview, refresh quietly in the background.
+      if (!previewTrip) setLoading(true);
       try {
         const now = new Date();
         for (let i = 0; i < 6; i++) {
@@ -69,20 +78,24 @@ const TripDetails = () => {
           }
         }
         if (!cancelled) {
-          setError("Trip not found in the last 6 months");
+          // Couldn't confirm with fresh data. If we at least have a
+          // preview, keep showing it rather than bouncing to an error
+          // screen — better a possibly-stale view than none at all.
+          if (!previewTrip) setError("Trip not found in the last 6 months");
           setLoading(false);
         }
       } catch (err) {
         console.error("fetch trip failed", err);
         if (!cancelled) {
-          setError(err?.response?.data?.message || "Failed to load trip");
+          if (!previewTrip) setError(err?.response?.data?.message || "Failed to load trip");
           setLoading(false);
         }
       }
     })();
 
     return () => { cancelled = true; };
-  }, [id, initialTrip, axiosSecure]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, axiosSecure]);
 
   // ── Local state syncs from edits inside the inner component ──
   const handleTripUpdate = useCallback((updated) => {

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import usePageParam from "../hooks/usePageParam";
@@ -204,7 +203,7 @@ const TypeSelect = ({ value, onChange }) => (
    `isAdmin` is passed from the parent so we can hide admin-only fields
    (capacity, rate, amount, tripDo) without making this component aware
    of the role hook. */
-const MobileCard = ({ row, isAdmin, onSplit }) => {
+const MobileCard = ({ row, isAdmin, onSplit, onDelete }) => {
   const { challan, product, date, isReturn, note, returnNote } = row;
   const displayNote = isReturn ? returnNote : note;
   return (
@@ -216,7 +215,16 @@ const MobileCard = ({ row, isAdmin, onSplit }) => {
             ? <span className="px-2 py-0.5 bg-orange-100 text-orange-700 border border-orange-200 rounded-full text-[10px] font-bold">↩ Return</span>
             : <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-[10px] font-bold">↗ Delivery</span>
           }
-
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(row.trip, challan, product)}
+              title="Delete this row from the Delivered page only"
+              className="inline-flex items-center justify-center w-6 h-6 rounded-md border border-rose-200 text-rose-600 active:bg-rose-500 active:text-white transition-colors"
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
         </div>
       </div>
       <div className="mb-1.5">
@@ -404,6 +412,7 @@ const DeliveredPage = () => {
         const rowType  = isReturn ? "return" : "delivery";
         if (typeFilter && typeFilter !== rowType) return;
         (challan.products || []).forEach(product => {
+          if (product.hiddenFromDelivered) return;
           const s = searchText?.toLowerCase() || "";
           const matchesSearch = !searchText || [challan.customerName, challan.csd, challan.zone, challan.address, challan.receiverNumber, challan.district, challan.thana, resolveLocation(challan), product.productName, product.model, product.tripDo].some(v => v?.toString().toLowerCase().includes(s));
           if (!matchesSearch) return;
@@ -502,6 +511,7 @@ const DeliveredPage = () => {
         const rowType  = isReturn ? "return" : "delivery";
         if (typeFilter && typeFilter !== rowType) return;
         (challan.products || []).forEach(product => {
+          if (product.hiddenFromDelivered) return;
           const s = searchText?.toLowerCase() || "";
           const matchesSearch = !searchText || [challan.customerName, challan.csd, challan.zone, challan.address, challan.receiverNumber, challan.district, challan.thana, resolveLocation(challan), product.productName, product.model, product.tripDo].some(v => v?.toString().toLowerCase().includes(s));
           if (!matchesSearch) return;
@@ -699,6 +709,7 @@ const DeliveredPage = () => {
           (trip.challans || []).forEach(challan => {
             const isReturn = challan.isReturn === true;
             (challan.products || []).forEach(product => {
+              if (product.hiddenFromDelivered) return;
               exportData.push(toRow({ trip, challan, product, date: new Date(trip.createdAt), isReturn,
                 deliveryStatus: challan.deliveryStatus, challanReturnStatus: challan.challanReturnStatus,
                 note: challan.note || "", returnNote: challan.returnNote || "" }));
@@ -978,6 +989,58 @@ const DeliveredPage = () => {
     }
   }, [axiosSecure, fetchDeliveries]);
 
+  /**
+   * Delete a single row from the Delivered page only.
+   *
+   * A "row" here = one product line inside one challan. The SAME
+   * underlying trip document is also shown on the Trip Inventory page,
+   * so we can't physically remove the product from it — that would
+   * make the row disappear there too. Instead this calls
+   * /deliveries/:tripId/row/:challanId/:productId/hide, which sets a
+   * `hiddenFromDelivered` flag on just that product. The Delivered
+   * page's row-builder skips flagged products, so the row vanishes
+   * from THIS page only — Trip Inventory keeps showing it exactly as
+   * before, and the original challan record is never touched either.
+   */
+  const deleteDeliveredRow = useCallback(async (trip, challan, product) => {
+    const tripId    = trip?._id;
+    const challanId = challan.challanId || challan._id;
+    const productId = product?._id;
+    if (!tripId || !challanId || !productId) {
+      Swal.fire("Error", "Missing row reference.", "error");
+      return;
+    }
+
+    const { isConfirmed } = await Swal.fire({
+      title: "Delete this row?",
+      html:
+        `<div style="font-size:13px;color:#475569;text-align:left">` +
+        `<b>${challan.customerName || ""}</b> — ${product.productName || ""} ${product.model ? `(${product.model})` : ""}<br/>` +
+        `This only removes the row from the <b>Delivered</b> page. ` +
+        `It will not change the challan or Trip Inventory anywhere else.` +
+        `</div>`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#e11d48",
+      confirmButtonText: "Delete row",
+      cancelButtonText: "Cancel",
+    });
+    if (!isConfirmed) return;
+
+    try {
+      await axiosSecure.patch(`/deliveries/${tripId}/row/${challanId}/${productId}/hide`);
+      await fetchDeliveries(monthRef.current, yearRef.current, searchRef.current);
+      Swal.fire({
+        toast: true, position: "top-end", icon: "success",
+        title: "Row deleted", showConfirmButton: false, timer: 1500,
+      });
+    } catch (err) {
+      console.error("delete delivered row failed", err);
+      const msg = err?.response?.data?.message || "Failed to delete row";
+      Swal.fire("Error", msg, "error");
+    }
+  }, [axiosSecure, fetchDeliveries]);
+
   // Table columns — action column added.
   // Capacity + Rate columns appended so the user can see the matcher's
   // result and edit it inline when needed.
@@ -1004,6 +1067,7 @@ const DeliveredPage = () => {
     { key: "note",     header: "Note",     w: 88  },
     { key: "zone",     header: "Zone",     w: 65  },
     { key: "edit",     header: "Edit",     w: 56,  adminOnly: true },
+    { key: "delete",   header: "Delete",   w: 56  },
   ].filter(c => isAdmin || !c.adminOnly);
   const tableW = COLS.reduce((s, c) => s + c.w, 0);
   const tbtn = "flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg border transition-all shrink-0 font-semibold whitespace-nowrap";
@@ -1131,7 +1195,7 @@ const DeliveredPage = () => {
               </div>
             )}
             {paginatedRows.map((row, idx) => (
-              <MobileCard key={idx} row={row} isAdmin={isAdmin} onSplit={splitProductRow} />
+              <MobileCard key={idx} row={row} isAdmin={isAdmin} onSplit={splitProductRow} onDelete={deleteDeliveredRow} />
             ))}
             {totalPages > 1 && (
               <div className="flex items-center justify-between py-3 px-1 mt-1">
@@ -1317,6 +1381,17 @@ const DeliveredPage = () => {
                                 className="inline-flex items-center justify-center w-6 h-6 rounded-md border border-orange-200 text-orange-600 hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-colors"
                               >
                                 <Edit3 size={13} />
+                              </button>
+                            );
+                          case "delete":
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => deleteDeliveredRow(row.trip, challan, product)}
+                                title="Delete this row from the Delivered page only"
+                                className="inline-flex items-center justify-center w-6 h-6 rounded-md border border-rose-200 text-rose-600 hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-colors"
+                              >
+                                <Trash2 size={13} />
                               </button>
                             );
                           default:

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import Swal from "sweetalert2";
@@ -8,6 +7,7 @@ import {
   Building2, ArrowLeft, Search, Loader2
 } from "lucide-react";
 import useAuth from "../hooks/useAuth";
+import useRole from "../hooks/useRole";
 // Re-resolve capacity + rate from (product, model, location) so a challan
 // added to an existing trip carries the same rate the Delivered page expects.
 import { findRate } from "../utils/rateMatcher";
@@ -590,6 +590,69 @@ const NoteModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy })
   );
 };
 
+/* ─── Trip Note Modal ───
+   One note PER TRIP (not per challan) — for jotting down something
+   about the whole trip, e.g. "driver delayed", "double-checked with
+   customer". Saved via PATCH /deliveries/:tripId/note.
+
+   Vendor visibility: this modal is only ever reachable through routes
+   already gated to NON_VENDOR roles (Trip Details page / Trip
+   Inventory), so a vendor account can never open it from the UI. The
+   server also strips the note out of GET /deliveries for vendor
+   requests, so even a direct API call can't read it — this is purely
+   the editor UI for non-vendor staff. */
+const TripNoteModal = ({ trip, onSave, onClose, axiosSecure, updatedBy }) => {
+  const [note, setNote] = useState(trip.tripNote || "");
+  const [saving, setSaving] = useState(false);
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await axiosSecure.patch(`/deliveries/${trip._id}/note`, { note, updatedBy });
+      Swal.fire({ icon: "success", title: "Trip Note Saved!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
+      onSave({ tripNote: note, tripNoteUpdatedAt: new Date().toISOString(), tripNoteUpdatedBy: updatedBy });
+      onClose();
+    } catch (err) {
+      console.error("Save trip note failed:", err?.response?.status, err?.response?.data, err?.message);
+      const msg = err?.response?.data?.message
+        || (err?.response?.status ? `Server error (${err.response.status})` : err?.message)
+        || "Failed to save note";
+      Swal.fire({ icon: "error", title: "Failed to save note", text: msg });
+    }
+    setSaving(false);
+  };
+  return (
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[100] p-0 sm:p-4">
+      <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="px-4 py-3 bg-indigo-600 flex items-center justify-between text-white shrink-0">
+          <div>
+            <p className="font-bold text-sm flex items-center gap-2"><StickyNote size={13} /> Trip Note</p>
+            <p className="text-indigo-100 text-[10px] font-mono">{trip.tripNumber}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg transition"><X size={16} /></button>
+        </div>
+        <div className="p-4">
+          <p className="text-[10px] text-slate-400 mb-2">Visible to admin / manager / operator only — vendors cannot see this note.</p>
+          <textarea rows={5} value={note} onChange={e => setNote(e.target.value)}
+            placeholder="Write any note about this whole trip..."
+            className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-indigo-400 resize-none" autoFocus />
+          {trip.tripNoteUpdatedAt && (
+            <p className="text-[10px] text-slate-400 mt-1">
+              Last updated: {new Date(trip.tripNoteUpdatedAt).toLocaleString()}{trip.tripNoteUpdatedBy ? ` by ${trip.tripNoteUpdatedBy}` : ""}
+            </p>
+          )}
+        </div>
+        <div className="px-4 py-3 border-t flex items-center justify-end gap-2 bg-slate-50 shrink-0">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-500 hover:bg-slate-100 rounded-lg transition">Cancel</button>
+          <button onClick={handleSave} disabled={saving}
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg transition flex items-center gap-2 disabled:opacity-60">
+            <Save size={13} /> {saving ? "Saving…" : "Save Note"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ─── Add Challan Modal ───
    Pick existing PENDING challans (same search as Create Delivery) and add
    them to THIS trip. On confirm they get embedded in the trip, marked
@@ -857,6 +920,11 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
   const axiosSecure = useAxiosSecure();
   const { user } = useAuth();
   const loggedInUser = user?.displayName || user?.email || "Unknown";
+  // Defensive client-side check, on top of the route guard (NON_VENDOR)
+  // and the server stripping tripNote for vendor requests — vendors
+  // should never even see the Note button.
+  const { role } = useRole();
+  const isVendor = role === "vendor";
 
   const [trip,                 setTrip]                 = useState(selectedTrip);
   const [loadingId,            setLoadingId]            = useState(null);
@@ -864,6 +932,7 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
   const [editingTripInfo,      setEditingTripInfo]      = useState(false);
   const [returningChallan,     setReturningChallan]     = useState(null);
   const [notingChallan,        setNotingChallan]        = useState(null);
+  const [showTripNote,         setShowTripNote]         = useState(false);
   const [floorCarryingChallan, setFloorCarryingChallan] = useState(null);
   const [rtnNoteChallan,       setRtnNoteChallan]       = useState(null);
   const [advance,              setAdvance]              = useState("");
@@ -1027,6 +1096,19 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
                 )}
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
+                {!isVendor && (
+                  <button
+                    onClick={() => setShowTripNote(true)}
+                    title="Trip note (not visible to vendors)"
+                    className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-[11px] font-semibold rounded-lg border transition ${
+                      trip.tripNote
+                        ? "text-indigo-700 bg-indigo-50 border-indigo-200 hover:bg-indigo-100"
+                        : "text-slate-600 border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <StickyNote size={10} /> <span className="hidden sm:inline">Note</span>
+                  </button>
+                )}
                 <button
                   onClick={() => setEditingTripInfo(true)}
                   className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition"
@@ -1131,6 +1213,23 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
                 </div>
               )}
             </div>
+
+            {/* ── Trip Note banner — only shown when a note exists.
+                Clicking it reopens the editor. Hidden for vendors (this
+                whole component is already NON_VENDOR-gated, but we keep
+                the same defensive check used on the button above). ── */}
+            {!isVendor && trip.tripNote && trip.tripNote.trim() && (
+              <button
+                type="button"
+                onClick={() => setShowTripNote(true)}
+                className="mx-2 sm:mx-3 mb-2.5 flex items-start gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-xl text-left hover:bg-indigo-100 transition w-[calc(100%-1rem)] sm:w-[calc(100%-1.5rem)]"
+              >
+                <StickyNote size={13} className="text-indigo-500 shrink-0 mt-0.5" />
+                <span className="text-[11px] text-indigo-800 font-medium leading-snug whitespace-pre-wrap break-words">
+                  {trip.tripNote}
+                </span>
+              </button>
+            )}
           </div>
 
           {/* ════ CHALLAN GRID ════ */}
@@ -1166,9 +1265,12 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
       <div className={`flex items-center justify-between gap-2 px-2.5 py-1.5 border-b
         ${isReturnCard ? "bg-orange-100/60 border-orange-200" : "bg-slate-50 border-slate-100"}`}>
 
-        {/* Return badge OR status badges */}
+        {/* Serial number + Return badge OR status badges */}
         {isReturnCard ? (
           <div className="flex items-center gap-1.5">
+            <span className="flex items-center justify-center w-5 h-5 bg-slate-700 text-white text-[9px] font-black rounded-full shrink-0">
+              {i + 1}
+            </span>
             <span className="flex items-center gap-1 px-2 py-0.5 bg-orange-600 text-white text-[9px] font-black rounded uppercase">
               <RotateCcw size={8} /> Return
             </span>
@@ -1180,6 +1282,9 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
           </div>
         ) : (
           <div className="flex items-center gap-1 flex-wrap">
+            <span className="flex items-center justify-center w-5 h-5 bg-slate-700 text-white text-[9px] font-black rounded-full shrink-0">
+              {i + 1}
+            </span>
             <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold border uppercase whitespace-nowrap ${getStatusBadge(c.deliveryStatus)}`}>
               D: {c.deliveryStatus || "Pending"}
             </span>
@@ -1403,6 +1508,13 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
           trip={trip} axiosSecure={axiosSecure} updatedBy={loggedInUser}
           onSave={(info, serverData) => syncTrip({ ...trip, ...info, lastUpdatedBy: serverData?.lastUpdatedBy || loggedInUser })}
           onClose={() => setEditingTripInfo(false)}
+        />
+      )}
+      {showTripNote && !isVendor && (
+        <TripNoteModal
+          trip={trip} axiosSecure={axiosSecure} updatedBy={loggedInUser}
+          onSave={(noteData) => syncTrip({ ...trip, ...noteData })}
+          onClose={() => setShowTripNote(false)}
         />
       )}
       {editingChallan && (
