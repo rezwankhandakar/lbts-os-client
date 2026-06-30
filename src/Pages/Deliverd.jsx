@@ -1067,7 +1067,7 @@ const DeliveredPage = () => {
     { key: "note",     header: "Note",     w: 88  },
     { key: "zone",     header: "Zone",     w: 65  },
     { key: "edit",     header: "Edit",     w: 56,  adminOnly: true },
-    { key: "delete",   header: "Delete",   w: 56  },
+    { key: "delete",   header: "Delete",   w: 56,  adminOnly: true },
   ].filter(c => isAdmin || !c.adminOnly);
   const tableW = COLS.reduce((s, c) => s + c.w, 0);
   const tbtn = "flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg border transition-all shrink-0 font-semibold whitespace-nowrap";
@@ -1195,7 +1195,7 @@ const DeliveredPage = () => {
               </div>
             )}
             {paginatedRows.map((row, idx) => (
-              <MobileCard key={idx} row={row} isAdmin={isAdmin} onSplit={splitProductRow} onDelete={deleteDeliveredRow} />
+              <MobileCard key={idx} row={row} isAdmin={isAdmin} onSplit={splitProductRow} onDelete={isAdmin ? deleteDeliveredRow : null} />
             ))}
             {totalPages > 1 && (
               <div className="flex items-center justify-between py-3 px-1 mt-1">
