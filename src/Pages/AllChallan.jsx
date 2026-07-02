@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import useRole from "../hooks/useRole";   // gate admin-only Location column / export field
@@ -159,6 +158,64 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
 };
 
 /* ══════════════════════════════════════════════════════════════
+   Remarks — admin-only inline-editable cell.
+   Mirrors the CSD inline-edit pattern on the Delivered page: click to
+   open a text input, Enter to save, Escape to cancel. Remarks live on
+   the challan document (`c.remarks`) and, once this challan is
+   dispatched, get snapshotted onto the embedded challan so the
+   Delivered page can show them too.
+══════════════════════════════════════════════════════════════ */
+const RemarksCell = ({ challan, editingRemarks, setEditingRemarks, savingRemarks, onSave }) => {
+  const editing = editingRemarks && editingRemarks.challanId === challan._id;
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) inputRef.current.focus();
+  }, [editing]);
+
+  if (!editing) {
+    const display = challan.remarks || "";
+    return (
+      <button
+        type="button"
+        onClick={() => setEditingRemarks({ challanId: challan._id, value: display })}
+        title={display ? "Click to edit Remarks" : "Click to set Remarks"}
+        className="block w-full text-left truncate hover:bg-purple-50 hover:text-purple-700 px-1 -mx-1 rounded transition-colors text-[11px]"
+      >
+        {display ? (
+          <span className="block truncate font-semibold text-slate-700">{display}</span>
+        ) : (
+          <span className="text-purple-400 italic">click to set</span>
+        )}
+      </button>
+    );
+  }
+
+  const value = editingRemarks.value ?? "";
+
+  return (
+    <div className="relative">
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => setEditingRemarks((cur) => ({ ...cur, value: e.target.value }))}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setEditingRemarks(null);
+          if (e.key === "Enter") onSave(challan, (value || "").trim());
+        }}
+        disabled={savingRemarks}
+        autoComplete="off"
+        placeholder="Remarks"
+        className="w-full px-1.5 py-0.5 border border-purple-400 rounded text-[11px] outline-none focus:ring-2 focus:ring-purple-300"
+      />
+      <div className="absolute top-full left-0 mt-0.5 text-[8px] text-slate-400">
+        Enter to save · Esc to cancel
+      </div>
+    </div>
+  );
+};
+
+/* ══════════════════════════════════════════════════════════════
    Status badge
 ══════════════════════════════════════════════════════════════ */
 const StatusBadge = ({ status, tripNumber }) => {
@@ -182,39 +239,82 @@ const StatusBadge = ({ status, tripNumber }) => {
 /* ══════════════════════════════════════════════════════════════
    Mobile card
 ══════════════════════════════════════════════════════════════ */
-const MobileCard = ({ c, p, axiosSecure, refetchChallans, isAdmin }) => (
-  <div className={`border rounded-xl p-3 mb-2 shadow-sm ${c.status === "delivered" ? "bg-emerald-50/60 border-emerald-200" : "bg-white border-slate-200"}`}>
-    <div className="flex items-center justify-between mb-1.5">
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-[10px] text-slate-400">{c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-GB") : "—"}</span>
-        <StatusBadge status={c.status} tripNumber={c.tripNumber} />
+const MobileCard = ({ c, p, axiosSecure, refetchChallans, isAdmin }) => {
+  // Admin-only Remarks edit — a lightweight SweetAlert prompt instead of a
+  // full inline text field, since the mobile card doesn't otherwise carry
+  // any editable state. Saves straight to the challan document; the
+  // Delivered page will pick this up once the challan is dispatched.
+  const handleEditRemarks = async () => {
+    const { value, isDismissed } = await Swal.fire({
+      title: "Set Remarks",
+      input: "text",
+      inputValue: c.remarks || "",
+      inputPlaceholder: "Remarks — leave blank to clear",
+      showCancelButton: true,
+      confirmButtonColor: "#7c3aed",
+      confirmButtonText: "Save",
+      inputValidator: () => null,   // empty allowed (clears)
+    });
+    if (isDismissed) return;
+    try {
+      await axiosSecure.patch(`/challans/bulk-remarks`, { remarks: (value || "").trim(), challanIds: [c._id] });
+      if (typeof refetchChallans === "function") refetchChallans();
+      Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Remarks saved", showConfirmButton: false, timer: 1300 });
+    } catch (err) {
+      console.error("remarks save failed", err);
+      Swal.fire("Error", "Failed to save remarks", "error");
+    }
+  };
+
+  return (
+    <div className={`border rounded-xl p-3 mb-2 shadow-sm ${c.status === "delivered" ? "bg-emerald-50/60 border-emerald-200" : "bg-white border-slate-200"}`}>
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] text-slate-400">{c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-GB") : "—"}</span>
+          <StatusBadge status={c.status} tripNumber={c.tripNumber} />
+        </div>
+        <ChallanActionDropdown challan={c} product={p} axiosSecure={axiosSecure} refetchChallans={refetchChallans} />
       </div>
-      <ChallanActionDropdown challan={c} product={p} axiosSecure={axiosSecure} refetchChallans={refetchChallans} />
-    </div>
-    <p className="text-xs font-bold text-slate-800 mb-1">{c.customerName}</p>
-    <div className="truncate gap-x-3 gap-y-0.5 text-[10px] text-black mb-2">
-      <span className="max-w-[140px]">{c.address}</span>
-    </div>
-    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-black mb-2">
-      <span><span className="text-orange-600 font-semibold">Thana: </span>{c.thana || "—"}</span>
-      <span><span className="text-orange-600 font-semibold">Dist: </span>{c.district || "—"}</span>
+      <p className="text-xs font-bold text-slate-800 mb-1">{c.customerName}</p>
+      <div className="truncate gap-x-3 gap-y-0.5 text-[10px] text-black mb-2">
+        <span className="max-w-[140px]">{c.address}</span>
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-black mb-2">
+        <span><span className="text-orange-600 font-semibold">Thana: </span>{c.thana || "—"}</span>
+        <span><span className="text-orange-600 font-semibold">Dist: </span>{c.district || "—"}</span>
+        {isAdmin && (
+          <span className="inline-flex items-center gap-1"><span className="text-orange-600 font-semibold">Loc: </span><LocationBadge value={resolveLocation(c)} /></span>
+        )}
+        <span><span className="text-orange-600 font-semibold">Zone: </span>{c.zone}</span>
+        <span><span className="text-orange-600 font-semibold">Ph: </span>{c.receiverNumber}</span>
+      </div>
+      <div className="flex items-center justify-between bg-slate-50 rounded-lg px-2.5 py-1.5 border border-slate-100">
+        <div className="min-w-0 flex-1">
+          <span className="text-[10px] font-semibold text-slate-800">{p.productName || "—"}</span>
+          <span className="text-[9px] text-black ml-1.5">{p.model?.toUpperCase()}</span>
+        </div>
+        <div className="ml-2 flex-shrink-0">
+          <span className="text-xs font-black text-slate-800">{p.quantity}</span>
+        </div>
+      </div>
       {isAdmin && (
-        <span className="inline-flex items-center gap-1"><span className="text-orange-600 font-semibold">Loc: </span><LocationBadge value={resolveLocation(c)} /></span>
+        <button
+          type="button"
+          onClick={handleEditRemarks}
+          title={c.remarks ? "Click to edit Remarks" : "Click to set Remarks"}
+          className="mt-2 w-full flex items-center justify-between gap-2 px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 border border-purple-100 rounded-lg transition-colors text-left"
+        >
+          <span className="text-[9px] font-bold text-purple-500 uppercase tracking-wide shrink-0">Remarks</span>
+          {c.remarks ? (
+            <span className="text-[10px] font-semibold text-purple-700 truncate">{c.remarks}</span>
+          ) : (
+            <span className="text-[10px] text-purple-400 italic">click to set</span>
+          )}
+        </button>
       )}
-      <span><span className="text-orange-600 font-semibold">Zone: </span>{c.zone}</span>
-      <span><span className="text-orange-600 font-semibold">Ph: </span>{c.receiverNumber}</span>
     </div>
-    <div className="flex items-center justify-between bg-slate-50 rounded-lg px-2.5 py-1.5 border border-slate-100">
-      <div className="min-w-0 flex-1">
-        <span className="text-[10px] font-semibold text-slate-800">{p.productName || "—"}</span>
-        <span className="text-[9px] text-black ml-1.5">{p.model?.toUpperCase()}</span>
-      </div>
-      <div className="ml-2 flex-shrink-0">
-        <span className="text-xs font-black text-slate-800">{p.quantity}</span>
-      </div>
-    </div>
-  </div>
-);
+  );
+};
 
 /* ══════════════════════════════════════════════════════════════
    Mobile filter bottom sheet
@@ -225,6 +325,7 @@ const MobileFilterSheet = ({ onClose, getOptionsFor,
   locationFilter, setLocationFilter,
   receiverFilter, setReceiverFilter, zoneFilter, setZoneFilter,
   productNameFilter, setProductNameFilter, modelFilter, setModelFilter,
+  remarksFilter, setRemarksFilter,
   dateFilter, setDateFilter, statusFilter, setStatusFilter, setClientPage,
   isAdmin }) => {
 
@@ -263,6 +364,7 @@ const MobileFilterSheet = ({ onClose, getOptionsFor,
               { label: "Zone",     opts: "zone",           sel: zoneFilter,        set: setZoneFilter },
               { label: "Product",  opts: "productName",    sel: productNameFilter, set: setProductNameFilter },
               { label: "Model",    opts: "model",          sel: modelFilter,       set: setModelFilter },
+              { label: "Remarks",  opts: "remarks",        sel: remarksFilter,     set: setRemarksFilter, adminOnly: true },
             ]
               .filter(f => isAdmin || !f.adminOnly)
               .map((f, i) => (
@@ -316,10 +418,18 @@ const AllChallan = () => {
   const [zoneFilter,        setZoneFilter]        = useState([]);
   const [modelFilter,       setModelFilter]       = useState([]);
   const [productNameFilter, setProductNameFilter] = useState([]);
+  const [remarksFilter,     setRemarksFilter]     = useState([]);   // NEW: Remarks column filter (admin-only)
   const [dateFilter,        setDateFilter]        = useState([]);
   const [statusFilter,      setStatusFilter]      = useState("");
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year,  setYear]  = useState(new Date().getFullYear());
+
+  // Remarks inline-edit state — admin-only. Remarks are challan-level (one
+  // value per challan, shared across that challan's product rows), so the
+  // open editor is keyed by challanId only, mirroring the CSD cell pattern
+  // on the Delivered page.
+  const [editingRemarks, setEditingRemarks] = useState(null);   // { challanId, value }
+  const [savingRemarks,  setSavingRemarks]  = useState(false);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -374,12 +484,43 @@ const AllChallan = () => {
     fetchChallans(monthRef.current, yearRef.current, searchRef.current);
   }, [fetchChallans]);
 
+  /**
+   * Save an inline Remarks edit for a challan. Admin-only. Uses the shared
+   * bulk endpoint with a single target (same pattern as Trip Do on the
+   * Delivered page) so the challans collection AND any already-embedded
+   * delivery copy stay in sync.
+   */
+  const saveRemarks = React.useCallback(async (challan, newValue) => {
+    setSavingRemarks(true);
+    try {
+      const clean = (newValue ?? "").toString().trim();
+      await axiosSecure.patch(`/challans/bulk-remarks`, { remarks: clean, challanIds: [challan._id] });
+      await fetchChallans(monthRef.current, yearRef.current, searchRef.current);
+      Swal.fire({
+        toast: true, position: "top-end", icon: "success",
+        title: clean ? "Remarks saved" : "Remarks cleared",
+        showConfirmButton: false, timer: 1300,
+      });
+    } catch (err) {
+      console.error("remarks save failed", err);
+      Swal.fire("Error", "Failed to save remarks", "error");
+    } finally {
+      setSavingRemarks(false);
+      setEditingRemarks(null);
+    }
+  }, [axiosSecure, fetchChallans]);
+
+  /**
+   * Bulk Remarks button handler lives further below, after `filteredRows`
+   * is declared (it needs to read the currently-filtered rows).
+   */
+
   const handleResetAll = () => {
     setMonth(new Date().getMonth() + 1); setYear(new Date().getFullYear()); setClientPage(1);
     if (setSearchText) setSearchText("");
     setCustomerFilter([]); setAddressFilter([]); setThanaFilter([]);
     setDistrictFilter([]); setLocationFilter([]); setReceiverFilter([]); setZoneFilter([]);
-    setModelFilter([]); setProductNameFilter([]); setDateFilter([]); setStatusFilter("");
+    setModelFilter([]); setProductNameFilter([]); setRemarksFilter([]); setDateFilter([]); setStatusFilter("");
     setShowMobileFilters(false);
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
   };
@@ -389,7 +530,7 @@ const AllChallan = () => {
     const cLocation = resolveLocation(c);    // DB value or computed fallback
     const matchesSearch = !searchText || [
       c.customerName, c.address, c.thana, c.district, cLocation,
-      c.receiverNumber, c.zone, c.currentUser, p.productName, p.model
+      c.receiverNumber, c.zone, c.currentUser, c.remarks, p.productName, p.model
     ].some(v => v?.toLowerCase().includes(s));
     // Generic column check.  Supports the special "(Blank)" sentinel:
     // when selected, it matches rows whose value is empty/missing.  A
@@ -417,9 +558,10 @@ const AllChallan = () => {
       check("receiverNumber", receiverFilter,    c.receiverNumber) &&
       check("zone",           zoneFilter,        c.zone) &&
       check("productName",    productNameFilter, p.productName) &&
-      check("model",          modelFilter,       p.model);
+      check("model",          modelFilter,       p.model) &&
+      check("remarks",        remarksFilter,     c.remarks);
   }, [searchText, statusFilter, customerFilter, addressFilter, thanaFilter, districtFilter, locationFilter,
-      receiverFilter, zoneFilter, productNameFilter, modelFilter, dateFilter]);
+      receiverFilter, zoneFilter, productNameFilter, modelFilter, remarksFilter, dateFilter]);
 
   const filteredRows = React.useMemo(
     () => challans.flatMap(c => (c.products || []).filter(p => rowMatchesAll(c, p)).map(p => ({ c, p }))),
@@ -434,6 +576,56 @@ const AllChallan = () => {
     () => filteredRows.reduce((sum, { p }) => sum + (Number(p.quantity) || 0), 0),
     [filteredRows]
   );
+
+  /**
+   * Bulk Remarks — stamps one Remarks value onto every challan currently
+   * shown by the active filters. Mirrors the Bulk CSD button on the
+   * Delivered page. Empty value clears Remarks on those challans.
+   */
+  const handleBulkRemarks = React.useCallback(async () => {
+    if (filteredRows.length === 0) {
+      Swal.fire({ icon: "info", title: "No rows", text: "Apply filters first or load data." });
+      return;
+    }
+
+    const seen = new Set();
+    const challanIds = [];
+    for (const { c } of filteredRows) {
+      if (!c._id || seen.has(c._id)) continue;
+      seen.add(c._id);
+      challanIds.push(c._id);
+    }
+
+    const { value, isDismissed } = await Swal.fire({
+      title: `Set Remarks for ${challanIds.length} challan${challanIds.length > 1 ? "s" : ""}`,
+      input: "text",
+      inputLabel: "Remarks",
+      inputPlaceholder: "Type Remarks — leave blank to clear",
+      showCancelButton: true,
+      confirmButtonColor: "#7c3aed",
+      confirmButtonText: "Apply to all",
+      inputValidator: () => null,   // empty allowed (clears)
+    });
+    if (isDismissed) return;
+
+    try {
+      const res = await axiosSecure.patch("/challans/bulk-remarks", {
+        remarks: value || "",
+        challanIds,
+      });
+      await fetchChallans(monthRef.current, yearRef.current, searchRef.current);
+      Swal.fire({
+        toast: true, position: "top-end", icon: "success",
+        title: value
+          ? `Remarks "${value}" applied to ${res.data?.touched ?? challanIds.length} challans`
+          : `Remarks cleared on ${res.data?.touched ?? challanIds.length} challans`,
+        showConfirmButton: false, timer: 2000,
+      });
+    } catch (err) {
+      console.error("bulk remarks failed", err);
+      Swal.fire("Error", "Bulk Remarks failed", "error");
+    }
+  }, [axiosSecure, fetchChallans, filteredRows]);
 
   const getOptionsFor = React.useCallback((field) => {
     const map = new Map();
@@ -477,6 +669,7 @@ const AllChallan = () => {
     { label: "Zone",     values: zoneFilter,        clear: () => { setZoneFilter([]);        setClientPage(1); } },
     { label: "Product",  values: productNameFilter, clear: () => { setProductNameFilter([]); setClientPage(1); } },
     { label: "Model",    values: modelFilter,       clear: () => { setModelFilter([]);       setClientPage(1); } },
+    { label: "Remarks",  values: remarksFilter,     clear: () => { setRemarksFilter([]);     setClientPage(1); }, adminOnly: true },
     ...(statusFilter ? [{ label: "Status", values: [statusFilter], clear: () => { setStatusFilter(""); setClientPage(1); } }] : []),
   ].filter(f => f.values.length > 0 && (isAdmin || !f.adminOnly));
 
@@ -515,7 +708,10 @@ const AllChallan = () => {
         ...(isAdmin ? { Location: resolveLocation(c) || "" } : {}),
         "Receiver No": c.receiverNumber, Zone: c.zone,
         "Product Name": p.productName, Model: p.model,
-        Qty: Number(p.quantity) || 0, User: c.currentUser || "N/A",
+        Qty: Number(p.quantity) || 0,
+        // Remarks is admin-only — non-admin exports skip this column.
+        ...(isAdmin ? { Remarks: c.remarks || "" } : {}),
+        User: c.currentUser || "N/A",
       });
       if (exportType === "filtered") {
         if (!filteredRows.length) return Swal.fire({ icon: "warning", title: "No Data" });
@@ -605,6 +801,14 @@ const AllChallan = () => {
             <span className="hidden sm:inline">Reset</span>
           </button>
 
+          {isAdmin && (
+            <button onClick={handleBulkRemarks}
+              className={`${tbtn} bg-purple-600 text-white border-purple-600 hover:bg-purple-700`}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              <span className="hidden sm:inline">Bulk Remarks</span><span className="sm:hidden">RMK</span>
+            </button>
+          )}
+
           <button onClick={handleExportExcel}
             className={`${tbtn} bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700`}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -660,7 +864,9 @@ const AllChallan = () => {
                       {[
                         "Date","Status","Customer","Address","Thana","District",
                         ...(isAdmin ? ["Location"] : []),
-                        "Receiver No","Zone","Product","Model","Qty","Action",
+                        "Receiver No","Zone","Product","Model","Qty",
+                        ...(isAdmin ? ["Remarks"] : []),
+                        "Action",
                       ].map(h => (
                         <th key={h} className="px-2.5 py-2.5 text-[10px] font-black text-slate-400 uppercase tracking-wide whitespace-nowrap border-r border-white/5 last:border-0">
                           {h}
@@ -692,6 +898,9 @@ const AllChallan = () => {
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("productName")}    selected={productNameFilter} onChange={setFilter(setProductNameFilter)} /></th>
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("model")}          selected={modelFilter}       onChange={setFilter(setModelFilter)} /></th>
                       <th className="p-1 border-r border-slate-200 text-center text-xs font-black text-slate-700">{totalQtyAll.toLocaleString()}</th>
+                      {isAdmin && (
+                        <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("remarks")} selected={remarksFilter} onChange={setFilter(setRemarksFilter)} /></th>
+                      )}
                       <th className="p-1" />
                     </tr>
                   </thead>
@@ -720,6 +929,17 @@ const AllChallan = () => {
                         <td className="px-2.5 py-2 text-black whitespace-nowrap">{p.productName || "—"}</td>
                         <td className="px-2.5 py-2 text-black max-w-[140px] truncate"title={p.model}>{p.model?.toUpperCase()}</td>
                         <td className="px-2.5 py-2 text-center font-black text-black">{p.quantity}</td>
+                        {isAdmin && (
+                          <td className="px-2.5 py-2" title={c.remarks || ""}>
+                            <RemarksCell
+                              challan={c}
+                              editingRemarks={editingRemarks}
+                              setEditingRemarks={setEditingRemarks}
+                              savingRemarks={savingRemarks}
+                              onSave={saveRemarks}
+                            />
+                          </td>
+                        )}
                         <td className="px-2.5 py-2">
                           <ChallanActionDropdown challan={c} product={p} axiosSecure={axiosSecure} refetchChallans={refetchChallans} />
                         </td>
@@ -778,6 +998,7 @@ const AllChallan = () => {
           zoneFilter={zoneFilter} setZoneFilter={setZoneFilter}
           productNameFilter={productNameFilter} setProductNameFilter={setProductNameFilter}
           modelFilter={modelFilter} setModelFilter={setModelFilter}
+          remarksFilter={remarksFilter} setRemarksFilter={setRemarksFilter}
           dateFilter={dateFilter} setDateFilter={setDateFilter}
           statusFilter={statusFilter} setStatusFilter={setStatusFilter}
           setClientPage={setClientPage}

@@ -150,6 +150,10 @@ const CreateDelivery = () => {
             // for older challans whose products don't yet have capacity/
             // rate saved.  We pass through whatever the challan recorded.
             location: c.location || null,
+            // Remarks — admin-only note set on the All Challan page. Carried
+            // through so the Delivered page can show it once this challan
+            // is dispatched.
+            remarks: c.remarks || "",
             receiverNumber: c.receiverNumber, products: c.products,
             createdBy: user?.displayName || user?.email || "unknown",
         }));

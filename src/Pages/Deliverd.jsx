@@ -233,7 +233,8 @@ const MobileCard = ({ row, isAdmin, onSplit, onDelete }) => {
       </div>
       {challan.address && <p className="text-[11px] text-slate-500 mb-1.5 leading-tight">{challan.address}</p>}
       <div className="grid grid-cols-2 gap-1 mb-2">
-        {[["CSD", challan.csd],["District", challan.district],["Thana", challan.thana],["Location", resolveLocation(challan)],["Receiver", challan.receiverNumber]].map(([l, v]) => (
+        {[["CSD", challan.csd],["District", challan.district],["Thana", challan.thana],["Location", resolveLocation(challan)],["Receiver", challan.receiverNumber],
+          ...(isAdmin ? [["Remarks", challan.remarks]] : [])].map(([l, v]) => (
           <div key={l}>
             <p className="text-[9px] text-slate-400 uppercase font-bold">{l}</p>
             {l === "Location" && v
@@ -340,6 +341,7 @@ const DeliveredPage = () => {
 
   const [customerFilter, setCustomerFilter] = useState([]);
   const [csdFilter,      setCsdFilter]      = useState([]);   // NEW: CSD column filter
+  const [remarksFilter,  setRemarksFilter]  = useState([]);   // NEW: Remarks column filter (admin-only, read-only display)
   const [zoneFilter,     setZoneFilter]     = useState([]);
   const [districtFilter, setDistrictFilter] = useState([]);
   const [thanaFilter,    setThanaFilter]    = useState([]);
@@ -395,7 +397,7 @@ const DeliveredPage = () => {
   const handleResetAll = () => {
     setMonth(new Date().getMonth() + 1); setYear(new Date().getFullYear());
     if (setSearchText) setSearchText("");
-    setCustomerFilter([]); setCsdFilter([]); setZoneFilter([]); setDistrictFilter([]);
+    setCustomerFilter([]); setCsdFilter([]); setRemarksFilter([]); setZoneFilter([]); setDistrictFilter([]);
     setThanaFilter([]); setLocationFilter([]); setProductFilter([]); setModelFilter([]);
     setCapacityFilter([]);
     setRateFilter([]);
@@ -414,7 +416,7 @@ const DeliveredPage = () => {
         (challan.products || []).forEach(product => {
           if (product.hiddenFromDelivered) return;
           const s = searchText?.toLowerCase() || "";
-          const matchesSearch = !searchText || [challan.customerName, challan.csd, challan.zone, challan.address, challan.receiverNumber, challan.district, challan.thana, resolveLocation(challan), product.productName, product.model, product.tripDo].some(v => v?.toString().toLowerCase().includes(s));
+          const matchesSearch = !searchText || [challan.customerName, challan.csd, challan.remarks, challan.zone, challan.address, challan.receiverNumber, challan.district, challan.thana, resolveLocation(challan), product.productName, product.model, product.tripDo].some(v => v?.toString().toLowerCase().includes(s));
           if (!matchesSearch) return;
           // Date column now behaves like the other text columns: a
           // MultiSelect over dd/mm/yyyy labels with All / (Blanks) support
@@ -439,6 +441,7 @@ const DeliveredPage = () => {
 
           if (!check(customerFilter, challan.customerName)) return;
           if (!check(csdFilter,      challan.csd))          return;
+          if (!check(remarksFilter,  challan.remarks))      return;
           if (!check(zoneFilter,     challan.zone))         return;
           if (!check(addressFilter,  challan.address))      return;
           if (!check(receiverFilter, challan.receiverNumber)) return;
@@ -470,6 +473,7 @@ const DeliveredPage = () => {
             rateSource:        eff.source,   // "saved" | "computed" | "unresolved"
             tripDo:            product.tripDo || "",  // NEW — bubble up for cell access
             csd:               challan.csd || "",      // NEW — editable per-challan CSD
+            remarks:           challan.remarks || "",  // NEW — admin-only, read-only display (set on AllChallan page)
             date: new Date(trip.createdAt), isReturn, rowType,
             deliveryStatus: challan.deliveryStatus,
             challanReturnStatus: challan.challanReturnStatus,
@@ -479,7 +483,7 @@ const DeliveredPage = () => {
       });
     });
     return rows;
-  }, [deliveries, searchText, typeFilter, dateFilter, customerFilter, csdFilter, zoneFilter, addressFilter, receiverFilter, districtFilter, thanaFilter, locationFilter, productFilter, modelFilter, capacityFilter, rateFilter, tripDoFilter, noteFilter]);
+  }, [deliveries, searchText, typeFilter, dateFilter, customerFilter, csdFilter, remarksFilter, zoneFilter, addressFilter, receiverFilter, districtFilter, thanaFilter, locationFilter, productFilter, modelFilter, capacityFilter, rateFilter, tripDoFilter, noteFilter]);
 
   const filteredRows  = useMemo(() => buildRows(), [buildRows]);
   const totalPages    = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
@@ -513,7 +517,7 @@ const DeliveredPage = () => {
         (challan.products || []).forEach(product => {
           if (product.hiddenFromDelivered) return;
           const s = searchText?.toLowerCase() || "";
-          const matchesSearch = !searchText || [challan.customerName, challan.csd, challan.zone, challan.address, challan.receiverNumber, challan.district, challan.thana, resolveLocation(challan), product.productName, product.model, product.tripDo].some(v => v?.toString().toLowerCase().includes(s));
+          const matchesSearch = !searchText || [challan.customerName, challan.csd, challan.remarks, challan.zone, challan.address, challan.receiverNumber, challan.district, challan.thana, resolveLocation(challan), product.productName, product.model, product.tripDo].some(v => v?.toString().toLowerCase().includes(s));
           if (!matchesSearch) return;
           const eff = resolveProductRate(challan, product);
           rows.push({
@@ -524,6 +528,7 @@ const DeliveredPage = () => {
             rateSource:        eff.source,
             tripDo:            product.tripDo || "",
             csd:               challan.csd || "",
+            remarks:           challan.remarks || "",
             date: new Date(trip.createdAt), isReturn, rowType,
             deliveryStatus: challan.deliveryStatus,
             challanReturnStatus: challan.challanReturnStatus,
@@ -550,6 +555,7 @@ const DeliveredPage = () => {
     if (excludeField !== "date"     && !check(dateFilter,     challanDateLabel))              return false;
     if (excludeField !== "customerName" && !check(customerFilter, challan.customerName))      return false;
     if (excludeField !== "csd"      && !check(csdFilter,      challan.csd))                  return false;
+    if (excludeField !== "remarks"  && !check(remarksFilter,  challan.remarks))              return false;
     if (excludeField !== "zone"     && !check(zoneFilter,     challan.zone))                  return false;
     if (excludeField !== "address"  && !check(addressFilter,  challan.address))               return false;
     if (excludeField !== "receiverNumber" && !check(receiverFilter, challan.receiverNumber))  return false;
@@ -569,7 +575,7 @@ const DeliveredPage = () => {
       if (!check(noteFilter, noteVal)) return false;
     }
     return true;
-  }, [dateFilter, customerFilter, csdFilter, zoneFilter, addressFilter, receiverFilter,
+  }, [dateFilter, customerFilter, csdFilter, remarksFilter, zoneFilter, addressFilter, receiverFilter,
       districtFilter, thanaFilter, locationFilter, productFilter, modelFilter,
       capacityFilter, rateFilter, tripDoFilter, noteFilter]);
 
@@ -629,6 +635,7 @@ const DeliveredPage = () => {
     { label: "Date",     values: dateFilter,     clear: () => setDateFilter([]) },
     { label: "Customer", values: customerFilter, clear: () => setCustomerFilter([]) },
     { label: "CSD",      values: csdFilter,      clear: () => setCsdFilter([]) },
+    { label: "Remarks",  values: remarksFilter,  clear: () => setRemarksFilter([]), adminOnly: true },
     { label: "Zone",     values: zoneFilter,     clear: () => setZoneFilter([]) },
     { label: "Address",  values: addressFilter,  clear: () => setAddressFilter([]) },
     { label: "Receiver", values: receiverFilter, clear: () => setReceiverFilter([]) },
@@ -697,6 +704,7 @@ const DeliveredPage = () => {
           "Delivery Status": row.deliveryStatus || "Pending",
           "Challan Status": row.challanReturnStatus || "—",
           Note: row.note || row.returnNote || "",
+          ...(isAdmin ? { Remarks: row.challan.remarks || "" } : {}),
         };
       };
       let exportData = [];
@@ -743,6 +751,10 @@ const DeliveredPage = () => {
   const [editingCsd, setEditingCsd] = useState(null);     // { challanId, value }
   const [savingCsd,  setSavingCsd]  = useState(false);
 
+  // Remarks — same shape as CSD above, editable from this page too now.
+  const [editingRemarks, setEditingRemarks] = useState(null);   // { challanId, value }
+  const [savingRemarks,  setSavingRemarks]  = useState(false);
+
   // Full-row Edit modal target — { trip, challan }. Null when closed.
   // Opening it lets the user edit every field of the delivered row
   // (customer/receiver/zone/address + AI-detect thana/district) and the
@@ -780,9 +792,33 @@ const DeliveredPage = () => {
   }, [axiosSecure, fetchDeliveries]);
 
   /**
-   * Save a single-row Trip Do edit. Uses the bulk endpoint so server-side
-   * logic only lives in one place (single row = bulk with one target).
+   * Save an inline Remarks edit for a challan. Admin-only. Uses the shared
+   * bulk endpoint with a single target (same pattern as Trip Do), which
+   * also keeps the challans collection (All Challan page) in sync.
    */
+  const saveRemarks = useCallback(async (trip, challan, newValue) => {
+    setSavingRemarks(true);
+    try {
+      const clean = (newValue ?? "").toString().trim();
+      const challanId = challan.challanId || challan._id;
+      await axiosSecure.patch(`/challans/bulk-remarks`, {
+        remarks: clean,
+        challanIds: [challanId],
+      });
+      await fetchDeliveries(monthRef.current, yearRef.current, searchRef.current);
+      Swal.fire({
+        toast: true, position: "top-end", icon: "success",
+        title: clean ? "Remarks saved" : "Remarks cleared",
+        showConfirmButton: false, timer: 1300,
+      });
+    } catch (err) {
+      console.error("remarks save failed", err);
+      Swal.fire("Error", "Failed to save remarks", "error");
+    } finally {
+      setSavingRemarks(false);
+      setEditingRemarks(null);
+    }
+  }, [axiosSecure, fetchDeliveries]);
   const saveTripDo = useCallback(async (challan, product, newValue) => {
     setSavingCell(true);
     try {
@@ -916,6 +952,57 @@ const DeliveredPage = () => {
     } catch (err) {
       console.error("bulk csd failed", err);
       Swal.fire("Error", "Bulk CSD failed", "error");
+    }
+  }, [axiosSecure, fetchDeliveries, filteredRows]);
+
+  /**
+   * Bulk Remarks — stamps one Remarks value onto every challan currently
+   * shown by the active filters. Same de-dupe-by-challan pattern as
+   * Bulk CSD above. Empty value clears Remarks on those challans.
+   */
+  const handleBulkRemarks = useCallback(async () => {
+    if (filteredRows.length === 0) {
+      Swal.fire({ icon: "info", title: "No rows", text: "Apply filters first or load data." });
+      return;
+    }
+
+    const seen = new Set();
+    const challanIds = [];
+    for (const r of filteredRows) {
+      const challanId = r.challan.challanId || r.challan._id;
+      if (!challanId || seen.has(challanId)) continue;
+      seen.add(challanId);
+      challanIds.push(challanId);
+    }
+
+    const { value, isDismissed } = await Swal.fire({
+      title: `Set Remarks for ${challanIds.length} challan${challanIds.length > 1 ? "s" : ""}`,
+      input: "text",
+      inputLabel: "Remarks",
+      inputPlaceholder: "Type Remarks — leave blank to clear",
+      showCancelButton: true,
+      confirmButtonColor: "#7c3aed",
+      confirmButtonText: "Apply to all",
+      inputValidator: () => null,   // empty allowed (clears)
+    });
+    if (isDismissed) return;
+
+    try {
+      const res = await axiosSecure.patch("/challans/bulk-remarks", {
+        remarks: value || "",
+        challanIds,
+      });
+      await fetchDeliveries(monthRef.current, yearRef.current, searchRef.current);
+      Swal.fire({
+        toast: true, position: "top-end", icon: "success",
+        title: value
+          ? `Remarks "${value}" applied to ${res.data?.touched ?? challanIds.length} challans`
+          : `Remarks cleared on ${res.data?.touched ?? challanIds.length} challans`,
+        showConfirmButton: false, timer: 2000,
+      });
+    } catch (err) {
+      console.error("bulk remarks failed", err);
+      Swal.fire("Error", "Bulk Remarks failed", "error");
     }
   }, [axiosSecure, fetchDeliveries, filteredRows]);
 
@@ -1065,6 +1152,7 @@ const DeliveredPage = () => {
     { key: "tripDo",   header: "Trip Do",  w: 70,  adminOnly: true },
     { key: "capacity", header: "Capacity", w: 95,  adminOnly: true },
     { key: "note",     header: "Note",     w: 88  },
+    { key: "remarks",  header: "Remarks",  w: 100, adminOnly: true },
     { key: "zone",     header: "Zone",     w: 65  },
     { key: "edit",     header: "Edit",     w: 56,  adminOnly: true },
     { key: "delete",   header: "Delete",   w: 56,  adminOnly: true },
@@ -1132,6 +1220,16 @@ const DeliveredPage = () => {
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
             <span className="hidden sm:inline">Bulk CSD</span><span className="sm:hidden">CSD</span>
           </button>
+          {isAdmin && (
+            <button
+              onClick={handleBulkRemarks}
+              disabled={filteredRows.length === 0}
+              className={`${tbtn} bg-purple-600 text-white border-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed`}
+              title="Apply Remarks to every challan currently shown by the filters">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              <span className="hidden sm:inline">Bulk Remarks</span><span className="sm:hidden">RMK</span>
+            </button>
+          )}
           <button onClick={handleResetAll} className={`${tbtn} border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500`}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
             <span className="hidden sm:inline">Reset</span>
@@ -1179,6 +1277,7 @@ const DeliveredPage = () => {
                     ["Trip Do",  getOptionsFor("tripDo"),       tripDoFilter,   setTripDoFilter,   true],
                     ["Address",  getOptionsFor("address"),      addressFilter,  setAddressFilter,  false],
                     ["Receiver", getOptionsFor("receiverNumber"), receiverFilter, setReceiverFilter, false],
+                    ["Remarks",  getOptionsFor("remarks"),      remarksFilter,  setRemarksFilter,  true],
                   ]
                     .filter(([, , , , adminOnly]) => isAdmin || !adminOnly)
                     .map(([label, opts, sel, chg]) => (
@@ -1243,6 +1342,7 @@ const DeliveredPage = () => {
                           case "capacity": el = <MultiSelect options={getOptionsFor("capacity")} selected={capacityFilter} onChange={setCapacityFilter} />; break;
                           case "tripDo":   el = <MultiSelect options={getOptionsFor("tripDo")} selected={tripDoFilter} onChange={setTripDoFilter} />; break;
                           case "note":     el = <MultiSelect options={getNoteOptions()} selected={noteFilter} onChange={setNoteFilter} />; break;
+                          case "remarks":  el = <MultiSelect options={getOptionsFor("remarks")} selected={remarksFilter} onChange={setRemarksFilter} />; break;
                           case "edit":     el = null; break;
                           case "qty":      el = <div className="text-center text-xs font-black text-slate-700">{totalQtyAll}</div>; break;
                           case "rate":     el = <MultiSelect options={getOptionsFor("rate")} selected={rateFilter} onChange={setRateFilter} />; break;
@@ -1372,6 +1472,20 @@ const DeliveredPage = () => {
                             return displayNote
                               ? <span className={`block truncate text-[10px] font-medium ${isReturn ? "text-orange-500" : "text-amber-600"}`}>{displayNote}</span>
                               : <span className="text-slate-300">—</span>;
+                          case "remarks":
+                            // Editable from this page too now (admin-only) —
+                            // same inline-edit pattern as CSD. Saves sync
+                            // back to the challans collection so the All
+                            // Challan page reflects it as well.
+                            return (
+                              <RemarksCell
+                                row={row}
+                                editingRemarks={editingRemarks}
+                                setEditingRemarks={setEditingRemarks}
+                                savingRemarks={savingRemarks}
+                                onSave={saveRemarks}
+                              />
+                            );
                           case "edit":
                             return (
                               <button
@@ -1414,6 +1528,7 @@ const DeliveredPage = () => {
                           case "model":    return product.model || "";
                           case "capacity": return product.capacity || row.effectiveCapacity || "";
                           case "note":     return displayNote || "";
+                          case "remarks":  return row.remarks || "";
                           case "csd":      return row.csd || challan.csd || "";
                           default:         return undefined;
                         }
@@ -1595,6 +1710,71 @@ const CsdCell = ({ row, editingCsd, setEditingCsd, savingCsd, onSave }) => {
         autoComplete="off"
         placeholder="CSD name"
         className="w-full px-1.5 py-0.5 border border-emerald-400 rounded text-[11px] outline-none focus:ring-2 focus:ring-emerald-300"
+      />
+      <div className="absolute top-full left-0 mt-0.5 text-[8px] text-slate-400">
+        Enter to save · Esc to cancel
+      </div>
+    </div>
+  );
+};
+
+/* ════════════════════════════════════════════════════════════════════
+   Inline editable cell for the Remarks column on the Delivered page.
+
+   Remarks is a per-challan field (one value per challan, shared across
+   that challan's product rows), same as CSD — editingRemarks is keyed
+   by challanId only. Editable from BOTH the All Challan page and here;
+   whichever one edits it last wins (server keeps both collections in
+   sync via /challans/bulk-remarks).
+═══════════════════════════════════════════════════════════════════ */
+const RemarksCell = ({ row, editingRemarks, setEditingRemarks, savingRemarks, onSave }) => {
+  const { trip, challan } = row;
+  const challanKey = challan.challanId || challan._id;
+  const editing = editingRemarks && editingRemarks.challanId === challanKey;
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) inputRef.current.focus();
+  }, [editing]);
+
+  if (!editing) {
+    const display = row.remarks || challan.remarks || "";
+    return (
+      <button
+        type="button"
+        onClick={() => setEditingRemarks({ challanId: challanKey, value: display })}
+        title={
+  display
+    ? `Click to edit Remarks\n\n${display}`
+    : "Click to set Remarks"
+}
+        className="block w-full text-left truncate hover:bg-purple-50 hover:text-purple-700 px-1 -mx-1 rounded transition-colors text-[11px]"
+      >
+        {display ? (
+          <span className="block truncate font-semibold text-purple-700">{display}</span>
+        ) : (
+          <span className="text-purple-400 italic">click to set</span>
+        )}
+      </button>
+    );
+  }
+
+  const value = editingRemarks.value ?? "";
+
+  return (
+    <div className="relative">
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => setEditingRemarks((cur) => ({ ...cur, value: e.target.value }))}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setEditingRemarks(null);
+          if (e.key === "Enter") onSave(trip, challan, (value || "").trim());
+        }}
+        disabled={savingRemarks}
+        autoComplete="off"
+        placeholder="Remarks"
+        className="w-full px-1.5 py-0.5 border border-purple-400 rounded text-[11px] outline-none focus:ring-2 focus:ring-purple-300"
       />
       <div className="absolute top-full left-0 mt-0.5 text-[8px] text-slate-400">
         Enter to save · Esc to cancel

@@ -732,6 +732,9 @@ const AddChallanModal = ({ trip, onAdded, onClose, axiosSecure, addedBy }) => {
           thana: c.thana,
           district: c.district,
           location,
+          // Remarks — admin-only note set on the All Challan page, carried
+          // through so it shows up on the Delivered page too.
+          remarks: c.remarks || "",
           receiverNumber: c.receiverNumber,
           products,
         };
