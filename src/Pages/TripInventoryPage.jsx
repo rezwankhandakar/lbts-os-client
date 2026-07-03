@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
 import useAxiosSecure from "../hooks/useAxiosSecure";
@@ -11,6 +10,7 @@ import LoadingSpinner from "../Component/LoadingSpinner";
 const ITEMS_PER_PAGE = 400;
 const MONTHS_FULL  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const BLANK_LABEL = "(Blank)"; // pseudo-option representing rows where the field is empty/missing
 
 /* ── Multi-select ── */
 const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
@@ -25,6 +25,11 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
   const filtered = options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
   const label    = selected.length === 0 ? placeholder : selected.length === 1 ? selected[0] : `${selected.length} sel`;
   const toggle   = (v) => onChange(selected.includes(v) ? selected.filter(x => x !== v) : [...selected, v]);
+  const allSelected = filtered.length > 0 && filtered.every(o => selected.includes(o));
+  const toggleAll = () => {
+    if (allSelected) onChange(selected.filter(x => !filtered.includes(x)));
+    else onChange([...new Set([...selected, ...filtered])]);
+  };
   return (
     <div ref={ref} className="relative w-full">
       <button type="button" onClick={() => setOpen(o => !o)}
@@ -44,13 +49,19 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
                 className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg outline-none focus:border-orange-400" />
             </div>
           )}
+          {filtered.length > 0 && (
+            <label className="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-slate-50 border-b border-slate-100 font-bold text-slate-600">
+              <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-3 h-3 accent-orange-500 flex-shrink-0" />
+              <span>Select All</span>
+            </label>
+          )}
           <div className="max-h-44 overflow-y-auto">
             {filtered.length === 0
               ? <div className="px-3 py-3 text-xs text-slate-400 text-center">No results</div>
               : filtered.map(opt => (
                 <label key={opt} className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-slate-50 ${selected.includes(opt) ? "bg-orange-50/50" : ""}`}>
                   <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)} className="w-3 h-3 accent-orange-500 flex-shrink-0" />
-                  <span className="truncate text-slate-700">{opt}</span>
+                  <span className={`truncate ${opt === BLANK_LABEL ? "italic text-slate-400" : "text-slate-700"}`}>{opt}</span>
                 </label>
               ))
             }
@@ -105,6 +116,11 @@ const MobileTripCard = ({ t, onView }) => {
             </div>
           ))}
         </div>
+        {t.tripNote && t.tripNote.trim() && (
+          <p className="text-[10px] text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 truncate" title={t.tripNote}>
+            📝 {t.tripNote}
+          </p>
+        )}
         <div className="flex items-center justify-between pt-1.5 border-t border-slate-100">
           <span className="text-[9px] text-slate-400 uppercase font-black tracking-widest">
             Points: <span className="text-emerald-600 font-black text-xs">{t.challanQty ?? t.totalChallan}</span>
@@ -152,6 +168,7 @@ const TripInventoryPage = () => {
   const [vendorFilter,   setVendorFilter]   = useState([]);
   const [driverFilter,   setDriverFilter]   = useState([]);
   const [vehicleFilter,  setVehicleFilter]  = useState([]);
+  const [noteFilter,     setNoteFilter]     = useState([]);
   const [dateFilter,     setDateFilter]     = useState("");
   const [deliveryFilter, setDeliveryFilter] = useState("");
   const [challanFilter,  setChallanFilter]  = useState("");
@@ -199,6 +216,7 @@ const TripInventoryPage = () => {
     challanQty:   t.challans ? t.challans.filter(c => !c.isReturn).length : t.totalChallan,
     createdAt: t.createdAt, createdBy: t.createdBy, currentUser: t.currentUser,
     challans: t.challans, advance: t.advance ?? null,
+    tripNote: t.tripNote ?? "",
     advanceSavedBy: t.advanceSavedBy ?? null,
     lastUpdatedBy: t.lastUpdatedBy ?? null, lastUpdatedAt: t.lastUpdatedAt ?? null,
   }));
@@ -216,12 +234,17 @@ const TripInventoryPage = () => {
     const allDelivered   = normalChallans.length > 0 && normalChallans.every(c => c.deliveryStatus === "confirmed");
     const allReceived    = normalChallans.length > 0 && normalChallans.every(c => c.challanReturnStatus === "received");
     const matchesSearch  = !searchText || [t.tripNumber, t.vendorName, t.driverName, t.vehicleNumber].some(v => v?.toLowerCase().includes(s));
-    const check = (field, filter, val) => field === excludeField || filter.length === 0 || filter.some(f => val?.toLowerCase() === f.toLowerCase());
+    const check = (field, filter, val) => {
+      if (field === excludeField || filter.length === 0) return true;
+      const trimmed = val ? val.toString().trim() : "";
+      return filter.some(f => f === BLANK_LABEL ? trimmed === "" : trimmed.toLowerCase() === f.toLowerCase());
+    };
     return matchesSearch &&
       check("tripNumber",    tripFilter,    t.tripNumber) &&
       check("vendorName",    vendorFilter,  t.vendorName) &&
       check("driverName",    driverFilter,  t.driverName) &&
       check("vehicleNumber", vehicleFilter, t.vehicleNumber) &&
+      check("tripNote",      noteFilter,    t.tripNote) &&
       (excludeField === "date" || !dateFilter || new Date(t.createdAt).toISOString().slice(0, 10) === dateFilter) &&
       (!deliveryFilter || (deliveryFilter === "delivered" && allDelivered) || (deliveryFilter === "notDelivered" && !allDelivered)) &&
       (!challanFilter  || (challanFilter  === "received"  && allReceived)  || (challanFilter  === "notReceived" && !allReceived));
@@ -233,22 +256,25 @@ const TripInventoryPage = () => {
 
   const getOptionsFor = (field) => {
     const map = new Map();
+    let hasBlank = false;
     tripRows.forEach(t => {
       if (!rowMatchesAll(t, field)) return;
       const val = t[field]?.toString().trim();
-      if (val && !map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
+      if (val) { if (!map.has(val.toLowerCase())) map.set(val.toLowerCase(), val); }
+      else hasBlank = true;
     });
-    return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
+    const opts = Array.from(map.values()).sort((a, b) => a.localeCompare(b));
+    return hasBlank ? [BLANK_LABEL, ...opts] : opts;
   };
 
   const hasFilter = tripFilter.length > 0 || vendorFilter.length > 0 || driverFilter.length > 0 ||
-    vehicleFilter.length > 0 || dateFilter || deliveryFilter || challanFilter;
+    vehicleFilter.length > 0 || noteFilter.length > 0 || dateFilter || deliveryFilter || challanFilter;
 
   const handleReset = () => {
     setMonth(new Date().getMonth() + 1); setYear(new Date().getFullYear());
     if (setSearchText) setSearchText("");
     setTripFilter([]); setVendorFilter([]); setDriverFilter([]);
-    setVehicleFilter([]); setDateFilter(""); setDeliveryFilter(""); setChallanFilter("");
+    setVehicleFilter([]); setNoteFilter([]); setDateFilter(""); setDeliveryFilter(""); setChallanFilter("");
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
   };
 
@@ -257,6 +283,7 @@ const TripInventoryPage = () => {
     { label: "Vendor",   values: vendorFilter,  clear: () => setVendorFilter([]) },
     { label: "Driver",   values: driverFilter,  clear: () => setDriverFilter([]) },
     { label: "Vehicle",  values: vehicleFilter, clear: () => setVehicleFilter([]) },
+    { label: "Note",     values: noteFilter,    clear: () => setNoteFilter([]) },
     ...(dateFilter     ? [{ label: "Date",     values: [dateFilter],     clear: () => setDateFilter("") }] : []),
     ...(deliveryFilter ? [{ label: "Delivery", values: [deliveryFilter], clear: () => setDeliveryFilter("") }] : []),
     ...(challanFilter  ? [{ label: "Challan",  values: [challanFilter],  clear: () => setChallanFilter("") }] : []),
@@ -287,6 +314,7 @@ const TripInventoryPage = () => {
         Points: t.challanQty ?? t.totalChallan,
         "Delivery Status": (t.challans || []).filter(c => !c.isReturn).every(c => c.deliveryStatus === "confirmed") ? "All Delivered" : "Not Delivered",
         "Challan Status":  (t.challans || []).filter(c => !c.isReturn).every(c => c.challanReturnStatus === "received") ? "All Received" : "Not Received",
+        Note: t.tripNote || "",
       });
       let exportData = [];
       if (exportType === "filtered") {
@@ -379,6 +407,7 @@ const TripInventoryPage = () => {
               <div><p className="text-[10px] text-slate-400 font-semibold uppercase mb-1">Vendor</p><MultiSelect options={getOptionsFor("vendorName")} selected={vendorFilter} onChange={setVendorFilter} /></div>
               <div><p className="text-[10px] text-slate-400 font-semibold uppercase mb-1">Driver</p><MultiSelect options={getOptionsFor("driverName")} selected={driverFilter} onChange={setDriverFilter} /></div>
               <div><p className="text-[10px] text-slate-400 font-semibold uppercase mb-1">Vehicle</p><MultiSelect options={getOptionsFor("vehicleNumber")} selected={vehicleFilter} onChange={setVehicleFilter} /></div>
+              <div><p className="text-[10px] text-slate-400 font-semibold uppercase mb-1">Note</p><MultiSelect options={getOptionsFor("tripNote")} selected={noteFilter} onChange={setNoteFilter} /></div>
               <div><p className="text-[10px] text-slate-400 font-semibold uppercase mb-1">Delivery</p>
                 <SimpleSelect value={deliveryFilter} onChange={setDeliveryFilter}
                   options={[{ value: "", label: "All" }, { value: "delivered", label: "Delivered" }, { value: "notDelivered", label: "Not Delivered" }]} />
@@ -399,7 +428,7 @@ const TripInventoryPage = () => {
                 <table className="w-full border-collapse text-xs" style={{ minWidth: "700px" }}>
                   <thead className="sticky top-0 z-20">
                     <tr className="bg-slate-900 text-left">
-                      {["Date","Trip Number","Vendor","Driver","Vehicle","Point","Delivery","Challan","Action"].map(h => (
+                      {["Date","Trip Number","Vendor","Driver","Vehicle","Point","Delivery","Challan","Note","Action"].map(h => (
                         <th key={h} className="px-2.5 py-2.5 text-[10px] font-black text-slate-400 uppercase tracking-wide whitespace-nowrap border-r border-white/5 last:border-0">{h}</th>
                       ))}
                     </tr>
@@ -421,6 +450,7 @@ const TripInventoryPage = () => {
                         <SimpleSelect value={challanFilter} onChange={setChallanFilter}
                           options={[{ value: "", label: "All" }, { value: "received", label: "All Received" }, { value: "notReceived", label: "Not Received" }]} />
                       </th>
+                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("tripNote")} selected={noteFilter} onChange={setNoteFilter} /></th>
                       <th className="p-1" />
                     </tr>
                   </thead>
@@ -449,6 +479,13 @@ const TripInventoryPage = () => {
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${allReceived ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
                               {allReceived ? "✓ Received" : "Not Received"}
                             </span>
+                          </td>
+                          <td className="px-2.5 py-2 text-left max-w-[160px]">
+                            {t.tripNote && t.tripNote.trim() ? (
+                              <span className="text-[11px] text-slate-600 truncate block" title={t.tripNote}>📝 {t.tripNote}</span>
+                            ) : (
+                              <span className="text-[11px] text-slate-300">—</span>
+                            )}
                           </td>
                           <td className="px-2.5 py-2">
                             <button onClick={() => openTrip(t)}
