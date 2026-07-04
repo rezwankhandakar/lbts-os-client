@@ -13,6 +13,7 @@
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-query": "^5.90.21",
     "axios": "^1.13.5",
+    "bijoy2unicode": "^1.0.2",
     "file-saver": "^2.0.5",
     "firebase": "^12.9.0",
     "lucide-react": "^0.575.0",

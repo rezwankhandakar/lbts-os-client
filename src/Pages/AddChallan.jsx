@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,6 +18,9 @@ import { suggestThanas, suggestDistricts, computeLocation } from "../utils/local
 //   1. show product-name suggestions as the user types 1-2 letters
 //   2. resolve capacity + rate from product + model + location at submit
 import { findRate, suggestProducts } from "../utils/rateMatcher";
+// PDF / Bijoy / SutonnyMJ (ANSI) থেকে কপি করা টেক্সট paste হলে সেটাকে
+// Unicode বাংলায় normalize করার জন্য — দেখুন src/utils/banglaTextConverter.js
+import { normalizeBanglaPaste } from "../utils/banglaTextConverter";
 
 const AddChallan = () => {
   const axiosSecure  = useAxiosSecure();
@@ -193,6 +195,33 @@ const AddChallan = () => {
   const inp   = "w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all";
   const inpSm = "w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all";
 
+  // ── Bangla-aware paste handler ──
+  // PDF থেকে কপি করা টেক্সট SutonnyMJ / Bijoy (ANSI) অথবা Unicode
+  // যেকোনোটাই হতে পারে। পেস্ট হওয়ার সময় টেক্সট পরীক্ষা করে প্রয়োজনে
+  // Unicode-এ কনভার্ট করে তারপরই field-এ বসানো হয় — ফলে ডাটাবেসে
+  // সবসময় Unicode বাংলা-ই সংরক্ষিত হয়। (বিস্তারিত: utils/banglaTextConverter.js)
+  const handleBanglaPaste = (e, fieldName) => {
+    const pasted = e.clipboardData?.getData("text");
+    if (!pasted) return; // clipboard খালি — default browser paste-ই চলুক
+
+    const normalized = normalizeBanglaPaste(pasted);
+    e.preventDefault();
+
+    const input = e.target;
+    const current = getValues(fieldName) ?? "";
+    const start = input.selectionStart ?? current.length;
+    const end   = input.selectionEnd ?? current.length;
+    const newValue = current.slice(0, start) + normalized + current.slice(end);
+
+    setValue(fieldName, newValue, { shouldDirty: true, shouldValidate: true });
+
+    // cursor-কে পেস্ট করা টেক্সটের ঠিক পরে রাখা
+    requestAnimationFrame(() => {
+      const pos = start + normalized.length;
+      input.setSelectionRange?.(pos, pos);
+    });
+  };
+
   // ── Local typeahead suggestions (memoised, instant — no network) ──
   // Thana list is filtered by the currently-typed district when one
   // exists, so "kot" in Cumilla gives just Kotwali Model (Cumilla) etc.
@@ -297,7 +326,11 @@ const AddChallan = () => {
                 </label>
                 <div className="relative">
                   <MapPin size={14} className="absolute left-3 top-3 text-slate-400" />
-                  <input {...register("address", { required: true })} className={inp} placeholder="Full delivery address" />
+                  <input
+                    {...register("address", { required: true })}
+                    onPaste={(e) => handleBanglaPaste(e, "address")}
+                    className={inp} placeholder="Full delivery address"
+                  />
                 </div>
                 {/* AI Address Parser */}
                 <AIAddressParser
