@@ -8,6 +8,7 @@ import ChallanActionDropdown from "../Component/ChallanActionDropdown";
 import Swal from "sweetalert2";
 import LoadingSpinner from "../Component/LoadingSpinner";
 import { computeLocation } from "../utils/localAddressMatcher";
+import { findRate } from "../utils/rateMatcher";
 
 const ITEMS_PER_PAGE = 500;
 // Sentinel value used inside the MultiSelect dropdowns to represent
@@ -26,6 +27,37 @@ const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct
 const resolveLocation = (c) => {
   if (c?.location) return c.location;
   return computeLocation(c?.thana, c?.district) || null;
+};
+
+/**
+ * Get a product row's effective `capacity` + `rate` (+ derived `amount`).
+ * Same fallback pattern as the Delivered page:
+ *   1. Trust the saved DB values when a rate is already present.
+ *   2. Otherwise run the local rate-matcher on the fly (needs a resolved
+ *      Location) so older challans still show a sensible value instead
+ *      of a blank/zero.
+ * Admin-only — these fields are never shown to non-admin users.
+ */
+const resolveProductRate = (c, p) => {
+  const savedCap  = p?.capacity;
+  const savedRate = Number(p?.rate) || 0;
+  const qty       = Number(p?.quantity) || 0;
+
+  if (savedRate > 0) {
+    return { capacity: savedCap || "", rate: savedRate, amount: qty * savedRate };
+  }
+
+  const loc = resolveLocation(c);
+  if (!loc) return { capacity: savedCap || "", rate: 0, amount: 0 };
+
+  const r = findRate({
+    productName: p?.productName,
+    model: p?.model,
+    location: loc,
+    capacity: savedCap || "",
+  });
+  const rate = r.rate || 0;
+  return { capacity: r.capacity || savedCap || "", rate, amount: qty * rate };
 };
 
 /**
@@ -218,15 +250,23 @@ const RemarksCell = ({ challan, editingRemarks, setEditingRemarks, savingRemarks
 /* ══════════════════════════════════════════════════════════════
    Status badge
 ══════════════════════════════════════════════════════════════ */
-const StatusBadge = ({ status, tripNumber }) => {
-  if (status === "delivered") {
+const StatusBadge = ({ status }) => {
+  if (status === "delivered" || status === "re-delivered") {
     return (
-      <div className="flex flex-col gap-0.5">
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-200 whitespace-nowrap">
-          ✓ Delivered
-        </span>
-        {tripNumber && <span className="text-[9px] text-emerald-600 font-mono font-semibold pl-1">{tripNumber}</span>}
-      </div>
+      <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full border whitespace-nowrap ${
+        status === "re-delivered"
+          ? "bg-indigo-100 text-indigo-700 border-indigo-200"
+          : "bg-emerald-100 text-emerald-700 border-emerald-200"
+      }`}>
+        {status === "re-delivered" ? "↻ Re-Delivered" : "✓ Delivered"}
+      </span>
+    );
+  }
+  if (status === "return-pending") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-50 text-orange-600 text-[10px] font-bold rounded-full border border-orange-200 whitespace-nowrap">
+        ↩ Return-Pending
+      </span>
     );
   }
   return (
@@ -267,11 +307,14 @@ const MobileCard = ({ c, p, axiosSecure, refetchChallans, isAdmin }) => {
   };
 
   return (
-    <div className={`border rounded-xl p-3 mb-2 shadow-sm ${c.status === "delivered" ? "bg-emerald-50/60 border-emerald-200" : "bg-white border-slate-200"}`}>
+    <div className={`border rounded-xl p-3 mb-2 shadow-sm ${(c.status === "delivered" || c.status === "re-delivered") ? "bg-emerald-50/60 border-emerald-200" : "bg-white border-slate-200"}`}>
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[10px] text-slate-400">{c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-GB") : "—"}</span>
-          <StatusBadge status={c.status} tripNumber={c.tripNumber} />
+          {c.tripNumber && (
+            <span className="text-[9px] font-mono font-semibold text-slate-500 bg-slate-100 border border-slate-200 rounded-full px-1.5 py-0.5">{c.tripNumber}</span>
+          )}
+          <StatusBadge status={c.status} />
         </div>
         <ChallanActionDropdown challan={c} product={p} axiosSecure={axiosSecure} refetchChallans={refetchChallans} />
       </div>
@@ -297,6 +340,16 @@ const MobileCard = ({ c, p, axiosSecure, refetchChallans, isAdmin }) => {
           <span className="text-xs font-black text-slate-800">{p.quantity}</span>
         </div>
       </div>
+      {isAdmin && (() => {
+        const eff = resolveProductRate(c, p);
+        return (
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-black mt-2">
+            <span><span className="text-emerald-600 font-semibold">Rate: </span>{eff.rate ? `৳${eff.rate}` : "—"}</span>
+            <span><span className="text-emerald-600 font-semibold">Amount: </span>{eff.amount ? `৳${eff.amount.toLocaleString()}` : "—"}</span>
+            <span><span className="text-emerald-600 font-semibold">Capacity: </span>{eff.capacity || "—"}</span>
+          </div>
+        );
+      })()}
       {isAdmin && (
         <button
           type="button"
@@ -326,7 +379,7 @@ const MobileFilterSheet = ({ onClose, getOptionsFor,
   receiverFilter, setReceiverFilter, zoneFilter, setZoneFilter,
   productNameFilter, setProductNameFilter, modelFilter, setModelFilter,
   remarksFilter, setRemarksFilter,
-  dateFilter, setDateFilter, statusFilter, setStatusFilter, setClientPage,
+  dateFilter, setDateFilter, tripNumberFilter, setTripNumberFilter, statusFilter, setStatusFilter, setClientPage,
   isAdmin }) => {
 
   const setF = setter => val => { setter(val); setClientPage(1); };
@@ -346,12 +399,18 @@ const MobileFilterSheet = ({ onClose, getOptionsFor,
               <MultiSelect options={getOptionsFor("date")} selected={dateFilter} onChange={setF(setDateFilter)} />
             </div>
             <div>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 font-semibold">Trip No</p>
+              <MultiSelect options={getOptionsFor("tripNumber")} selected={tripNumberFilter} onChange={setF(setTripNumberFilter)} />
+            </div>
+            <div>
               <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 font-semibold">Status</p>
               <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setClientPage(1); }}
                 className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 outline-none bg-white focus:border-orange-400">
                 <option value="">All</option>
                 <option value="pending">Pending</option>
+                <option value="return-pending">Return-Pending</option>
                 <option value="delivered">Delivered</option>
+                <option value="re-delivered">Re-Delivered</option>
               </select>
             </div>
             {[
@@ -420,6 +479,7 @@ const AllChallan = () => {
   const [productNameFilter, setProductNameFilter] = useState([]);
   const [remarksFilter,     setRemarksFilter]     = useState([]);   // NEW: Remarks column filter (admin-only)
   const [dateFilter,        setDateFilter]        = useState([]);
+  const [tripNumberFilter,  setTripNumberFilter]  = useState([]);   // NEW: Trip Number column filter
   const [statusFilter,      setStatusFilter]      = useState("");
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year,  setYear]  = useState(new Date().getFullYear());
@@ -520,7 +580,7 @@ const AllChallan = () => {
     if (setSearchText) setSearchText("");
     setCustomerFilter([]); setAddressFilter([]); setThanaFilter([]);
     setDistrictFilter([]); setLocationFilter([]); setReceiverFilter([]); setZoneFilter([]);
-    setModelFilter([]); setProductNameFilter([]); setRemarksFilter([]); setDateFilter([]); setStatusFilter("");
+    setModelFilter([]); setProductNameFilter([]); setRemarksFilter([]); setDateFilter([]); setTripNumberFilter([]); setStatusFilter("");
     setShowMobileFilters(false);
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
   };
@@ -546,10 +606,13 @@ const AllChallan = () => {
       );
     };
     const matchesStatus = !statusFilter ||
-      (statusFilter === "delivered" && c.status === "delivered") ||
-      (statusFilter === "pending"   && c.status !== "delivered");
+      (statusFilter === "pending"        && (!c.status || c.status === "pending")) ||
+      (statusFilter === "return-pending" && c.status === "return-pending") ||
+      (statusFilter === "delivered"      && c.status === "delivered") ||
+      (statusFilter === "re-delivered"   && c.status === "re-delivered");
     return matchesSearch && matchesStatus &&
       check("date",           dateFilter,        formatDate(c)) &&
+      check("tripNumber",     tripNumberFilter,  c.tripNumber) &&
       check("customerName",   customerFilter,    c.customerName) &&
       check("address",        addressFilter,     c.address) &&
       check("thana",          thanaFilter,       c.thana) &&
@@ -561,7 +624,7 @@ const AllChallan = () => {
       check("model",          modelFilter,       p.model) &&
       check("remarks",        remarksFilter,     c.remarks);
   }, [searchText, statusFilter, customerFilter, addressFilter, thanaFilter, districtFilter, locationFilter,
-      receiverFilter, zoneFilter, productNameFilter, modelFilter, remarksFilter, dateFilter]);
+      receiverFilter, zoneFilter, productNameFilter, modelFilter, remarksFilter, dateFilter, tripNumberFilter]);
 
   const filteredRows = React.useMemo(
     () => challans.flatMap(c => (c.products || []).filter(p => rowMatchesAll(c, p)).map(p => ({ c, p }))),
@@ -574,6 +637,11 @@ const AllChallan = () => {
   );
   const totalQtyAll = React.useMemo(
     () => filteredRows.reduce((sum, { p }) => sum + (Number(p.quantity) || 0), 0),
+    [filteredRows]
+  );
+  // Admin-only running total shown in the Amount filter-row cell.
+  const totalAmountAll = React.useMemo(
+    () => filteredRows.reduce((sum, { c, p }) => sum + resolveProductRate(c, p).amount, 0),
     [filteredRows]
   );
 
@@ -660,6 +728,7 @@ const AllChallan = () => {
 
   const activeFilterGroups = [
     { label: "Date",     values: dateFilter,        clear: () => { setDateFilter([]);        setClientPage(1); } },
+    { label: "Trip No",  values: tripNumberFilter,  clear: () => { setTripNumberFilter([]);  setClientPage(1); } },
     { label: "Customer", values: customerFilter,    clear: () => { setCustomerFilter([]);    setClientPage(1); } },
     { label: "Address",  values: addressFilter,     clear: () => { setAddressFilter([]);     setClientPage(1); } },
     { label: "Thana",    values: thanaFilter,       clear: () => { setThanaFilter([]);       setClientPage(1); } },
@@ -696,23 +765,27 @@ const AllChallan = () => {
     if (!exportType) return;
     try {
       let exportData = [];
-      const toRow = (c, p) => ({
-        Date: c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "",
-        Status: c.status === "delivered" ? "Delivered" : "Pending",
-        "Trip No": c.tripNumber || "",
-        Customer: c.customerName, Address: c.address,
-        Thana: c.thana || "", District: c.district || "",
-        // Location is admin-only — non-admin exports skip this column
-        // entirely (object-spread preserves key order, so admin exports
-        // get Location between District and Receiver No as before).
-        ...(isAdmin ? { Location: resolveLocation(c) || "" } : {}),
-        "Receiver No": c.receiverNumber, Zone: c.zone,
-        "Product Name": p.productName, Model: p.model,
-        Qty: Number(p.quantity) || 0,
-        // Remarks is admin-only — non-admin exports skip this column.
-        ...(isAdmin ? { Remarks: c.remarks || "" } : {}),
-        User: c.currentUser || "N/A",
-      });
+      // Fixed export column set/order (per spec):
+      //   Customer, Receiver No, Address, District, Thana, Location, Model,
+      //   Qty, Rate, Amount, Product, Capacity
+      // Location / Rate / Amount / Capacity are admin-only, so non-admin
+      // exports simply skip those columns while keeping the rest in order.
+      const toRow = (c, p) => {
+        const eff = resolveProductRate(c, p);
+        return {
+          Customer: c.customerName,
+          "Receiver No": c.receiverNumber,
+          Address: c.address,
+          District: c.district || "",
+          Thana: c.thana || "",
+          ...(isAdmin ? { Location: resolveLocation(c) || "" } : {}),
+          Model: p.model,
+          Qty: Number(p.quantity) || 0,
+          ...(isAdmin ? { Rate: eff.rate || 0, Amount: eff.amount || 0 } : {}),
+          Product: p.productName,
+          ...(isAdmin ? { Capacity: eff.capacity || "" } : {}),
+        };
+      };
       if (exportType === "filtered") {
         if (!filteredRows.length) return Swal.fire({ icon: "warning", title: "No Data" });
         exportData = filteredRows.map(({ c, p }) => toRow(c, p));
@@ -862,9 +935,10 @@ const AllChallan = () => {
                   <thead className="sticky top-0 z-20">
                     <tr className="bg-slate-900 text-left">
                       {[
-                        "Date","Status","Customer","Address","Thana","District",
+                        "Date","Trip Number","Status","Customer","Address","Thana","District",
                         ...(isAdmin ? ["Location"] : []),
                         "Receiver No","Zone","Product","Model","Qty",
+                        ...(isAdmin ? ["Rate","Amount","Capacity"] : []),
                         ...(isAdmin ? ["Remarks"] : []),
                         "Action",
                       ].map(h => (
@@ -879,11 +953,16 @@ const AllChallan = () => {
                         <MultiSelect options={getOptionsFor("date")} selected={dateFilter} onChange={setFilter(setDateFilter)} />
                       </th>
                       <th className="p-1 border-r border-slate-200">
+                        <MultiSelect options={getOptionsFor("tripNumber")} selected={tripNumberFilter} onChange={setFilter(setTripNumberFilter)} />
+                      </th>
+                      <th className="p-1 border-r border-slate-200">
                         <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setClientPage(1); }}
                           className={`w-full px-1.5 py-1 text-[11px] rounded-lg border outline-none ${statusFilter ? "border-slate-700 bg-slate-800 text-white" : "border-slate-200 bg-white text-slate-400"}`}>
                           <option value="">All</option>
                           <option value="pending">Pending</option>
+                          <option value="return-pending">Return-Pending</option>
                           <option value="delivered">Delivered</option>
+                          <option value="re-delivered">Re-Delivered</option>
                         </select>
                       </th>
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("customerName")}   selected={customerFilter}    onChange={setFilter(setCustomerFilter)} /></th>
@@ -899,6 +978,15 @@ const AllChallan = () => {
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("model")}          selected={modelFilter}       onChange={setFilter(setModelFilter)} /></th>
                       <th className="p-1 border-r border-slate-200 text-center text-xs font-black text-slate-700">{totalQtyAll.toLocaleString()}</th>
                       {isAdmin && (
+                        <>
+                          <th className="p-1 border-r border-slate-200" />
+                          <th className="p-1 border-r border-slate-200 text-center text-xs font-black text-slate-700">
+                            {totalAmountAll.toLocaleString()}
+                          </th>
+                          <th className="p-1 border-r border-slate-200" />
+                        </>
+                      )}
+                      {isAdmin && (
                         <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("remarks")} selected={remarksFilter} onChange={setFilter(setRemarksFilter)} /></th>
                       )}
                       <th className="p-1" />
@@ -909,14 +997,17 @@ const AllChallan = () => {
                     {paginatedRows.map(({ c, p }, idx) => (
                       <tr key={`${c._id}-${idx}`}
                         className={`border-b border-slate-100 text-[12px] transition-colors ${
-                          c.status === "delivered"
+                          (c.status === "delivered" || c.status === "re-delivered")
                             ? "bg-emerald-50/40 hover:bg-emerald-50"
                             : "hover:bg-orange-50/30 even:bg-slate-50/40"
                         }`}>
                         <td className="px-2.5 py-2 text-black whitespace-nowrap">
                           {c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-GB") : "—"}
                         </td>
-                        <td className="px-2.5 py-2"><StatusBadge status={c.status} tripNumber={c.tripNumber} /></td>
+                        <td className="px-2.5 py-2 text-black whitespace-nowrap font-mono text-[11px] font-semibold">
+                          {c.tripNumber || <span className="text-slate-300 font-sans">—</span>}
+                        </td>
+                        <td className="px-2.5 py-2"><StatusBadge status={c.status} /></td>
                         <td className="px-2.5 py-2 text-black max-w-[140px] truncate" title={c.customerName}> {c.customerName}</td>
                         <td className="px-2.5 py-2 text-black max-w-[140px] truncate" title={c.address}>{c.address}</td>
                         <td className="px-2.5 py-2 text-black max-w-[140px] truncate" title={c.thana}>{c.thana || "—"}</td>
@@ -929,6 +1020,16 @@ const AllChallan = () => {
                         <td className="px-2.5 py-2 text-black whitespace-nowrap">{p.productName || "—"}</td>
                         <td className="px-2.5 py-2 text-black max-w-[140px] truncate"title={p.model}>{p.model?.toUpperCase()}</td>
                         <td className="px-2.5 py-2 text-center font-black text-black">{p.quantity}</td>
+                        {isAdmin && (() => {
+                          const eff = resolveProductRate(c, p);
+                          return (
+                            <>
+                              <td className="px-2.5 py-2 text-amber-500 font-bold whitespace-nowrap">{eff.rate ? `${eff.rate}` : "—"}</td>
+                              <td className="px-2.5 py-2 text-green-600 font-bold whitespace-nowrap">{eff.amount ? `${eff.amount.toLocaleString()}` : "—"}</td>
+                              <td className="px-2.5 py-2 text-black whitespace-nowrap">{eff.capacity || "—"}</td>
+                            </>
+                          );
+                        })()}
                         {isAdmin && (
                           <td className="px-2.5 py-2" title={c.remarks || ""}>
                             <RemarksCell
@@ -1000,6 +1101,7 @@ const AllChallan = () => {
           modelFilter={modelFilter} setModelFilter={setModelFilter}
           remarksFilter={remarksFilter} setRemarksFilter={setRemarksFilter}
           dateFilter={dateFilter} setDateFilter={setDateFilter}
+          tripNumberFilter={tripNumberFilter} setTripNumberFilter={setTripNumberFilter}
           statusFilter={statusFilter} setStatusFilter={setStatusFilter}
           setClientPage={setClientPage}
           isAdmin={isAdmin}

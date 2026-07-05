@@ -195,6 +195,7 @@ const TypeSelect = ({ value, onChange }) => (
     className={`w-full px-1.5 py-0.5 text-[11px] rounded-lg border outline-none transition-all ${value ? "border-slate-700 bg-slate-800 text-white" : "border-slate-200 bg-white text-slate-400"}`}>
     <option value="">All</option>
     <option value="delivery">Delivery</option>
+    <option value="re-delivery">Re-Delivered</option>
     <option value="return">Return</option>
   </select>
 );
@@ -213,8 +214,13 @@ const MobileCard = ({ row, isAdmin, onSplit, onDelete }) => {
         <div className="flex items-center gap-1.5">
           {isReturn
             ? <span className="px-2 py-0.5 bg-orange-100 text-orange-700 border border-orange-200 rounded-full text-[10px] font-bold">↩ Return</span>
+            : challan.isReDelivery
+            ? <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-full text-[10px] font-bold">↻ Re-Delivered</span>
             : <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-[10px] font-bold">↗ Delivery</span>
           }
+          {row.trip?.tripNumber && (
+            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-full text-[10px] font-mono font-bold">{row.trip.tripNumber}</span>
+          )}
           {onDelete && (
             <button
               type="button"
@@ -356,6 +362,7 @@ const DeliveredPage = () => {
   const [typeFilter,     setTypeFilter]     = useState("");
   const [noteFilter,     setNoteFilter]     = useState([]);
   const [tripDoFilter,   setTripDoFilter]   = useState([]);   // NEW: Trip Do column filter
+  const [tripNumberFilter, setTripNumberFilter] = useState([]); // NEW: Trip Number column filter
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year,  setYear]  = useState(new Date().getFullYear());
 
@@ -402,7 +409,7 @@ const DeliveredPage = () => {
     setCapacityFilter([]);
     setRateFilter([]);
     setAddressFilter([]); setReceiverFilter([]); setDateFilter([]);
-    setTypeFilter(""); setNoteFilter([]); setTripDoFilter([]); setShowMobileFilters(false);
+    setTypeFilter(""); setNoteFilter([]); setTripDoFilter([]); setTripNumberFilter([]); setShowMobileFilters(false);
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
   };
 
@@ -411,7 +418,7 @@ const DeliveredPage = () => {
     deliveries.forEach(trip => {
       (trip.challans || []).forEach(challan => {
         const isReturn = challan.isReturn === true;
-        const rowType  = isReturn ? "return" : "delivery";
+        const rowType  = isReturn ? "return" : (challan.isReDelivery ? "re-delivery" : "delivery");
         if (typeFilter && typeFilter !== rowType) return;
         (challan.products || []).forEach(product => {
           if (product.hiddenFromDelivered) return;
@@ -456,6 +463,7 @@ const DeliveredPage = () => {
             if (!check(rateFilter, rateLabel)) return;
           }
           if (!check(tripDoFilter,   product.tripDo))       return;
+          if (!check(tripNumberFilter, trip.tripNumber))    return;
           if (noteFilter.length > 0) {
             const noteVal = isReturn ? (challan.returnNote || "") : (challan.note || "");
             if (!check(noteFilter, noteVal)) return;
@@ -483,7 +491,7 @@ const DeliveredPage = () => {
       });
     });
     return rows;
-  }, [deliveries, searchText, typeFilter, dateFilter, customerFilter, csdFilter, remarksFilter, zoneFilter, addressFilter, receiverFilter, districtFilter, thanaFilter, locationFilter, productFilter, modelFilter, capacityFilter, rateFilter, tripDoFilter, noteFilter]);
+  }, [deliveries, searchText, typeFilter, dateFilter, customerFilter, csdFilter, remarksFilter, zoneFilter, addressFilter, receiverFilter, districtFilter, thanaFilter, locationFilter, productFilter, modelFilter, capacityFilter, rateFilter, tripDoFilter, tripNumberFilter, noteFilter]);
 
   const filteredRows  = useMemo(() => buildRows(), [buildRows]);
   const totalPages    = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
@@ -512,7 +520,7 @@ const DeliveredPage = () => {
     deliveries.forEach(trip => {
       (trip.challans || []).forEach(challan => {
         const isReturn = challan.isReturn === true;
-        const rowType  = isReturn ? "return" : "delivery";
+        const rowType  = isReturn ? "return" : (challan.isReDelivery ? "re-delivery" : "delivery");
         if (typeFilter && typeFilter !== rowType) return;
         (challan.products || []).forEach(product => {
           if (product.hiddenFromDelivered) return;
@@ -570,6 +578,7 @@ const DeliveredPage = () => {
       if (!check(rateFilter, rateLabel)) return false;
     }
     if (excludeField !== "tripDo"   && !check(tripDoFilter,   product.tripDo))               return false;
+    if (excludeField !== "tripNumber" && !check(tripNumberFilter, row.trip?.tripNumber))      return false;
     if (excludeField !== "note" && noteFilter.length > 0) {
       const noteVal = row.isReturn ? (challan.returnNote || "") : (challan.note || "");
       if (!check(noteFilter, noteVal)) return false;
@@ -577,7 +586,7 @@ const DeliveredPage = () => {
     return true;
   }, [dateFilter, customerFilter, csdFilter, remarksFilter, zoneFilter, addressFilter, receiverFilter,
       districtFilter, thanaFilter, locationFilter, productFilter, modelFilter,
-      capacityFilter, rateFilter, tripDoFilter, noteFilter]);
+      capacityFilter, rateFilter, tripDoFilter, tripNumberFilter, noteFilter]);
 
   const getOptionsFor = useCallback((field) => {
     const map = new Map();
@@ -595,6 +604,8 @@ const DeliveredPage = () => {
         val = r === 0 ? "" : String(r);
       } else if (field === "productName" || field === "model" || field === "tripDo") {
         val = product[field]?.toString().trim();
+      } else if (field === "tripNumber") {
+        val = row.trip?.tripNumber?.toString().trim();
       } else if (field === "location") {
         val = resolveLocation(challan);
       } else if (field === "note") {
@@ -647,7 +658,8 @@ const DeliveredPage = () => {
     { label: "Capacity", values: capacityFilter, clear: () => setCapacityFilter([]), adminOnly: true },
     { label: "Rate",     values: rateFilter,     clear: () => setRateFilter([]),     adminOnly: true },
     { label: "Trip Do",  values: tripDoFilter,   clear: () => setTripDoFilter([]),  adminOnly: true },
-    ...(typeFilter ? [{ label: "Type", values: [typeFilter], clear: () => setTypeFilter("") }] : []),
+    { label: "Trip Number", values: tripNumberFilter, clear: () => setTripNumberFilter([]) },
+    ...(typeFilter ? [{ label: "Type", values: [typeFilter === "re-delivery" ? "Re-Delivered" : typeFilter === "return" ? "Return" : "Delivery"], clear: () => setTypeFilter("") }] : []),
     { label: "Note", values: noteFilter, clear: () => setNoteFilter([]) },
   ].filter(f => f.values.length > 0 && (isAdmin || !f.adminOnly));
 
@@ -671,6 +683,12 @@ const DeliveredPage = () => {
     });
     if (!exportType) return;
     try {
+      // Fixed export column set/order (per spec):
+      //   Customer, CSD, Receiver, Address, District, Thana, Location,
+      //   Model, Qty, Rate, Amount, Product, Trip Do, Capacity Type
+      // Location / Rate / Amount / Trip Do / Capacity Type are admin-only,
+      // so non-admin exports simply skip those columns, keeping the rest
+      // in order.
       const toRow = (row) => {
         // Prefer pre-resolved row fields (buildRows path); for full-month
         // path we resolve fresh.
@@ -679,32 +697,20 @@ const DeliveredPage = () => {
           : resolveProductRate(row.challan, row.product);
         const qty = Number(row.product.quantity) || 0;
         const rate = Number(eff.rate) || 0;
-        // Build the base (non-admin-visible) export row, then conditionally
-        // add admin-only fields. Object spread preserves column order:
-        // base fields first (up through Model), admin block in the middle,
-        // then post-admin fields (Floor onward).
         return {
-          Date: row.date.toLocaleDateString(), Type: row.isReturn ? "Return" : "Delivery",
-          "Trip No": row.trip.tripNumber || "", Customer: row.challan.customerName,
+          Customer: row.challan.customerName,
           CSD: row.challan.csd || "",
-          Zone: row.challan.zone, Address: row.challan.address,
-          "Receiver Number": row.challan.receiverNumber, District: row.challan.district,
+          Receiver: row.challan.receiverNumber,
+          Address: row.challan.address,
+          District: row.challan.district,
           Thana: row.challan.thana,
           ...(isAdmin ? { Location: resolveLocation(row.challan) || "" } : {}),
-          Product: row.product.productName,
           Model: row.product.model,
-          ...(isAdmin ? { Capacity: eff.capacity || "" } : {}),
           Qty: qty,
-          ...(isAdmin ? {
-            Rate: rate,
-            Amount: qty * rate,
-            "Trip Do": row.product.tripDo || "",
-          } : {}),
-          Floor: row.challan.floor || "", Carrying: row.challan.carrying || "",
-          "Delivery Status": row.deliveryStatus || "Pending",
-          "Challan Status": row.challanReturnStatus || "—",
-          Note: row.note || row.returnNote || "",
-          ...(isAdmin ? { Remarks: row.challan.remarks || "" } : {}),
+          ...(isAdmin ? { Rate: rate, Amount: qty * rate } : {}),
+          Product: row.product.productName,
+          ...(isAdmin ? { "Trip Do": row.product.tripDo || "" } : {}),
+          ...(isAdmin ? { "Capacity Type": eff.capacity || "" } : {}),
         };
       };
       let exportData = [];
@@ -1137,6 +1143,7 @@ const DeliveredPage = () => {
   const COLS = [
     { key: "date",     header: "Date",     w: 78  },
     { key: "type",     header: "Type",     w: 72  },
+    { key: "tripNumber", header: "Trip Number", w: 90 },
     { key: "customer", header: "Customer", w: 90  },
     { key: "csd",      header: "CSD",      w: 90  },
     { key: "receiver", header: "Receiver", w: 88  },
@@ -1329,6 +1336,7 @@ const DeliveredPage = () => {
                         switch (c.key) {
                           case "date":     el = <MultiSelect options={getOptionsFor("date")} selected={dateFilter} onChange={setDateFilter} />; break;
                           case "type":     el = <TypeSelect value={typeFilter} onChange={setTypeFilter} />; break;
+                          case "tripNumber": el = <MultiSelect options={getOptionsFor("tripNumber")} selected={tripNumberFilter} onChange={setTripNumberFilter} />; break;
                           case "customer": el = <MultiSelect options={getOptionsFor("customerName")} selected={customerFilter} onChange={setCustomerFilter} />; break;
                           case "csd":      el = <MultiSelect options={getOptionsFor("csd")} selected={csdFilter} onChange={setCsdFilter} />; break;
                           case "zone":     el = <MultiSelect options={getOptionsFor("zone")} selected={zoneFilter} onChange={setZoneFilter} />; break;
@@ -1368,7 +1376,13 @@ const DeliveredPage = () => {
                           case "type":
                             return isReturn
                               ? <span className="inline-flex px-1.5 py-0.5 bg-orange-100 text-orange-700 border border-orange-200 rounded-full text-[9px] font-bold whitespace-nowrap">↩ Return</span>
+                              : challan.isReDelivery
+                              ? <span className="inline-flex px-1.5 py-0.5 bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-full text-[9px] font-bold whitespace-nowrap">↻ Re-Delivered</span>
                               : <span className="inline-flex px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-[9px] font-bold whitespace-nowrap">↗ Delivery</span>;
+                          case "tripNumber":
+                            return row.trip?.tripNumber
+                              ? <span className="font-mono text-[10px] font-bold text-slate-600 whitespace-nowrap">{row.trip.tripNumber}</span>
+                              : <span className="text-slate-300">—</span>;
                           case "customer":
                             return <span className="block truncate font-semibold text-slate-800">{challan.customerName}</span>;
                           case "csd":

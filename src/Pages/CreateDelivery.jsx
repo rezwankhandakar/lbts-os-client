@@ -44,7 +44,9 @@ const CreateDelivery = () => {
         try {
             const res = await axiosSecure.get(`/challans?search=${encodeURIComponent(search)}&page=1&limit=5000`);
             const all = res.data.data || res.data || [];
-            setChallans(all.filter(c => c.status !== "delivered"));
+            // Only Pending + Return-Pending challans are eligible for a new
+            // delivery — Delivered and Re-Delivered ones are already out.
+            setChallans(all.filter(c => c.status !== "delivered" && c.status !== "re-delivered"));
         } catch (err) { console.error(err); }
         finally { setLoading(false); }
     }, [axiosSecure]);
@@ -54,7 +56,7 @@ const CreateDelivery = () => {
     }, [searchText, fetchChallans]);
 
     const addToDelivery = (challan) => {
-        if (challan.status === "delivered") {
+        if (challan.status === "delivered" || challan.status === "re-delivered") {
             return Swal.fire({ icon: "warning", title: "Already Delivered", timer: 2000, showConfirmButton: false });
         }
         if (!deliveryQueue.some(item => item._id === challan._id)) {
@@ -137,7 +139,7 @@ const CreateDelivery = () => {
         if (deliveryQueue.length === 0) {
             return Swal.fire("Empty Queue", "Please add at least one challan", "warning");
         }
-        const deliveredItems = deliveryQueue.filter(c => c.status === "delivered");
+        const deliveredItems = deliveryQueue.filter(c => c.status === "delivered" || c.status === "re-delivered");
         if (deliveredItems.length > 0) {
             return Swal.fire({ icon: "warning", title: "Already Delivered", text: deliveredItems.map(c => c.customerName).join(", ") });
         }
@@ -398,6 +400,9 @@ const ChallanCard = ({ data, onAdd, onEdit }) => (
                     <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase rounded-full border border-emerald-200">✓ Delivered</span>
                 ) : (
                     <>
+                        {data.status === "return-pending" && (
+                            <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-black uppercase rounded-full border border-orange-200">↩ Return-Pending</span>
+                        )}
                         <button onClick={onEdit} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all">
                             <FaUserEdit size={13} />
                         </button>

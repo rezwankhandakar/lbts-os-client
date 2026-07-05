@@ -5,7 +5,7 @@ import useRole from "../hooks/useRole";
 import Swal from "sweetalert2";
 import {
   Plus, Trash2, X, Check, ChevronDown, AlertCircle,
-  CheckCircle2, Clock, Wallet, FileText, Hammer, Receipt,
+  CheckCircle2, Clock, Wallet, FileText, Hammer, Receipt, Pencil,
 } from "lucide-react";
 
 /* ══ Constants ══════════════════════════════════════════════════ */
@@ -48,11 +48,16 @@ const DarkInput = ({ type = "text", value, onChange, placeholder, className = ""
     {...rest} />
 );
 
-/* ══ Add Bill Modal ═════════════════════════════════════════════ */
-function AddBillModal({ type, month, year, onClose, onSaved, axiosSecure }) {
-  const accent = type === "main" ? "#818cf8" : "#38bdf8";
-  const [items,  setItems]  = useState([{ model: "", pics: "", amount: "" }]);
-  const [note,   setNote]   = useState("");
+/* ══ Add/Edit Bill Modal ════════════════════════════════════════ */
+function AddBillModal({ type, month, year, editBill, onClose, onSaved, axiosSecure }) {
+  const isEdit  = !!editBill;
+  const accent  = (editBill?.type || type) === "main" ? "#818cf8" : "#38bdf8";
+  const [items,  setItems]  = useState(
+    isEdit
+      ? editBill.items.map(i => ({ model: i.model, pics: i.pics || "", amount: i.amount }))
+      : [{ model: "", pics: "", amount: "" }]
+  );
+  const [note,   setNote]   = useState(isEdit ? (editBill.note || "") : "");
   const [saving, setSaving] = useState(false);
 
   const totalAmount = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
@@ -66,8 +71,13 @@ function AddBillModal({ type, month, year, onClose, onSaved, axiosSecure }) {
     if (!valid.length) return Swal.fire({ toast: true, position: "top-end", icon: "warning", title: "কমপক্ষে একটি item দাও", showConfirmButton: false, timer: 1500 });
     setSaving(true);
     try {
-      await axiosSecure.post("/walton-bills", { month, year, type, items: valid, note });
-      Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Bill issue হয়েছে!", showConfirmButton: false, timer: 1500 });
+      if (isEdit) {
+        await axiosSecure.patch(`/walton-bills/${editBill._id}`, { items: valid, note });
+        Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Bill update হয়েছে!", showConfirmButton: false, timer: 1500 });
+      } else {
+        await axiosSecure.post("/walton-bills", { month, year, type, items: valid, note });
+        Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Bill issue হয়েছে!", showConfirmButton: false, timer: 1500 });
+      }
       onSaved(); onClose();
     } catch { Swal.fire("ত্রুটি", "Save failed", "error"); }
     setSaving(false);
@@ -83,11 +93,11 @@ function AddBillModal({ type, month, year, onClose, onSaved, axiosSecure }) {
         {/* Header */}
         <div style={{ borderBottom: "1px solid rgba(148,163,184,0.08)" }} className="px-5 py-4 flex items-center gap-3 shrink-0">
           <div style={{ background: `${accent}18`, border: `1px solid ${accent}30` }} className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0">
-            {type === "main" ? <FileText size={15} style={{ color: accent }} /> : <Hammer size={15} style={{ color: accent }} />}
+            {(editBill?.type || type) === "main" ? <FileText size={15} style={{ color: accent }} /> : <Hammer size={15} style={{ color: accent }} />}
           </div>
           <div className="flex-1 min-w-0">
-            <p style={{ color: accent }} className="text-[9px] font-black uppercase tracking-widest">নতুন Bill Issue</p>
-            <h2 className="text-sm font-black text-slate-100">{type === "main" ? "Main Bill" : "Lebor Bill"} — {MONTHS[month - 1]} {year}</h2>
+            <p style={{ color: accent }} className="text-[9px] font-black uppercase tracking-widest">{isEdit ? "Bill Edit করো" : "নতুন Bill Issue"}</p>
+            <h2 className="text-sm font-black text-slate-100">{(editBill?.type || type) === "main" ? "Main Bill" : "Lebor Bill"} — {MONTHS[(editBill?.month || month) - 1]} {editBill?.year || year}</h2>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition shrink-0"><X size={16} /></button>
         </div>
@@ -153,7 +163,7 @@ function AddBillModal({ type, month, year, onClose, onSaved, axiosSecure }) {
           <button onClick={handleSave} disabled={saving}
             style={{ background: `linear-gradient(135deg,${accent}cc,${accent})`, boxShadow: `0 4px 20px ${accent}30` }}
             className="flex-[2] py-3 text-sm font-black text-white rounded-xl hover:opacity-90 active:scale-[0.98] disabled:opacity-40 transition flex items-center justify-center gap-2">
-            <Check size={14} /> {saving ? "Saving…" : "Bill Issue করো"}
+            <Check size={14} /> {saving ? "Saving…" : isEdit ? "Bill Update করো" : "Bill Issue করো"}
           </button>
         </div>
         <div style={{ height: "env(safe-area-inset-bottom,0px)" }} className="sm:hidden shrink-0" />
@@ -225,7 +235,7 @@ function AddPaymentModal({ bill, onClose, onSaved, axiosSecure }) {
 }
 
 /* ══ Bill Card ══════════════════════════════════════════════════ */
-function BillCard({ bill, readOnly, onAddPayment, onDelete, onDeletePayment }) {
+function BillCard({ bill, readOnly, onAddPayment, onEdit, onDelete, onDeletePayment }) {
   const [open, setOpen] = useState(false);
   const st     = STATUS[bill.status] || STATUS.unpaid;
   const StIcon = st.icon;
@@ -302,6 +312,11 @@ function BillCard({ bill, readOnly, onAddPayment, onDelete, onDeletePayment }) {
                   <Wallet size={10} /> Pay
                 </button>
               )}
+              <button onClick={() => onEdit(bill)}
+                style={{ background: "rgba(129,140,248,0.1)", border: "1px solid rgba(129,140,248,0.25)", color: "#818cf8" }}
+                className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold hover:bg-indigo-500 hover:text-white hover:border-transparent transition-all whitespace-nowrap">
+                <Pencil size={10} /> Edit
+              </button>
               <button onClick={handleDelete}
                 className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[10px] text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-all whitespace-nowrap">
                 <Trash2 size={10} /> মুছো
@@ -360,6 +375,7 @@ const BillTracker = () => {
   const [bills,     setBills]     = useState([]);
   const [loading,   setLoading]   = useState(false);
   const [addModal,  setAddModal]  = useState(false);
+  const [editModal, setEditModal] = useState(null);
   const [payModal,  setPayModal]  = useState(null);
 
   const fetchBills = useCallback(async () => {
@@ -423,27 +439,28 @@ const BillTracker = () => {
         borderBottom: "1px solid rgba(148,163,184,0.08)",
         backdropFilter: "blur(16px)",
       }}>
-        <div className="max-w-2xl mx-auto px-3 sm:px-4 pt-3 pb-2.5 space-y-2.5">
+        <div className="max-w-[1600px] mx-auto px-3 sm:px-6 pt-3 pb-2.5 space-y-2.5">
 
           {/* Title + selectors */}
           <div className="flex items-center gap-2.5">
             <div style={{ background: "linear-gradient(135deg,#4f46e5,#6366f1)", boxShadow: "0 4px 14px rgba(99,102,241,0.4)" }}
-              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0">
-              <Receipt size={14} className="text-white" />
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0">
+              <Receipt size={14} className="text-white sm:hidden" />
+              <Receipt size={18} className="text-white hidden sm:block" />
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-sm font-black text-slate-100 leading-tight">Walton Bill Tracker</h1>
-              <p className="text-[9px] text-slate-500 hidden sm:block">Bill issue ও payment অনুসরণ</p>
+              <h1 className="text-sm sm:text-xl font-black text-slate-100 leading-tight">Walton Bill Tracker</h1>
+              <p className="text-[9px] sm:text-xs text-slate-500 hidden sm:block">Bill issue ও payment অনুসরণ</p>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <select value={month} onChange={e => setMonth(Number(e.target.value))}
                 style={{ background: "rgba(15,23,42,0.95)", border: "1px solid rgba(148,163,184,0.12)", color: "#e2e8f0" }}
-                className="px-2 py-1.5 rounded-xl text-[10px] font-bold outline-none focus:border-indigo-400 transition w-[86px] sm:w-auto">
+                className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-bold outline-none focus:border-indigo-400 transition w-[86px] sm:w-auto">
                 {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
               </select>
               <select value={year} onChange={e => setYear(Number(e.target.value))}
                 style={{ background: "rgba(15,23,42,0.95)", border: "1px solid rgba(148,163,184,0.12)", color: "#e2e8f0" }}
-                className="px-2 py-1.5 rounded-xl text-[10px] font-bold outline-none focus:border-indigo-400 transition w-[58px] sm:w-auto">
+                className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-bold outline-none focus:border-indigo-400 transition w-[58px] sm:w-auto">
                 {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
@@ -451,13 +468,13 @@ const BillTracker = () => {
 
           {/* Tabs + Add button */}
           <div className="flex items-center gap-2">
-            <div className="flex gap-1.5 flex-1 min-w-0">
+            <div className="flex gap-1.5 sm:gap-2 flex-1 min-w-0 sm:flex-initial sm:max-w-md">
               {TABS.map(({ key, label, icon: Icon, color }) => (
                 <button key={key} onClick={() => setActiveTab(key)}
                   style={activeTab === key
                     ? { background: `${color}15`, border: `1px solid ${color}35`, color }
                     : { background: "rgba(148,163,184,0.04)", border: "1px solid rgba(148,163,184,0.08)", color: "#64748b" }}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold transition-all flex-1 justify-center min-w-0">
+                  className="flex items-center gap-1.5 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all flex-1 justify-center min-w-0">
                   <Icon size={11} className="shrink-0" />
                   <span className="truncate">{label}</span>
                   <span style={activeTab === key
@@ -472,7 +489,7 @@ const BillTracker = () => {
             {!readOnly && (
               <button onClick={() => setAddModal(true)}
                 style={{ background: `linear-gradient(135deg,${accent}cc,${accent})`, boxShadow: `0 4px 12px ${accent}30` }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black text-white hover:opacity-90 active:scale-[0.97] transition-all shrink-0 whitespace-nowrap">
+                className="flex items-center gap-1.5 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-[10px] sm:text-xs font-black text-white hover:opacity-90 active:scale-[0.97] transition-all shrink-0 whitespace-nowrap">
                 <Plus size={12} /> নতুন Bill
               </button>
             )}
@@ -482,16 +499,16 @@ const BillTracker = () => {
 
       {/* ══ Scrollable Content — শুধু এই অংশ scroll করবে ══ */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto px-3 sm:px-4 py-3 space-y-3" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+        <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-3 space-y-3 sm:space-y-4" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
 
           {/* Summary */}
           {summary.count > 0 && (
-            <div style={{ background: "rgba(15,23,42,0.7)", border: "1px solid rgba(148,163,184,0.08)" }} className="rounded-2xl p-3 sm:p-4 space-y-3">
-              <div className="grid grid-cols-3 gap-2">
+            <div style={{ background: "rgba(15,23,42,0.7)", border: "1px solid rgba(148,163,184,0.08)" }} className="rounded-2xl p-3 sm:p-6 space-y-3 sm:space-y-4">
+              <div className="grid grid-cols-3 gap-2 sm:gap-6 sm:max-w-2xl sm:mx-auto">
                 {[["মোট Issue", summary.total, accent],["দেওয়া হয়েছে", summary.paid, "#10b981"],["বাকি আছে", summary.due, "#f43f5e"]].map(([l,v,c]) => (
                   <div key={l} className="text-center">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 leading-tight">{l}</p>
-                    <p style={{ color: c }} className="text-lg sm:text-2xl font-black leading-none">৳{fmt(v)}</p>
+                    <p className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5 leading-tight">{l}</p>
+                    <p style={{ color: c }} className="text-lg sm:text-3xl font-black leading-none">৳{fmt(v)}</p>
                   </div>
                 ))}
               </div>
@@ -531,10 +548,11 @@ const BillTracker = () => {
               )}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3 items-start">
               {filteredBills.map(bill => (
                 <BillCard key={bill._id} bill={bill} readOnly={readOnly}
                   onAddPayment={b => !readOnly && setPayModal(b)}
+                  onEdit={b => !readOnly && setEditModal(b)}
                   onDelete={handleDelete} onDeletePayment={handleDeletePayment} />
               ))}
             </div>
@@ -546,6 +564,10 @@ const BillTracker = () => {
       {addModal && !readOnly && (
         <AddBillModal type={activeTab} month={month} year={year}
           onClose={() => setAddModal(false)} onSaved={fetchBills} axiosSecure={axiosSecure} user={user} />
+      )}
+      {editModal && !readOnly && (
+        <AddBillModal editBill={editModal}
+          onClose={() => setEditModal(null)} onSaved={fetchBills} axiosSecure={axiosSecure} user={user} />
       )}
       {payModal && (
         <AddPaymentModal bill={payModal} onClose={() => setPayModal(null)} onSaved={fetchBills} axiosSecure={axiosSecure} />

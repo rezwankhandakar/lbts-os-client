@@ -427,7 +427,7 @@ const RtnNoteModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy
       <div className="bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: "100dvh" }}>
         <div className="px-4 py-3 bg-indigo-600 flex items-center justify-between text-white shrink-0">
           <div>
-            <p className="font-bold text-sm">📋 RTN + Note</p>
+            <p className="font-bold text-sm">📋 Status + Note</p>
             <p className="text-indigo-200 text-[10px] font-mono">{challan.customerName}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg transition"><X size={16} /></button>
@@ -1341,7 +1341,7 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
                     onClick={() => { setRtnNoteChallan(c); setOpenActionMenu(null); }}
                     className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[11px] font-semibold hover:bg-indigo-50 transition text-left ${hasStatus || hasNote ? "text-indigo-600" : "text-slate-500"}`}
                   >
-                    <span className="text-[12px] shrink-0">📋</span> RTN + Note
+                    <span className="text-[12px] shrink-0">📋</span> Status + Note
                   </button>
                   <div className="border-t border-slate-100" />
                   <button

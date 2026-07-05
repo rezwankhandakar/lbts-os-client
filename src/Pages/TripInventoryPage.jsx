@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
 import useAxiosSecure from "../hooks/useAxiosSecure";
+import useRole from "../hooks/useRole";
 import { useSearch } from "../hooks/SearchContext";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import Swal from "sweetalert2";
 import LoadingSpinner from "../Component/LoadingSpinner";
+import { Trash2 } from "lucide-react";
 
 const ITEMS_PER_PAGE = 400;
 const MONTHS_FULL  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -85,7 +87,7 @@ const SimpleSelect = ({ value, onChange, options }) => (
 );
 
 /* ── Mobile Trip Card ── */
-const MobileTripCard = ({ t, onView }) => {
+const MobileTripCard = ({ t, onView, onDelete, canDelete }) => {
   const challans = t.challans || [];
   const normalChallans  = challans.filter(c => !c.isReturn);
   const allDelivered    = normalChallans.length > 0 && normalChallans.every(c => c.deliveryStatus === "confirmed");
@@ -98,10 +100,18 @@ const MobileTripCard = ({ t, onView }) => {
           <span className="text-[10px] bg-slate-900 text-white rounded-lg px-2 py-0.5 font-mono font-bold flex-shrink-0">{t.tripNumber}</span>
           <span className="text-[10px] text-slate-700 flex-shrink-0">{new Date(t.createdAt).toLocaleDateString("en-GB")}</span>
         </div>
-        <button onClick={() => onView(t)}
-          className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-bold rounded-lg transition flex-shrink-0">
-          View
-        </button>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {canDelete && (
+            <button onClick={() => onDelete(t)}
+              className="px-2 py-1 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white border border-red-200 hover:border-red-500 text-[10px] font-bold rounded-lg transition">
+              🗑
+            </button>
+          )}
+          <button onClick={() => onView(t)}
+            className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-bold rounded-lg transition">
+            View
+          </button>
+        </div>
       </div>
       <div className="px-3 py-2.5 space-y-2">
         <div className="grid grid-cols-3 gap-1">
@@ -146,6 +156,8 @@ const TripInventoryPage = () => {
   const axiosSecure = useAxiosSecure();
   const navigate = useNavigate();
   const { searchText, setSearchText } = useSearch();
+  const { role } = useRole();
+  const canDeleteTrip = role === "admin" || role === "manager";
 
   const [deliveries,    setDeliveries]    = useState([]);
   const [loading,       setLoading]       = useState(false);
@@ -163,6 +175,37 @@ const TripInventoryPage = () => {
     if (!t?._id) return;
     navigate(`/trip/${t._id}`, { state: { trip: t } });
   }, [navigate]);
+
+  // ── Delete an entire trip ──
+  // Reverts every real challan on the trip back to "pending" (or
+  // "return-pending" for re-deliveries) and removes any not-yet
+  // re-delivered return-pending challan the trip created, then deletes
+  // the trip document itself. Admin/Manager only.
+  const handleDeleteTrip = useCallback(async (t) => {
+    const { value: reason, isConfirmed } = await Swal.fire({
+      title: "Delete Trip?",
+      html: `<p style="font-size:13px;color:#475569">
+               Trip <b>${t.tripNumber}</b> (${(t.challans || []).filter(c => !c.isReturn).length} challan${(t.challans || []).filter(c => !c.isReturn).length === 1 ? "" : "s"}) will be permanently deleted.
+               <br/>All its challans go back to <b>Pending</b> so they can be re-dispatched.
+               <br/>This cannot be undone.
+             </p>`,
+      icon: "warning",
+      input: "text",
+      inputPlaceholder: "Reason (optional)",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      confirmButtonText: "Delete Trip",
+      cancelButtonText: "Cancel",
+    });
+    if (!isConfirmed) return;
+    try {
+      await axiosSecure.delete(`/deliveries/${t._id}`, { data: { reason: reason || "" } });
+      setDeliveries(prev => prev.filter(d => d._id !== t._id));
+      Swal.fire({ icon: "success", title: "Trip deleted", toast: true, position: "top-end", timer: 1800, showConfirmButton: false });
+    } catch (err) {
+      Swal.fire({ icon: "error", title: err?.response?.data?.message || "Delete failed" });
+    }
+  }, [axiosSecure]);
 
   const [tripFilter,     setTripFilter]     = useState([]);
   const [vendorFilter,   setVendorFilter]   = useState([]);
@@ -418,7 +461,7 @@ const TripInventoryPage = () => {
               </div>
             </div>
             <div className="space-y-2">
-              {paginatedRows.map((t, i) => <MobileTripCard key={i} t={t} onView={openTrip} />)}
+              {paginatedRows.map((t, i) => <MobileTripCard key={i} t={t} onView={openTrip} onDelete={handleDeleteTrip} canDelete={canDeleteTrip} />)}
             </div>
           </div>
         ) : (
@@ -482,16 +525,24 @@ const TripInventoryPage = () => {
                           </td>
                           <td className="px-2.5 py-2 text-left max-w-[160px]">
                             {t.tripNote && t.tripNote.trim() ? (
-                              <span className="text-[11px] text-slate-600 truncate block" title={t.tripNote}>📝 {t.tripNote}</span>
+                              <span className="text-[11px] font-bold py-1 rounded px-1 text-black bg-amber-200 truncate block" title={t.tripNote}>📝 {t.tripNote}</span>
                             ) : (
                               <span className="text-[11px] text-slate-300">—</span>
                             )}
                           </td>
                           <td className="px-2.5 py-2">
-                            <button onClick={() => openTrip(t)}
-                              className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-bold rounded-lg transition">
-                              View
-                            </button>
+                            <div className="flex items-center justify-center gap-1.5">
+                              {canDeleteTrip && (
+                                <button onClick={() => handleDeleteTrip(t)} title="Delete trip"
+                                  className="px-2.5 py-1 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white border border-red-200 hover:border-red-500 text-[10px] font-bold rounded-lg transition">
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
+                              <button onClick={() => openTrip(t)}
+                                className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-bold rounded-lg transition">
+                                View
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
