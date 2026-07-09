@@ -928,6 +928,7 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
   // should never even see the Note button.
   const { role } = useRole();
   const isVendor = role === "vendor";
+  const canDeleteTrip = role === "admin" || role === "manager";
 
   const [trip,                 setTrip]                 = useState(selectedTrip);
   const [loadingId,            setLoadingId]            = useState(null);
@@ -979,6 +980,37 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
     };
     setTrip(withTripNum);
     if (onTripUpdate) onTripUpdate(withTripNum);
+  };
+
+  // ── Delete the entire trip ──
+  // Reverts every real challan back to Pending (server-side) and deletes
+  // the trip document, then closes the page (goes back to the list).
+  // Admin/Manager only. Moved here from the Trip-Inventory list.
+  const handleDeleteTrip = async () => {
+    const challanCount = (trip.challans || []).filter(c => !c.isReturn).length;
+    const { value: reason, isConfirmed } = await Swal.fire({
+      title: "Delete Trip?",
+      html: `<p style="font-size:13px;color:#475569">
+               Trip <b>${trip.tripNumber}</b> (${challanCount} challan${challanCount === 1 ? "" : "s"}) will be permanently deleted.
+               <br/>All its challans go back to <b>Pending</b> so they can be re-dispatched.
+               <br/>This cannot be undone.
+             </p>`,
+      icon: "warning",
+      input: "text",
+      inputPlaceholder: "Reason (optional)",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      confirmButtonText: "Delete Trip",
+      cancelButtonText: "Cancel",
+    });
+    if (!isConfirmed) return;
+    try {
+      await axiosSecure.delete(`/deliveries/${trip._id}`, { data: { reason: reason || "" } });
+      await Swal.fire({ icon: "success", title: "Trip deleted", toast: true, position: "top-end", timer: 1800, showConfirmButton: false });
+      setSelectedTrip(null); // closes page → navigates back to the list
+    } catch (err) {
+      Swal.fire({ icon: "error", title: err?.response?.data?.message || "Delete failed" });
+    }
   };
 
   const updateStatus = async (challanId, status, endpoint, field) => {
@@ -1118,6 +1150,15 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
                 >
                   <Pencil size={10} /> <span className="hidden sm:inline">Edit</span>
                 </button>
+                {canDeleteTrip && (
+                  <button
+                    onClick={handleDeleteTrip}
+                    title="Delete this trip"
+                    className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-[11px] font-semibold text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-50 hover:border-rose-300 transition"
+                  >
+                    <Trash2 size={10} /> <span className="hidden sm:inline">Delete</span>
+                  </button>
+                )}
                 {/* Close X — only in modal mode; page mode uses the Back
                     button on the left instead. */}
                 {!isPage && (

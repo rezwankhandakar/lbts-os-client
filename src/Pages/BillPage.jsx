@@ -133,6 +133,18 @@ const MobileCard = ({ r, onView, onImageClick }) => {
                     <span className="text-[11px] font-bold py-1 rounded px-1.5 text-black bg-amber-200 block truncate" title={r.tripNote}>📝 {r.tripNote}</span>
                 </div>
             )}
+            {(() => {
+                const normalChallans = (r.challans || []).filter(c => !c.isReturn);
+                const allReceived = normalChallans.length > 0 && normalChallans.every(c => c.challanReturnStatus === "received");
+                return (
+                    <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
+                        <span className="text-[9px] text-slate-400 uppercase font-black tracking-widest">Challan</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${allReceived ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+                            {allReceived ? "✓ Received" : "Not Received"}
+                        </span>
+                    </div>
+                );
+            })()}
         </div>
     );
 };
@@ -151,7 +163,12 @@ const CarRentPage = () => {
     // after a save, so the user immediately sees the next rental that
     // still needs amounts.  We read the param once on mount and clear it
     // from the URL so a manual refresh later doesn't keep re-applying it.
-    const initialRentFilter = searchParams.get("filter") === "missing" ? "missing" : "";
+    // During this rent/labor-entry flow we also pre-filter Challan to
+    // "Received" — you only bill trips whose challans have come back — so
+    // the list shows exactly the rows ready for amount entry.
+    const isRentEntryMode    = searchParams.get("filter") === "missing";
+    const initialRentFilter    = isRentEntryMode ? "missing"  : "";
+    const initialChallanFilter = isRentEntryMode ? "received" : "";
 
     const [rentals,       setRentals]       = useState([]);
     const [loading,       setLoading]       = useState(false);
@@ -176,6 +193,7 @@ const CarRentPage = () => {
     const [rentFilter,      setRentFilter]      = useState(initialRentFilter);
     const [leborBillFilter, setLeborBillFilter] = useState("");
     const [noteFilter,      setNoteFilter]      = useState([]);
+    const [challanFilter,   setChallanFilter]   = useState(initialChallanFilter);
     const [lightbox,        setLightbox]        = useState(null); // { url, label } for full-size view
 
     // After applying the URL-driven filter once, strip the param so the
@@ -233,6 +251,8 @@ const CarRentPage = () => {
         const s = searchText?.toLowerCase() || "";
         const matchesSearch = !searchText || [r.tripNumber, r.vendorName, r.driverName, r.vehicleNumber].some(v => v?.toLowerCase().includes(s));
         const check = (field, filter, val) => field === excludeField || filter.length === 0 || filter.some(f => val?.toLowerCase() === f.toLowerCase());
+        const normalChallans = (r.challans || []).filter(c => !c.isReturn);
+        const allReceived = normalChallans.length > 0 && normalChallans.every(c => c.challanReturnStatus === "received");
         return matchesSearch &&
             check("tripNumber",    tripFilter,    r.tripNumber) &&
             check("vendorName",    vendorFilter,  r.vendorName) &&
@@ -241,7 +261,8 @@ const CarRentPage = () => {
             check("tripNote",      noteFilter,    r.tripNote) &&
             (excludeField === "date" || !dateFilter || new Date(r.createdAt).toISOString().slice(0, 10) === dateFilter) &&
             (!rentFilter      || (rentFilter      === "missing" && r.rent      == null) || (rentFilter      === "added" && r.rent      != null)) &&
-            (!leborBillFilter || (leborBillFilter === "missing" && r.leborBill == null) || (leborBillFilter === "added" && r.leborBill != null));
+            (!leborBillFilter || (leborBillFilter === "missing" && r.leborBill == null) || (leborBillFilter === "added" && r.leborBill != null)) &&
+            (!challanFilter   || (challanFilter   === "received" && allReceived)         || (challanFilter   === "notReceived" && !allReceived));
     };
 
     const filteredRows = rentalRows.filter(r => rowMatchesAll(r));
@@ -260,7 +281,7 @@ const CarRentPage = () => {
         setMonth(new Date().getMonth() + 1); setYear(new Date().getFullYear());
         if (setSearchText) setSearchText("");
         setTripFilter([]); setVendorFilter([]); setDriverFilter([]);
-        setVehicleFilter([]); setDateFilter(""); setRentFilter(""); setLeborBillFilter(""); setNoteFilter([]);
+        setVehicleFilter([]); setDateFilter(""); setRentFilter(""); setLeborBillFilter(""); setNoteFilter([]); setChallanFilter("");
         Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
     };
 
@@ -273,6 +294,7 @@ const CarRentPage = () => {
         ...(dateFilter      ? [{ label: "Date",  values: [dateFilter],      clear: () => setDateFilter("") }]      : []),
         ...(rentFilter      ? [{ label: "Rent",  values: [rentFilter],      clear: () => setRentFilter("") }]      : []),
         ...(leborBillFilter ? [{ label: "Lebor", values: [leborBillFilter], clear: () => setLeborBillFilter("") }] : []),
+        ...(challanFilter   ? [{ label: "Challan", values: [challanFilter === "received" ? "Received" : "Not Received"], clear: () => setChallanFilter("") }] : []),
     ].filter(f => f.values.length > 0);
 
     const handleExportExcel = async () => {
@@ -294,14 +316,19 @@ const CarRentPage = () => {
         if (!exportType) return;
         try {
             let exportData = [];
-            const toRow = (r) => ({
-                Date: new Date(r.createdAt).toLocaleDateString(),
-                "Trip Number": r.tripNumber, Vendor: r.vendorName,
-                "Vendor Number": r.vendorNumber || "", Driver: r.driverName,
-                "Driver Number": r.driverNumber || "", Vehicle: r.vehicleNumber,
-                Point: r.point ?? "", Rent: r.rent ?? "", "Lebor Bill": r.leborBill ?? "",
-                Note: r.tripNote || "",
-            });
+            const toRow = (r) => {
+                const normalChallans = (r.challans || []).filter(c => !c.isReturn);
+                const allReceived = normalChallans.length > 0 && normalChallans.every(c => c.challanReturnStatus === "received");
+                return {
+                    Date: new Date(r.createdAt).toLocaleDateString(),
+                    "Trip Number": r.tripNumber, Vendor: r.vendorName,
+                    "Vendor Number": r.vendorNumber || "", Driver: r.driverName,
+                    "Driver Number": r.driverNumber || "", Vehicle: r.vehicleNumber,
+                    Point: r.point ?? "", Challan: allReceived ? "Received" : "Not Received",
+                    Rent: r.rent ?? "", "Lebor Bill": r.leborBill ?? "",
+                    Note: r.tripNote || "",
+                };
+            };
             if (exportType === "filtered") {
                 if (!filteredRows.length) return Swal.fire({ icon: "warning", title: "No Data" });
                 exportData = filteredRows.map(toRow);
@@ -455,7 +482,7 @@ const CarRentPage = () => {
                             <table className="w-full border-collapse" style={{ minWidth: "700px" }}>
                                 <thead className="sticky top-0 z-20">
                                     <tr className="bg-slate-900 text-left">
-                                        {["Date","Trip Number","Vendor","Driver","Vehicle","Vehicle Img","Point","Rent","Lebor Bill","Note","Action"].map(h => (
+                                        {["Date","Trip Number","Vendor","Driver","Vehicle","Vehicle Img","Point","Challan","Rent","Lebor Bill","Note","Action"].map(h => (
                                             <th key={h} className="px-2.5 py-2.5 text-[10px] font-black text-slate-400 uppercase tracking-wide whitespace-nowrap border-r border-white/5 last:border-0">{h}</th>
                                         ))}
                                     </tr>
@@ -471,6 +498,9 @@ const CarRentPage = () => {
                                         <th className="p-1 border-r border-slate-200" />
                                         <th className="p-1 border-r border-slate-200" />
                                         <th className="p-1 border-r border-slate-200">
+                                            <SimpleSelect value={challanFilter} onChange={setChallanFilter} options={[{ value: "", label: "All" }, { value: "received", label: "Received" }, { value: "notReceived", label: "Not Received" }]} />
+                                        </th>
+                                        <th className="p-1 border-r border-slate-200">
                                             <SimpleSelect value={rentFilter} onChange={setRentFilter} options={[{ value: "", label: "All" }, { value: "added", label: "Added" }, { value: "missing", label: "Missing" }]} />
                                         </th>
                                         <th className="p-1 border-r border-slate-200">
@@ -483,6 +513,8 @@ const CarRentPage = () => {
                                 <tbody>
                                     {filteredRows.map((r, i) => {
                                         const date = new Date(r.createdAt);
+                                        const normalChallans = (r.challans || []).filter(c => !c.isReturn);
+                                        const allReceived = normalChallans.length > 0 && normalChallans.every(c => c.challanReturnStatus === "received");
                                         return (
                                             <tr key={i} className="border-b border-slate-100 hover:bg-amber-50/30 even:bg-slate-50/40 transition-colors text-center text-[12px]">
                                                 <td className="px-2.5 py-2 text-blue-600 font-semibold whitespace-nowrap text-left">{date.toLocaleDateString("en-GB")}</td>
@@ -508,6 +540,11 @@ const CarRentPage = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-2.5 py-2 font-black text-slate-700">{r.point ?? "—"}</td>
+                                                <td className="px-2.5 py-2">
+                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${allReceived ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+                                                        {allReceived ? "✓ Received" : "Not Received"}
+                                                    </span>
+                                                </td>
                                                 <td className="px-2.5 py-2 font-semibold">
                                                     {r.rent != null
                                                         ? <span className="text-emerald-700">৳{Number(r.rent).toLocaleString()}</span>
