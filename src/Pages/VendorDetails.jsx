@@ -21,14 +21,18 @@ const VendorDetails = () => {
   const [loading,   setLoading]   = useState(true);
   const [uploading, setUploading] = useState(false);
   const [driverImg, setDriverImg] = useState("");
+  const [vehicleImg, setVehicleImg] = useState("");
+  const [vehicleImgUploading, setVehicleImgUploading] = useState(false);
   const [formOpen,  setFormOpen]  = useState(false);
-  const [updatingImgId, setUpdatingImgId] = useState(null);
+  const [lightbox,  setLightbox]  = useState(null); // { url, label } for full-size view
 
   // Edit modal states
   const [editModal,        setEditModal]        = useState(null);
   const [editForm,         setEditForm]         = useState({});
   const [editImg,          setEditImg]          = useState("");
   const [editImgUploading, setEditImgUploading] = useState(false);
+  const [editVehicleImg,          setEditVehicleImg]          = useState("");
+  const [editVehicleImgUploading, setEditVehicleImgUploading] = useState(false);
 
   useEffect(() => {
     Promise.all([fetchVendor(), fetchVehicles()]).finally(() => setLoading(false));
@@ -53,23 +57,20 @@ const VendorDetails = () => {
     finally { setUploading(false); }
   };
 
-  // Inline avatar hover upload
-  const updateDriverImg = async (vehicleId, file) => {
+  // Add vehicle - vehicle image upload (imgbb via /upload-image)
+  const handleVehicleImageUpload = async (e) => {
+    const file = e.target.files[0];
     if (!file) return;
-    setUpdatingImgId(vehicleId);
+    setVehicleImgUploading(true);
     try {
-      const fd = new FormData();
-      fd.append("image", file);
-      const res = await axiosSecure.post("/upload-image", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const fd = new FormData(); fd.append("image", file);
+      const res = await axiosSecure.post("/upload-image", fd, { headers: { "Content-Type": "multipart/form-data" } });
       if (res.data.success) {
-        await axiosSecure.put(`/vehicles/${id}/${vehicleId}`, { driverImg: res.data.url });
-        Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Driver Photo Updated ✅", showConfirmButton: false, timer: 1500 });
-        fetchVehicles();
+        setVehicleImg(res.data.url);
+        Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Vehicle Photo Uploaded", showConfirmButton: false, timer: 1500 });
       }
-    } catch { Swal.fire("Error", "Image update failed", "error"); }
-    finally { setUpdatingImgId(null); }
+    } catch { Swal.fire("Error", "Image upload failed", "error"); }
+    finally { setVehicleImgUploading(false); }
   };
 
   const handleAddVehicle = async (e) => {
@@ -82,10 +83,11 @@ const VendorDetails = () => {
       driverName:    form.driverName.value,
       driverPhone:   form.driverPhone.value,
       driverImg,
+      vehicleImg,
     });
     if (res.data.insertedId) {
       Swal.fire({ icon: "success", title: "Vehicle Registered ✅", confirmButtonColor: "#f97316" });
-      form.reset(); setDriverImg(""); setFormOpen(false); fetchVehicles();
+      form.reset(); setDriverImg(""); setVehicleImg(""); setFormOpen(false); fetchVehicles();
     }
   };
 
@@ -98,7 +100,24 @@ const VendorDetails = () => {
       driverPhone:   v.driverPhone   || "",
     });
     setEditImg(v.driverImg || "");
+    setEditVehicleImg(v.vehicleImg || "");
     setEditModal(v);
+  };
+
+  // Edit modal - vehicle image upload
+  const handleEditVehicleImgUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setEditVehicleImgUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      const res = await axiosSecure.post("/upload-image", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      if (res.data.success) setEditVehicleImg(res.data.url);
+    } catch { Swal.fire("Error", "Image upload failed", "error"); }
+    finally { setEditVehicleImgUploading(false); }
   };
 
   // Edit modal - image upload
@@ -123,6 +142,7 @@ const VendorDetails = () => {
       await axiosSecure.put(`/vehicles/${id}/${editModal._id}`, {
         ...editForm,
         driverImg: editImg,
+        vehicleImg: editVehicleImg,
       });
       Swal.fire({ icon: "success", title: "Updated!", timer: 1500, showConfirmButton: false });
       setEditModal(null);
@@ -145,32 +165,41 @@ const VendorDetails = () => {
 
   const inp = "w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold placeholder-slate-400 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all";
 
-  // Reusable avatar with hover-upload overlay
+  // Driver avatar — click opens full-size viewer (no more file picker on click)
   const DriverAvatar = ({ v, size = "md" }) => {
-    const isUpdating = updatingImgId === v._id;
-    const dim     = size === "sm" ? "w-8 h-8" : "w-11 h-11";
+    const dim      = size === "sm" ? "w-8 h-8" : "w-11 h-11";
     const iconSize = size === "sm" ? 13 : 18;
-    const camSize  = size === "sm" ? 10 : 12;
     return (
-      <div className={`relative ${dim} flex-shrink-0 group`}>
-        <div className={`${dim} rounded-xl bg-slate-100 overflow-hidden border border-slate-200`}>
-          {v.driverImg
-            ? <img src={v.driverImg} className="w-full h-full object-cover" alt="" />
-            : <div className="w-full h-full flex items-center justify-center text-slate-300"><User size={iconSize} /></div>
-          }
-        </div>
-        {!isVendorRole && (
-          <label className="absolute inset-0 rounded-xl bg-black/55 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-            {isUpdating
-              ? <Loader2 size={camSize} className="animate-spin text-white" />
-              : <Camera size={camSize} className="text-white" />
-            }
-            <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp"
-              disabled={isUpdating}
-              onChange={(e) => updateDriverImg(v._id, e.target.files[0])} />
-          </label>
-        )}
-      </div>
+      <button
+        type="button"
+        onClick={() => v.driverImg && setLightbox({ url: v.driverImg, label: v.driverName || "Driver" })}
+        className={`relative ${dim} flex-shrink-0 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 ${v.driverImg ? "cursor-zoom-in" : "cursor-default"}`}
+        title={v.driverImg ? "View photo" : ""}
+      >
+        {v.driverImg
+          ? <img src={v.driverImg} className="w-full h-full object-cover" alt="" />
+          : <div className="w-full h-full flex items-center justify-center text-slate-300"><User size={iconSize} /></div>
+        }
+      </button>
+    );
+  };
+
+  // Vehicle image thumb — click opens full-size viewer (like driver img). View only.
+  const VehicleThumb = ({ v, size = "md" }) => {
+    const dim      = size === "sm" ? "w-8 h-8" : "w-11 h-11";
+    const iconSize = size === "sm" ? 13 : 18;
+    return (
+      <button
+        type="button"
+        onClick={() => v.vehicleImg && setLightbox({ url: v.vehicleImg, label: v.vehicleModel || v.vehicleNumber || "Vehicle" })}
+        className={`relative ${dim} flex-shrink-0 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 ${v.vehicleImg ? "cursor-zoom-in" : "cursor-default"}`}
+        title={v.vehicleImg ? "View vehicle photo" : ""}
+      >
+        {v.vehicleImg
+          ? <img src={v.vehicleImg} className="w-full h-full object-cover" alt="" />
+          : <div className="w-full h-full flex items-center justify-center text-slate-300"><Truck size={iconSize} /></div>
+        }
+      </button>
     );
   };
 
@@ -243,7 +272,7 @@ const VendorDetails = () => {
 
           {formOpen && (
             <form onSubmit={handleAddVehicle} className="p-4 sm:p-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
                 <div>
                   <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Driver Photo</label>
                   <div className="flex items-center gap-2">
@@ -256,6 +285,20 @@ const VendorDetails = () => {
                         onChange={handleImageUpload} disabled={uploading} />
                     </label>
                     {driverImg && <img src={driverImg} className="w-10 h-10 rounded-xl object-cover border-2 border-emerald-400 flex-shrink-0" alt="" />}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Vehicle Photo</label>
+                  <div className="flex items-center gap-2">
+                    <label className="flex-1 flex items-center justify-center gap-1.5 p-2.5 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 hover:border-orange-400 hover:bg-orange-50/30 cursor-pointer transition">
+                      {vehicleImgUploading
+                        ? <Loader2 size={13} className="animate-spin text-orange-500" />
+                        : <Camera size={13} className="text-slate-400" />}
+                      <span className="text-[10px] font-bold text-slate-600">Photo</span>
+                      <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp"
+                        onChange={handleVehicleImageUpload} disabled={vehicleImgUploading} />
+                    </label>
+                    {vehicleImg && <img src={vehicleImg} className="w-10 h-10 rounded-xl object-cover border-2 border-emerald-400 flex-shrink-0" alt="" />}
                   </div>
                 </div>
                 {[
@@ -315,7 +358,8 @@ const VendorDetails = () => {
                     </div>
                     <span className="text-[10px] text-slate-300 font-black shrink-0">#{i + 1}</span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex items-center flex-wrap gap-2">
+                    <VehicleThumb v={v} size="md" />
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-xl text-[11px] font-black uppercase tracking-wide">
                       <Truck size={10} className="text-slate-400" /> {v.vehicleNumber}
                     </span>
@@ -370,9 +414,12 @@ const VendorDetails = () => {
                     </div>
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell">
-                    <span className="inline-flex items-center px-2.5 py-1 bg-slate-800 text-white rounded-lg text-[10px] font-black uppercase">
-                      {v.vehicleModel || "Standard"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <VehicleThumb v={v} size="sm" />
+                      <span className="inline-flex items-center px-2.5 py-1 bg-slate-800 text-white rounded-lg text-[10px] font-black uppercase">
+                        {v.vehicleModel || "Standard"}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-900 text-white rounded-lg text-[10px] font-black uppercase">
@@ -455,6 +502,36 @@ const VendorDetails = () => {
                 </div>
               </div>
 
+              {/* Vehicle Photo */}
+              <div>
+                <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">
+                  Vehicle Photo
+                </label>
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0">
+                    {editVehicleImg
+                      ? <img src={editVehicleImg} className="w-full h-full object-cover" alt="" />
+                      : <div className="w-full h-full flex items-center justify-center text-slate-300">
+                          <Truck size={24} />
+                        </div>
+                    }
+                  </div>
+                  <label className="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2
+                    border-dashed border-slate-200 bg-slate-50 hover:border-orange-400 hover:bg-orange-50/30
+                    cursor-pointer transition">
+                    {editVehicleImgUploading
+                      ? <Loader2 size={14} className="animate-spin text-orange-500" />
+                      : <Camera size={14} className="text-slate-400" />
+                    }
+                    <span className="text-[11px] font-bold text-slate-600">
+                      {editVehicleImgUploading ? "Uploading..." : editVehicleImg ? "Change Photo" : "Upload Photo"}
+                    </span>
+                    <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp"
+                      onChange={handleEditVehicleImgUpload} disabled={editVehicleImgUploading} />
+                  </label>
+                </div>
+              </div>
+
               {/* Fields */}
               {[
                 { key: "vehicleModel",  label: "Vehicle Model", ph: "e.g. Tata ACE" },
@@ -485,13 +562,39 @@ const VendorDetails = () => {
               </button>
               <button
                 onClick={handleEditSubmit}
-                disabled={editImgUploading}
+                disabled={editImgUploading || editVehicleImgUploading}
                 className="flex-1 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs
                   font-black uppercase tracking-widest transition shadow-lg shadow-orange-500/20
                   disabled:bg-slate-300 disabled:shadow-none">
                 Save Changes
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Full-size Image Viewer ── */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            onClick={() => setLightbox(null)}
+            className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none z-10"
+            aria-label="Close"
+          >✕</button>
+          <div className="flex flex-col items-center gap-3 max-w-full max-h-full" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={lightbox.url}
+              alt={lightbox.label}
+              className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl"
+            />
+            {lightbox.label && (
+              <span className="text-white text-xs font-bold uppercase tracking-widest bg-white/10 px-4 py-1.5 rounded-full">
+                {lightbox.label}
+              </span>
+            )}
           </div>
         </div>
       )}

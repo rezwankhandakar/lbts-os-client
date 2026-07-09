@@ -87,7 +87,7 @@ const SimpleSelect = ({ value, onChange, options }) => (
 );
 
 /* ── Mobile Trip Card ── */
-const MobileTripCard = ({ t, onView, onDelete, canDelete }) => {
+const MobileTripCard = ({ t, onView, onDelete, canDelete, onImageClick }) => {
   const challans = t.challans || [];
   const normalChallans  = challans.filter(c => !c.isReturn);
   const allDelivered    = normalChallans.length > 0 && normalChallans.every(c => c.deliveryStatus === "confirmed");
@@ -97,6 +97,17 @@ const MobileTripCard = ({ t, onView, onDelete, canDelete }) => {
     <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100">
         <div className="flex items-center gap-2 min-w-0">
+          <button
+            type="button"
+            onClick={() => t.vehicleImg && onImageClick && onImageClick({ url: t.vehicleImg, label: t.vehicleNumber })}
+            className={`w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0 ${t.vehicleImg ? "cursor-zoom-in" : "cursor-default"}`}
+            title={t.vehicleImg ? "View vehicle photo" : ""}
+          >
+            {t.vehicleImg
+              ? <img src={t.vehicleImg} className="w-full h-full object-cover" alt="" />
+              : <div className="w-full h-full flex items-center justify-center text-slate-300 text-[8px] font-bold">No Img</div>
+            }
+          </button>
           <span className="text-[10px] bg-slate-900 text-white rounded-lg px-2 py-0.5 font-mono font-bold flex-shrink-0">{t.tripNumber}</span>
           <span className="text-[10px] text-slate-700 flex-shrink-0">{new Date(t.createdAt).toLocaleDateString("en-GB")}</span>
         </div>
@@ -215,6 +226,7 @@ const TripInventoryPage = () => {
   const [dateFilter,     setDateFilter]     = useState("");
   const [deliveryFilter, setDeliveryFilter] = useState("");
   const [challanFilter,  setChallanFilter]  = useState("");
+  const [lightbox,       setLightbox]       = useState(null); // { url, label } full-size view
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -254,7 +266,7 @@ const TripInventoryPage = () => {
   const tripRows = deliveries.map(t => ({
     _id: t._id, tripNumber: t.tripNumber, vendorName: t.vendorName,
     vendorNumber: t.vendorNumber, driverName: t.driverName, driverNumber: t.driverNumber,
-    vehicleNumber: t.vehicleNumber,
+    vehicleNumber: t.vehicleNumber, vehicleImg: t.vehicleImg ?? null,
     totalChallan: t.challans ? t.challans.filter(c => !c.isReturn).length : t.totalChallan,
     challanQty:   t.challans ? t.challans.filter(c => !c.isReturn).length : t.totalChallan,
     createdAt: t.createdAt, createdBy: t.createdBy, currentUser: t.currentUser,
@@ -461,7 +473,7 @@ const TripInventoryPage = () => {
               </div>
             </div>
             <div className="space-y-2">
-              {paginatedRows.map((t, i) => <MobileTripCard key={i} t={t} onView={openTrip} onDelete={handleDeleteTrip} canDelete={canDeleteTrip} />)}
+              {paginatedRows.map((t, i) => <MobileTripCard key={i} t={t} onView={openTrip} onDelete={handleDeleteTrip} canDelete={canDeleteTrip} onImageClick={setLightbox} />)}
             </div>
           </div>
         ) : (
@@ -471,7 +483,7 @@ const TripInventoryPage = () => {
                 <table className="w-full border-collapse text-xs" style={{ minWidth: "700px" }}>
                   <thead className="sticky top-0 z-20">
                     <tr className="bg-slate-900 text-left">
-                      {["Date","Trip Number","Vendor","Driver","Vehicle","Point","Delivery","Challan","Note","Action"].map(h => (
+                      {["Date","Trip Number","Vendor","Driver","Vehicle","Vehicle Img","Point","Challan","Note","Action"].map(h => (
                         <th key={h} className="px-2.5 py-2.5 text-[10px] font-black text-slate-400 uppercase tracking-wide whitespace-nowrap border-r border-white/5 last:border-0">{h}</th>
                       ))}
                     </tr>
@@ -485,10 +497,7 @@ const TripInventoryPage = () => {
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("driverName")}   selected={driverFilter}  onChange={setDriverFilter} /></th>
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("vehicleNumber")} selected={vehicleFilter} onChange={setVehicleFilter} /></th>
                       <th className="p-1 border-r border-slate-200" />
-                      <th className="p-1 border-r border-slate-200">
-                        <SimpleSelect value={deliveryFilter} onChange={setDeliveryFilter}
-                          options={[{ value: "", label: "All" }, { value: "delivered", label: "All Delivered" }, { value: "notDelivered", label: "Not Delivered" }]} />
-                      </th>
+                      <th className="p-1 border-r border-slate-200" />
                       <th className="p-1 border-r border-slate-200">
                         <SimpleSelect value={challanFilter} onChange={setChallanFilter}
                           options={[{ value: "", label: "All" }, { value: "received", label: "All Received" }, { value: "notReceived", label: "Not Received" }]} />
@@ -512,12 +521,22 @@ const TripInventoryPage = () => {
                           <td className="px-2.5 py-2 text-slate-700 font-semibold text-left max-w-[130px] truncate">{t.vendorName}</td>
                           <td className="px-2.5 py-2 text-slate-700 font-semibold text-left max-w-[110px] truncate">{t.driverName}</td>
                           <td className="px-2.5 py-2 text-slate-700 font-semibold uppercase font-mono text-[11px]">{t.vehicleNumber}</td>
-                          <td className="px-2.5 py-2 font-black text-slate-700">{t.challanQty}</td>
                           <td className="px-2.5 py-2">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${allDelivered ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
-                              {allDelivered ? "✓ Delivered" : "Not Delivered"}
-                            </span>
+                            <div className="flex justify-center">
+                              <button
+                                type="button"
+                                onClick={() => t.vehicleImg && setLightbox({ url: t.vehicleImg, label: t.vehicleNumber })}
+                                className={`w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0 ${t.vehicleImg ? "cursor-zoom-in" : "cursor-default"}`}
+                                title={t.vehicleImg ? "View vehicle photo" : "No photo"}
+                              >
+                                {t.vehicleImg
+                                  ? <img src={t.vehicleImg} className="w-full h-full object-cover" alt="" />
+                                  : <div className="w-full h-full flex items-center justify-center text-slate-300 text-[9px] font-bold">—</div>
+                                }
+                              </button>
+                            </div>
                           </td>
+                          <td className="px-2.5 py-2 font-black text-slate-700">{t.challanQty}</td>
                           <td className="px-2.5 py-2">
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${allReceived ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
                               {allReceived ? "✓ Received" : "Not Received"}
@@ -569,6 +588,32 @@ const TripInventoryPage = () => {
           </div>
         )}
       </div>
+
+      {/* ── Full-size Image Viewer ── */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            onClick={() => setLightbox(null)}
+            className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none z-10"
+            aria-label="Close"
+          >✕</button>
+          <div className="flex flex-col items-center gap-3 max-w-full max-h-full" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={lightbox.url}
+              alt={lightbox.label}
+              className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl"
+            />
+            {lightbox.label && (
+              <span className="text-white text-xs font-bold uppercase tracking-widest bg-white/10 px-4 py-1.5 rounded-full">
+                {lightbox.label}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

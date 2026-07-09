@@ -137,6 +137,84 @@ const PayVendorModal = ({ open, onClose, vendor, summary, onPay }) => {
   );
 };
 
+/* ══ PAY ADVANCE MODAL (partial + full) ══ */
+const PayAdvanceModal = ({ advance, onClose, onPay }) => {
+  const remaining = advance ? Math.max(0, num(advance.amount) - num(advance.paidAmount)) : 0;
+  const [amount, setAmount] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (advance) setAmount(remaining > 0 ? String(remaining) : "");
+  }, [advance]); // eslint-disable-line
+
+  if (!advance) return null;
+
+  const val = Number(amount);
+  const invalid = !amount || Number.isNaN(val) || val <= 0 || val > remaining;
+  const isFull  = !invalid && val === remaining;
+
+  const submit = async () => {
+    if (invalid) {
+      Swal.fire({
+        icon: "warning",
+        title: val > remaining ? `Baki থেকে বেশি দেওয়া যাবে না (${fmt(remaining)})` : "সঠিক amount দাও",
+        toast: true, position: "top-end", timer: 2000, showConfirmButton: false,
+      });
+      return;
+    }
+    setSaving(true);
+    await onPay(advance._id, val);
+    setSaving(false);
+  };
+
+  const quick = [remaining, Math.round(remaining / 2)].filter((v, i, a) => v > 0 && a.indexOf(v) === i);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm max-h-[90vh] overflow-y-auto">
+        <div className="px-4 py-3.5 border-b border-gray-100 sticky top-0 bg-white z-10">
+          <h3 className="text-sm font-bold text-gray-800">Pay Advance</h3>
+          <p className="text-xs text-gray-400 mt-0.5">{advance.name}</p>
+        </div>
+        <div className="p-4 space-y-3.5">
+          <div className="bg-gray-50 rounded-lg p-3 text-xs space-y-1.5">
+            <div className="flex justify-between text-gray-500"><span>Advance Total</span><span className="font-semibold text-gray-800">{fmt(advance.amount)}</span></div>
+            {num(advance.paidAmount) > 0 && <div className="flex justify-between text-emerald-700"><span>Already paid</span><span className="font-semibold">— {fmt(advance.paidAmount)}</span></div>}
+            <div className={`flex justify-between font-black pt-1.5 border-t border-gray-200 ${remaining > 0 ? "text-red-600" : "text-emerald-600"}`}>
+              <span>Remaining</span><span>{remaining > 0 ? fmt(remaining) : "✓ Cleared"}</span>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Pay Amount (৳) *</label>
+            <input type="number" min="0" max={remaining} autoFocus
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              value={amount} onChange={e => setAmount(e.target.value)} />
+            <div className="flex gap-2 mt-2">
+              {quick.map((q, i) => (
+                <button key={i} onClick={() => setAmount(String(q))}
+                  className="flex-1 py-1.5 text-[11px] font-semibold rounded border border-gray-200 text-gray-600 hover:bg-gray-50">
+                  {i === 0 ? `Full (${fmt(q)})` : `Half (${fmt(q)})`}
+                </button>
+              ))}
+            </div>
+            {!invalid && (
+              <p className={`text-[11px] mt-2 font-medium ${isFull ? "text-emerald-600" : "text-amber-600"}`}>
+                {isFull ? "✓ Full payment — advance clear হয়ে যাবে" : `Partial — এরপর ${fmt(remaining - val)} baki থাকবে, next month এ carry হবে`}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-3 px-4 pb-5 pt-1">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50">Cancel</button>
+          <button onClick={submit} disabled={saving || invalid} className="flex-1 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-500 transition disabled:opacity-60">
+            {saving ? "Saving…" : isFull ? "Pay Full" : "Pay"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ══ MANUAL TX MODAL ══ */
 const ManualTxModal = ({ open, onClose, onSave }) => {
   const [form, setForm] = useState({ type: "income", description: "", amount: "", date: new Date().toISOString().slice(0, 10), note: "", recipientName: "" });
@@ -338,6 +416,7 @@ const AccountsDashboard = () => {
 
   const [prevMonthBalance, setPrevMonthBalance] = useState(null);
   const [carryForwardTxs,  setCarryForwardTxs]  = useState([]);
+  const [payAdvance,       setPayAdvance]       = useState(null); // advance row being paid
 
   const apiCache = useRef({});
   const fetchWithCache = useCallback(async (url) => {
@@ -412,8 +491,10 @@ const AccountsDashboard = () => {
     ]);
 
     setPrevMonthBalance(balance);
+    // Carry forward any manual_advance with remaining balance (amount - paidAmount) > 0.
+    // Fully-paid advances drop off; partially-paid ones carry only their remaining.
     const unpaid = carryResults.flatMap(r =>
-      (r.data || []).filter(t => t.type === "manual_advance" && t.status !== "paid")
+      (r.data || []).filter(t => t.type === "manual_advance" && (num(t.amount) - num(t.paidAmount)) > 0)
     );
     setCarryForwardTxs(unpaid);
   } catch {
@@ -553,22 +634,46 @@ if (search) params.append("performedBy", search);
     setRestoring(null);
   };
 
-  const handleMarkPaid = async (id, currentStatus) => {
-    const newStatus = currentStatus === "paid" ? "unpaid" : "paid";
+  // Record a payment (partial or full) against an advance.
+  // payAmount = the amount being paid now. Server increments paidAmount + derives status.
+  const handlePay = async (id, payAmount) => {
+    try {
+      const res = await axiosSecure.patch(`/accounts/${id}/status`, { payAmount });
+      if (res.data.success) {
+        const updated = res.data.data;
+        const patch = { paidAmount: num(updated.paidAmount), status: updated.status };
+        setAccountTxs(prev => prev.map(t => t._id === id ? { ...t, ...patch } : t));
+        // Carry-forward: drop if fully paid, otherwise update remaining.
+        if (updated.status === "paid")
+          setCarryForwardTxs(prev => prev.filter(t => t._id !== id));
+        else
+          setCarryForwardTxs(prev => prev.map(t => t._id === id ? { ...t, ...patch } : t));
+        setPayAdvance(null);
+        Swal.fire({
+          icon: "success",
+          title: updated.status === "paid" ? "Fully paid!" : "Partial payment saved!",
+          toast: true, position: "top-end", timer: 1600, showConfirmButton: false,
+        });
+      }
+    } catch (err) { Swal.fire({ icon: "error", title: err?.response?.data?.message || "Failed" }); }
+  };
+
+  // Reset an advance back to fully unpaid (undo payments).
+  const handleResetPaid = async (id) => {
     const { isConfirmed } = await Swal.fire({
-      title: newStatus === "paid" ? "Paid হিসেবে Mark করবেন?" : "Unpaid করবেন?",
-      icon: "question", showCancelButton: true,
-      confirmButtonColor: newStatus === "paid" ? "#059669" : "#f59e0b",
-      confirmButtonText: newStatus === "paid" ? "✓ হ্যাঁ, Paid করুন" : "Unpaid করুন", cancelButtonText: "Cancel",
+      title: "Payment reset করবেন?",
+      text: "এই advance এর সব payment মুছে গিয়ে আবার unpaid হবে।",
+      icon: "warning", showCancelButton: true,
+      confirmButtonColor: "#f59e0b", confirmButtonText: "হ্যাঁ, reset করুন", cancelButtonText: "Cancel",
     });
     if (!isConfirmed) return;
     try {
-      const res = await axiosSecure.patch(`/accounts/${id}/status`, { status: newStatus });
+      const res = await axiosSecure.patch(`/accounts/${id}/status`, { status: "unpaid" });
       if (res.data.success) {
-        setAccountTxs(prev => prev.map(t => t._id === id ? { ...t, status: newStatus } : t));
-        if (newStatus === "paid") setCarryForwardTxs(prev => prev.filter(t => t._id !== id));
-        else setCarryForwardTxs(prev => prev.map(t => t._id === id ? { ...t, status: newStatus } : t));
-        Swal.fire({ icon: "success", title: newStatus === "paid" ? "Paid marked!" : "Unpaid marked!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
+        const patch = { paidAmount: 0, status: "unpaid" };
+        setAccountTxs(prev => prev.map(t => t._id === id ? { ...t, ...patch } : t));
+        setCarryForwardTxs(prev => prev.map(t => t._id === id ? { ...t, ...patch } : t));
+        Swal.fire({ icon: "success", title: "Reset done", toast: true, position: "top-end", timer: 1400, showConfirmButton: false });
       }
     } catch (err) { Swal.fire({ icon: "error", title: err?.response?.data?.message || "Failed" }); }
   };
@@ -642,6 +747,7 @@ if (search) params.append("performedBy", search);
       {/* Pay vendor modal শুধু manager দেখবে */}
       {canWrite && <PayVendorModal open={!!payVendorName} vendor={payVendorName} summary={payingVendorSummary} onClose={() => setPayVendorName(null)} onPay={handlePayVendor} />}
       {canWrite && <ManualTxModal open={manualModal} onClose={() => setManualModal(false)} onSave={handleAddManualTx} />}
+      {canWrite && <PayAdvanceModal advance={payAdvance} onClose={() => setPayAdvance(null)} onPay={handlePay} />}
 
       <div className="max-w-full mx-auto p-2 sm:p-3 lg:p-4">
 
@@ -912,9 +1018,11 @@ if (search) params.append("performedBy", search);
         {tab === "advances" && (() => {
           const manualAdvances = accountTxs.filter(t => t.type === "manual_advance");
           const tripAdvances   = trips.filter(t => t.advance != null && t.advance > 0);
-          const unpaidCurrent  = manualAdvances.filter(a => a.status !== "paid");
-          const paidCurrent    = manualAdvances.filter(a => a.status === "paid");
-          const unpaidTotal    = unpaidCurrent.reduce((s, a) => s + num(a.amount), 0);
+          const remainingOf    = (a) => Math.max(0, num(a.amount) - num(a.paidAmount));
+          const unpaidCurrent  = manualAdvances.filter(a => remainingOf(a) > 0);   // not fully paid
+          const paidCurrent    = manualAdvances.filter(a => remainingOf(a) === 0 && num(a.amount) > 0);
+          const partialCurrent = manualAdvances.filter(a => num(a.paidAmount) > 0 && remainingOf(a) > 0);
+          const unpaidTotal    = unpaidCurrent.reduce((s, a) => s + remainingOf(a), 0); // remaining only
           const currentIds     = new Set(manualAdvances.map(a => String(a._id)));
           const uniqueCarried  = carryForwardTxs.filter(a => !currentIds.has(String(a._id)));
 
@@ -931,10 +1039,21 @@ if (search) params.append("performedBy", search);
             (!advSearch || (a.recipientName || "").toLowerCase().includes(advSearch.toLowerCase()) || (a.note || "").toLowerCase().includes(advSearch.toLowerCase()))
           );
 
+          const deriveStatus = (a) => {
+            const paid = num(a.paidAmount);
+            const amt  = num(a.amount);
+            return paid >= amt && amt > 0 ? "paid" : paid > 0 ? "partial" : "unpaid";
+          };
           const allRows = [
-            ...filteredManual.map(a => ({ date: a.date, name: a.recipientName || a.description?.replace("Advance — ", "") || "—", type: "manual", note: a.note || "", amount: num(a.amount), status: a.status || "unpaid", _id: a._id })),
-            ...filteredTrip.map(t => ({ date: t.createdAt?.slice(0, 10) || "", name: t.vendorName, type: "auto", note: `${t.tripNumber} · ${t.driverName}`, amount: num(t.advance), status: "auto", _id: null })),
-            ...filteredCarried.map(a => ({ date: a.date, name: a.recipientName || a.description?.replace("Advance — ", "") || "—", type: "carry", note: a.note ? `[Carried] ${a.note}` : "[Carried from prev month]", amount: num(a.amount), status: "unpaid", _id: a._id })),
+            ...filteredManual.map(a => {
+              const paid = num(a.paidAmount);
+              return { date: a.date, name: a.recipientName || a.description?.replace("Advance — ", "") || "—", type: "manual", note: a.note || "", amount: num(a.amount), paidAmount: paid, remaining: Math.max(0, num(a.amount) - paid), status: deriveStatus(a), _id: a._id };
+            }),
+            ...filteredTrip.map(t => ({ date: t.createdAt?.slice(0, 10) || "", name: t.vendorName, type: "auto", note: `${t.tripNumber} · ${t.driverName}`, amount: num(t.advance), paidAmount: 0, remaining: 0, status: "auto", _id: null })),
+            ...filteredCarried.map(a => {
+              const paid = num(a.paidAmount);
+              return { date: a.date, name: a.recipientName || a.description?.replace("Advance — ", "") || "—", type: "carry", note: a.note ? `[Carried] ${a.note}` : "[Carried from prev month]", amount: num(a.amount), paidAmount: paid, remaining: Math.max(0, num(a.amount) - paid), status: deriveStatus(a), _id: a._id };
+            }),
           ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
           return (
@@ -943,18 +1062,18 @@ if (search) params.append("performedBy", search);
                 <div className="flex items-start gap-2 px-3 py-2.5 bg-orange-50 border border-orange-200 rounded-xl text-sm">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c2410c" strokeWidth="2" strokeLinecap="round" className="shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                   <div>
-                    <p className="font-semibold text-orange-800 text-xs">{uniqueCarried.length} unpaid advance{uniqueCarried.length > 1 ? "s" : ""} carried — {fmt(uniqueCarried.reduce((s, a) => s + num(a.amount), 0))}</p>
-                    <p className="text-[10px] text-orange-600 mt-0.5">আগের month এ expense হিসেবে count হয়েছে — এই month এ শুধু reminder</p>
+                    <p className="font-semibold text-orange-800 text-xs">{uniqueCarried.length} unpaid advance{uniqueCarried.length > 1 ? "s" : ""} carried — {fmt(uniqueCarried.reduce((s, a) => s + Math.max(0, num(a.amount) - num(a.paidAmount)), 0))} baki</p>
+                    <p className="text-[10px] text-orange-600 mt-0.5">আগের month এ expense হিসেবে count হয়েছে — full paid না হওয়া পর্যন্ত carry হতে থাকবে। এখান থেকেও paid করা যাবে।</p>
                   </div>
                 </div>
               )}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
                   { label: "Auto (Trips)", val: fmt(totalAdvance), sub: `${tripAdvances.length} trips`, bg: "bg-amber-50 border-amber-200", tc: "text-amber-700" },
-                  { label: "Manual", val: fmt(manualAdvanceTotal), sub: `${paidCurrent.length} paid · ${unpaidCurrent.length} unpaid`, bg: "bg-orange-50 border-orange-200", tc: "text-orange-700" },
-                  { label: "Unpaid (this month)", val: fmt(unpaidTotal), sub: "will carry forward", bg: "bg-red-50 border-red-200", tc: "text-red-700" },
+                  { label: "Manual", val: fmt(manualAdvanceTotal), sub: `${paidCurrent.length} paid · ${partialCurrent.length} partial · ${unpaidCurrent.length} baki`, bg: "bg-orange-50 border-orange-200", tc: "text-orange-700" },
+                  { label: "Remaining (this month)", val: fmt(unpaidTotal), sub: "full না হলে carry forward", bg: "bg-red-50 border-red-200", tc: "text-red-700" },
                   uniqueCarried.length > 0
-                    ? { label: "Carried Forward", val: fmt(uniqueCarried.reduce((s, a) => s + num(a.amount), 0)), sub: `${uniqueCarried.length} from prev months`, bg: "bg-orange-100 border-orange-300", tc: "text-orange-800" }
+                    ? { label: "Carried (baki)", val: fmt(uniqueCarried.reduce((s, a) => s + Math.max(0, num(a.amount) - num(a.paidAmount)), 0)), sub: `${uniqueCarried.length} from prev months`, bg: "bg-orange-100 border-orange-300", tc: "text-orange-800" }
                     : { label: "Total", val: fmt(totalAdvance + manualAdvanceTotal), sub: "Auto + Manual", bg: "bg-gray-800 border-gray-700", tc: "text-white" },
                 ].map(s => (
                   <div key={s.label} className={`${s.bg} border rounded-xl p-2.5 shadow-sm`}>
@@ -989,7 +1108,7 @@ if (search) params.append("performedBy", search);
                   {allRows.length === 0 ? (
                     <div className="text-center py-10 text-gray-400 italic text-sm">No advance records.</div>
                   ) : allRows.map((r, i) => (
-                    <div key={i} className={`p-3 space-y-1.5 ${r.status === "paid" ? "opacity-50 bg-gray-50/40" : r.type === "carry" ? "bg-orange-50/50" : ""}`}>
+                    <div key={i} className={`p-3 space-y-1.5 ${r.status === "paid" ? "opacity-60 bg-emerald-50/30" : r.type === "carry" ? "bg-orange-50/50" : ""}`}>
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-gray-800 text-sm">{r.name}</span>
                         <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border uppercase ${r.type === "auto" ? "text-amber-700 bg-amber-50 border-amber-200" : r.type === "carry" ? "text-orange-800 bg-orange-100 border-orange-300" : "text-orange-700 bg-orange-50 border-orange-200"}`}>
@@ -1001,17 +1120,31 @@ if (search) params.append("performedBy", search);
                         <span className="font-bold text-amber-700">{fmt(r.amount)}</span>
                       </div>
                       {r.note && <p className="text-[10px] text-gray-400 truncate">{r.note}</p>}
-                      {/* Mark Paid — শুধু manager */}
+                      {/* Payment progress — for manual/carry advances */}
+                      {r.type !== "auto" && r._id && (r.paidAmount > 0 || r.status === "partial") && (
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-emerald-700">Paid: {fmt(r.paidAmount)}</span>
+                          <span className="text-red-600 font-semibold">Baki: {fmt(r.remaining)}</span>
+                        </div>
+                      )}
+                      {/* Pay button / status — শুধু manager can pay */}
                       {r.type !== "auto" && r._id && canWrite && (
-                        <button onClick={() => handleMarkPaid(r._id, r.status)}
-                          className={`w-full py-1.5 text-[10px] font-semibold rounded border transition-all ${r.status === "paid" ? "text-emerald-700 bg-emerald-50 border-emerald-300" : "text-gray-600 bg-white border-gray-300"}`}>
-                          {r.status === "paid" ? "✓ Paid" : "Mark Paid"}
-                        </button>
+                        r.status === "paid" ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="flex-1 text-center py-1.5 text-[10px] font-semibold rounded border text-emerald-700 bg-emerald-50 border-emerald-300">✓ Fully Paid</span>
+                            <button onClick={() => handleResetPaid(r._id)} className="px-2 py-1.5 text-[10px] font-semibold rounded border text-gray-500 bg-white border-gray-300">Reset</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setPayAdvance(r)}
+                            className="w-full py-1.5 text-[10px] font-semibold rounded border text-white bg-emerald-600 border-emerald-600 hover:bg-emerald-700 transition-all">
+                            {r.status === "partial" ? `Pay Baki (${fmt(r.remaining)})` : "Pay"}
+                          </button>
+                        )
                       )}
                       {/* Read-only status badge for non-manager */}
                       {r.type !== "auto" && r._id && !canWrite && (
-                        <span className={`inline-block text-[10px] px-2 py-0.5 rounded border ${r.status === "paid" ? "text-emerald-600 border-emerald-200 bg-emerald-50" : "text-gray-400 border-gray-200 bg-gray-50"}`}>
-                          {r.status === "paid" ? "✓ Paid" : "Unpaid"}
+                        <span className={`inline-block text-[10px] px-2 py-0.5 rounded border ${r.status === "paid" ? "text-emerald-600 border-emerald-200 bg-emerald-50" : r.status === "partial" ? "text-amber-600 border-amber-200 bg-amber-50" : "text-gray-400 border-gray-200 bg-gray-50"}`}>
+                          {r.status === "paid" ? "✓ Paid" : r.status === "partial" ? `Partial · Baki ${fmt(r.remaining)}` : "Unpaid"}
                         </span>
                       )}
                     </div>
@@ -1024,14 +1157,14 @@ if (search) params.append("performedBy", search);
                     <table className="w-full text-sm border-collapse">
                       <thead>
                         <tr className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
-                          {["Date","Name","Note","Type","Amount","Status"].map(h => (
-                            <th key={h} className={`px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider ${h === "Amount" ? "text-right" : "text-left"}`}>{h}</th>
+                          {["Date","Name","Note","Type","Amount","Paid","Baki","Status"].map(h => (
+                            <th key={h} className={`px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider ${["Amount","Paid","Baki"].includes(h) ? "text-right" : "text-left"}`}>{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {allRows.map((r, i) => (
-                          <tr key={i} className={`border-b border-gray-50 transition-colors ${r.status === "paid" ? "opacity-50 bg-gray-50/40" : r.type === "carry" ? "bg-orange-50/50 hover:bg-orange-50" : "hover:bg-amber-50/40"}`}>
+                          <tr key={i} className={`border-b border-gray-50 transition-colors ${r.status === "paid" ? "opacity-60 bg-emerald-50/30" : r.type === "carry" ? "bg-orange-50/50 hover:bg-orange-50" : "hover:bg-amber-50/40"}`}>
                             <td className="px-4 py-2 text-xs text-gray-500 whitespace-nowrap">{r.date}</td>
                             <td className="px-4 py-2 font-semibold text-gray-800">{r.name}</td>
                             <td className="px-4 py-2 text-xs text-gray-400 max-w-[180px]"><span className="truncate block">{r.note || "—"}</span></td>
@@ -1041,17 +1174,26 @@ if (search) params.append("performedBy", search);
                               </span>
                             </td>
                             <td className="px-4 py-2 text-right font-bold text-amber-700 whitespace-nowrap">{fmt(r.amount)}</td>
+                            <td className="px-4 py-2 text-right text-xs whitespace-nowrap">{r.type === "auto" ? <span className="text-gray-300">—</span> : <span className="text-emerald-700 font-medium">{r.paidAmount > 0 ? fmt(r.paidAmount) : "—"}</span>}</td>
+                            <td className="px-4 py-2 text-right text-xs whitespace-nowrap">{r.type === "auto" ? <span className="text-gray-300">—</span> : <span className={`font-semibold ${r.remaining > 0 ? "text-red-600" : "text-gray-300"}`}>{r.remaining > 0 ? fmt(r.remaining) : "—"}</span>}</td>
                             <td className="px-4 py-2 text-center">
                               {r.type === "auto" ? (
                                 <span className="text-xs text-gray-300">—</span>
                               ) : canWrite ? (
-                                <button onClick={() => handleMarkPaid(r._id, r.status)}
-                                  className={`px-2 py-1 text-[10px] font-semibold rounded border transition-all whitespace-nowrap ${r.status === "paid" ? "text-emerald-700 bg-emerald-50 border-emerald-300 hover:bg-emerald-100" : "text-gray-600 bg-white border-gray-300 hover:bg-gray-50"}`}>
-                                  {r.status === "paid" ? "✓ Paid" : "Mark Paid"}
-                                </button>
+                                r.status === "paid" ? (
+                                  <div className="flex items-center justify-center gap-1">
+                                    <span className="px-2 py-1 text-[10px] font-semibold rounded border text-emerald-700 bg-emerald-50 border-emerald-300 whitespace-nowrap">✓ Paid</span>
+                                    <button onClick={() => handleResetPaid(r._id)} className="px-1.5 py-1 text-[10px] font-semibold rounded border text-gray-500 bg-white border-gray-300 hover:bg-gray-50" title="Reset payment">↺</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => setPayAdvance(r)}
+                                    className="px-3 py-1 text-[10px] font-semibold rounded border text-white bg-emerald-600 border-emerald-600 hover:bg-emerald-700 transition-all whitespace-nowrap">
+                                    {r.status === "partial" ? "Pay Baki" : "Pay"}
+                                  </button>
+                                )
                               ) : (
-                                <span className={`text-[10px] px-2 py-1 rounded border ${r.status === "paid" ? "text-emerald-600 border-emerald-200 bg-emerald-50" : "text-gray-400 border-gray-200"}`}>
-                                  {r.status === "paid" ? "✓ Paid" : "Unpaid"}
+                                <span className={`text-[10px] px-2 py-1 rounded border ${r.status === "paid" ? "text-emerald-600 border-emerald-200 bg-emerald-50" : r.status === "partial" ? "text-amber-600 border-amber-200 bg-amber-50" : "text-gray-400 border-gray-200"}`}>
+                                  {r.status === "paid" ? "✓ Paid" : r.status === "partial" ? "Partial" : "Unpaid"}
                                 </span>
                               )}
                             </td>
@@ -1062,6 +1204,8 @@ if (search) params.append("performedBy", search);
                         <tr className="bg-gray-50 border-t-2 border-gray-200">
                           <td colSpan={4} className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Total</td>
                           <td className="px-4 py-2 text-right font-black text-gray-800">{fmt(allRows.reduce((s, r) => s + r.amount, 0))}</td>
+                          <td className="px-4 py-2 text-right font-black text-emerald-700">{fmt(allRows.reduce((s, r) => s + num(r.paidAmount), 0))}</td>
+                          <td className="px-4 py-2 text-right font-black text-red-600">{fmt(allRows.reduce((s, r) => s + num(r.remaining), 0))}</td>
                           <td />
                         </tr>
                       </tfoot>

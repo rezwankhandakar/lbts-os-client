@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import Swal from "sweetalert2";
@@ -19,6 +18,7 @@ const AllVendor = () => {
   const [editVendor, setEditVendor] = useState(null);
   const [uploading,  setUploading]  = useState(false);
   const [updatedImg, setUpdatedImg] = useState("");
+  const [lightbox,   setLightbox]   = useState(null); // { url, label } for full-size view
 
   useEffect(() => {
     if (!roleReady) return;
@@ -129,12 +129,17 @@ const AllVendor = () => {
             {vendors.map((vendor, i) => (
               <div key={vendor._id} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3.5">
                 <div className="flex items-center gap-3 mb-2.5">
-                  <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => vendor.vendorImg && setLightbox({ url: vendor.vendorImg, label: vendor.vendorName })}
+                    className={`w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0 ${vendor.vendorImg ? "cursor-zoom-in" : "cursor-default"}`}
+                    title={vendor.vendorImg ? "View photo" : ""}
+                  >
                     {vendor.vendorImg
                       ? <img src={vendor.vendorImg} className="w-full h-full object-cover" alt="" />
                       : <div className="w-full h-full flex items-center justify-center text-slate-300"><User size={20} /></div>
                     }
-                  </div>
+                  </button>
                   <div className="flex-1 min-w-0">
                     <p className="font-black text-slate-900 text-sm truncate">{vendor.vendorName}</p>
                     {!isVendorRole && <p className="text-[9px] text-slate-400 font-mono">ID: {vendor._id.slice(-8).toUpperCase()}</p>}
@@ -198,12 +203,17 @@ const AllVendor = () => {
                       {!isVendorRole && <td className="px-4 py-3 text-center text-xs font-bold text-slate-400">{i + 1}</td>}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => vendor.vendorImg && setLightbox({ url: vendor.vendorImg, label: vendor.vendorName })}
+                            className={`w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0 ${vendor.vendorImg ? "cursor-zoom-in" : "cursor-default"}`}
+                            title={vendor.vendorImg ? "View photo" : ""}
+                          >
                             {vendor.vendorImg
                               ? <img src={vendor.vendorImg} className="w-full h-full object-cover" alt="" />
                               : <div className="w-full h-full flex items-center justify-center text-slate-300"><User size={14} /></div>
                             }
-                          </div>
+                          </button>
                           <div className="min-w-0">
                             <p className="font-black text-slate-900 text-sm truncate">{vendor.vendorName}</p>
                             {!isVendorRole && <p className="text-[9px] text-slate-400 font-mono">ID: {vendor._id.slice(-8).toUpperCase()}</p>}
@@ -310,6 +320,32 @@ const AllVendor = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Full-size Image Viewer ── */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            onClick={() => setLightbox(null)}
+            className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none z-10"
+            aria-label="Close"
+          >✕</button>
+          <div className="flex flex-col items-center gap-3 max-w-full max-h-full" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={lightbox.url}
+              alt={lightbox.label}
+              className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl"
+            />
+            {lightbox.label && (
+              <span className="text-white text-xs font-bold uppercase tracking-widest bg-white/10 px-4 py-1.5 rounded-full">
+                {lightbox.label}
+              </span>
+            )}
           </div>
         </div>
       )}
