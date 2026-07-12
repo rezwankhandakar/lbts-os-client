@@ -394,9 +394,16 @@ const DeliveredPage = () => {
 
   useEffect(() => { setClientPage(1); fetchDeliveries(month, year, searchText); }, [month, year, searchText, fetchDeliveries]);
 
-  // নতুন delivery add হলে (window focus) re-fetch
+  // নতুন delivery add হলে (window focus) re-fetch — তবে ১৫ সেকেন্ডে
+  // সর্বোচ্চ একবার (tab বারবার switch করলে server-এ অহেতুক চাপ পড়ত)
+  const lastFocusFetchRef = useRef(0);
   useEffect(() => {
-    const onFocus = () => fetchDeliveries(monthRef.current, yearRef.current, searchRef.current);
+    const onFocus = () => {
+      const now = Date.now();
+      if (now - lastFocusFetchRef.current < 15000) return;
+      lastFocusFetchRef.current = now;
+      fetchDeliveries(monthRef.current, yearRef.current, searchRef.current);
+    };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [fetchDeliveries]);

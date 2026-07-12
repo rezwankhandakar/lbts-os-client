@@ -261,15 +261,44 @@ const ReturnModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy 
   const activeReturns = returnItems.filter(r => r.returnQty > 0);
   const totalReturn = activeReturns.reduce((s, r) => s + r.returnQty, 0);
 
+  // FIX #58 — Return সম্পূর্ণ remove: trip-এর return card, original
+  // challan-এর mark, আর All Challan-এর return-pending challan — তিনটাই
+  // server-এ undo হয়। Item re-deliver হয়ে গেলে server 409 দিয়ে আটকায়।
+  const handleRemoveReturn = async () => {
+    const confirm = await Swal.fire({
+      icon: "warning",
+      title: "Remove Return?",
+      html: `<p class="text-sm">Return card + pending re-delivery challan <b>মুছে যাবে</b>।<br/>Challan আবার স্বাভাবিক delivered অবস্থায় ফিরে যাবে।</p>`,
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      confirmButtonText: "Yes, Remove",
+      cancelButtonText: "Cancel",
+    });
+    if (!confirm.isConfirmed) return;
+    setSaving(true);
+    try {
+      await axiosSecure.delete(`/deliveries/${tripId}/challan/${challan.challanId}/return`);
+      Swal.fire({ icon: "success", title: "Return Removed!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
+      const { returnedProducts: _rp, returnNote: _rn, returnedAt: _ra, ...cleared } = challan;
+      onSave({ updatedOriginal: cleared, newReturnChallan: null, removeReturn: true });
+      onClose();
+    } catch (err) { Swal.fire({ icon: "error", title: "Failed", text: err?.response?.data?.message || "" }); }
+    setSaving(false);
+  };
+
   const handleSave = async () => {
-    if (activeReturns.length === 0) { Swal.fire({ icon: "warning", title: "No return items" }); return; }
+    if (activeReturns.length === 0) {
+      // Edit mode-এ সব 0 করা = return তুলে নেওয়া
+      if (isEdit) { handleRemoveReturn(); return; }
+      Swal.fire({ icon: "warning", title: "No return items" }); return;
+    }
     setSaving(true);
     try {
       const returnedProducts = activeReturns.map(r => ({ _id: r._id, productName: r.productName, model: r.model, returnQty: r.returnQty }));
       if (isEdit) {
         await axiosSecure.patch(`/deliveries/${tripId}/challan/${challan.challanId}/return`, { returnedProducts, returnNote, updatedBy });
         Swal.fire({ icon: "success", title: "Return Updated!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
-        onSave({ updatedOriginal: { ...challan, returnedProducts, returnNote }, newReturnChallan: null });
+        onSave({ updatedOriginal: { ...challan, returnedProducts, returnNote }, newReturnChallan: null, syncedProducts: returnedProducts });
       } else {
         const res = await axiosSecure.post(`/deliveries/${tripId}/return-challan`, {
           originalChallanId: challan.challanId, customerName: challan.customerName, zone: challan.zone,
@@ -348,12 +377,19 @@ const ReturnModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy 
           </div>
         </div>
         <div className="px-4 py-3 border-t flex items-center justify-between bg-slate-50 shrink-0">
-          <p className="text-[10px] text-slate-400">{activeReturns.length > 0 ? `${totalReturn} PCS total` : "None selected"}</p>
+          {isEdit ? (
+            <button onClick={handleRemoveReturn} disabled={saving}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-red-600 border border-red-200 hover:bg-red-50 rounded-lg transition disabled:opacity-60">
+              <Trash2 size={12} /> Remove Return
+            </button>
+          ) : (
+            <p className="text-[10px] text-slate-400">{activeReturns.length > 0 ? `${totalReturn} PCS total` : "None selected"}</p>
+          )}
           <div className="flex gap-2">
             <button onClick={onClose} className="px-3 sm:px-4 py-2 text-sm text-slate-500 hover:bg-slate-100 rounded-lg transition">Cancel</button>
             <button onClick={handleSave} disabled={saving}
               className="px-3 sm:px-4 py-2 bg-orange-600 text-white text-sm font-bold rounded-lg transition flex items-center gap-2 disabled:opacity-60">
-              <Check size={13} /> {saving ? "Saving…" : isEdit ? "Update Return" : "Save Return"}
+              <Check size={13} /> {saving ? "Saving…" : isEdit ? (activeReturns.length === 0 ? "Remove Return" : "Update Return") : "Save Return"}
             </button>
           </div>
         </div>
@@ -1575,13 +1611,33 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
       {returningChallan && (
         <ReturnModal
           tripId={trip._id} challan={returningChallan} axiosSecure={axiosSecure} updatedBy={loggedInUser}
-          onSave={({ updatedOriginal, newReturnChallan }) => {
-            const updatedChallans = trip.challans.map(c => c.challanId === updatedOriginal.challanId ? updatedOriginal : c);
-            syncTrip({
-              ...trip, lastUpdatedBy: loggedInUser,
-              totalChallan: newReturnChallan ? trip.totalChallan + 1 : trip.totalChallan,
-              challans: newReturnChallan ? [...updatedChallans, newReturnChallan] : updatedChallans,
-            });
+          onSave={({ updatedOriginal, newReturnChallan, removeReturn, syncedProducts }) => {
+            let challans = trip.challans.map(c => c.challanId === updatedOriginal.challanId ? updatedOriginal : c);
+            let totalChallan = trip.totalChallan;
+            if (removeReturn) {
+              // FIX #58 — return card(গুলো) local state থেকেও সরাও
+              const before = challans.length;
+              challans = challans.filter(c => !(c.isReturn && c.originalChallanId === updatedOriginal.challanId));
+              totalChallan = Math.max(0, totalChallan - (before - challans.length));
+            } else if (newReturnChallan) {
+              challans = [...challans, newReturnChallan];
+              totalChallan = totalChallan + 1;
+            } else if (syncedProducts) {
+              // Edit — embedded return card-এর quantity গুলোও sync করো
+              challans = challans.map(c =>
+                (c.isReturn && c.originalChallanId === updatedOriginal.challanId)
+                  ? {
+                      ...c,
+                      returnNote: updatedOriginal.returnNote || "",
+                      products: syncedProducts.map(p => ({
+                        _id: p._id, productName: p.productName, model: p.model,
+                        quantity: Number(p.returnQty || p.quantity) || 0,
+                      })),
+                    }
+                  : c
+              );
+            }
+            syncTrip({ ...trip, lastUpdatedBy: loggedInUser, totalChallan, challans });
           }}
           onClose={() => setReturningChallan(null)}
         />
