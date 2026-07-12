@@ -11,20 +11,76 @@ const fmt  = (n) => n == null ? "—" : "৳ " + Number(n).toLocaleString("en-IN
 const num  = (n) => (n != null ? Number(n) : 0);
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
+/* আজকের তারিখ — local time-এ। toISOString() UTC দেয়, তাই ঢাকায়
+   ভোর ৬টার আগে আগের দিনের তারিখ চলে আসত — সেই bug এখানে fix */
+const todayLocal = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+/* Shared modern input style */
+const INPUT_CLS = "w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none bg-slate-50/50 focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all";
+
+/* ── সংখ্যা → বাংলা কথায় (টাকার অংক) ─────────────────────────── */
+const BN_WORDS = [
+  "শূন্য","এক","দুই","তিন","চার","পাঁচ","ছয়","সাত","আট","নয়","দশ",
+  "এগারো","বারো","তেরো","চৌদ্দ","পনেরো","ষোলো","সতেরো","আঠারো","উনিশ","বিশ",
+  "একুশ","বাইশ","তেইশ","চব্বিশ","পঁচিশ","ছাব্বিশ","সাতাশ","আটাশ","ঊনত্রিশ","ত্রিশ",
+  "একত্রিশ","বত্রিশ","তেত্রিশ","চৌত্রিশ","পঁয়ত্রিশ","ছত্রিশ","সাঁইত্রিশ","আটত্রিশ","ঊনচল্লিশ","চল্লিশ",
+  "একচল্লিশ","বিয়াল্লিশ","তেতাল্লিশ","চুয়াল্লিশ","পঁয়তাল্লিশ","ছেচল্লিশ","সাতচল্লিশ","আটচল্লিশ","ঊনপঞ্চাশ","পঞ্চাশ",
+  "একান্ন","বাহান্ন","তিপ্পান্ন","চুয়ান্ন","পঞ্চান্ন","ছাপ্পান্ন","সাতান্ন","আটান্ন","ঊনষাট","ষাট",
+  "একষট্টি","বাষট্টি","তেষট্টি","চৌষট্টি","পঁয়ষট্টি","ছেষট্টি","সাতষট্টি","আটষট্টি","ঊনসত্তর","সত্তর",
+  "একাত্তর","বাহাত্তর","তিয়াত্তর","চুয়াত্তর","পঁচাত্তর","ছিয়াত্তর","সাতাত্তর","আটাত্তর","ঊনআশি","আশি",
+  "একাশি","বিরাশি","তিরাশি","চুরাশি","পঁচাশি","ছিয়াশি","সাতাশি","আটাশি","ঊননব্বই","নব্বই",
+  "একানব্বই","বিরানব্বই","তিরানব্বই","চুরানব্বই","পঁচানব্বই","ছিয়ানব্বই","সাতানব্বই","আটানব্বই","নিরানব্বই",
+];
+const bnConv = (x) => {
+  const parts = [];
+  if (x >= 10000000) { parts.push(bnConv(Math.floor(x / 10000000)), "কোটি"); x %= 10000000; }
+  if (x >= 100000)   { parts.push(BN_WORDS[Math.floor(x / 100000)], "লাখ");  x %= 100000; }
+  if (x >= 1000)     { parts.push(BN_WORDS[Math.floor(x / 1000)], "হাজার");  x %= 1000; }
+  if (x >= 100)      { parts.push(BN_WORDS[Math.floor(x / 100)], "শত");      x %= 100; }
+  if (x > 0)         parts.push(BN_WORDS[x]);
+  return parts.join(" ");
+};
+const toBanglaWords = (val) => {
+  const n = Number(val);
+  if (val === "" || val == null || Number.isNaN(n) || n <= 0 || n > 999999999999) return "";
+  const intPart = Math.floor(n);
+  const paisa = Math.round((n - intPart) * 100);
+  let out = intPart > 0 ? `${bnConv(intPart)} টাকা` : "";
+  if (paisa > 0) out += `${out ? " " : ""}${bnConv(paisa)} পয়সা`;
+  return out;
+};
+
+/* Amount type করার সাথে সাথে কথায় দেখানো */
+const AmountWords = ({ value }) => {
+  const words = toBanglaWords(value);
+  if (!words) return null;
+  return (
+    <p className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1.5 mt-1.5 leading-relaxed">
+      ✍️ কথায়: <b>{words} মাত্র</b>
+    </p>
+  );
+};
+
 /* ── Stat Card ── */
 const StatCard = ({ label, value, sub, color="text-gray-800", border="border-gray-200", bg="bg-white", pill, onClick }) => (
   <div
     onClick={onClick}
-    className={`${bg} border ${border} rounded-xl p-2.5 sm:p-3 shadow-sm transition-all ${onClick ? "cursor-pointer hover:shadow-md hover:brightness-95 active:scale-[0.99]" : ""}`}
+    className={`relative ${bg} border ${border} rounded-2xl p-3 sm:p-3.5 shadow-sm overflow-hidden group transition-all duration-200 ${onClick ? "cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99]" : ""}`}
   >
-    <div className="flex items-start justify-between gap-1 mb-1">
-      <p className="text-[9px] sm:text-[10px] text-gray-400 uppercase tracking-widest leading-tight">{label}</p>
-      {pill && (
-        <span className={`text-[8px] font-bold px-1 py-0.5 rounded uppercase tracking-wide shrink-0 ${pill.color}`}>{pill.text}</span>
-      )}
+    <div className="absolute -top-6 -right-6 w-16 h-16 rounded-full bg-white/50 group-hover:scale-125 transition-transform duration-500" />
+    <div className="relative">
+      <div className="flex items-start justify-between gap-1 mb-1.5">
+        <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest leading-tight">{label}</p>
+        {pill && (
+          <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wide shrink-0 ${pill.color}`}>{pill.text}</span>
+        )}
+      </div>
+      <p className={`text-sm sm:text-base font-black ${color} leading-tight`}>{value}</p>
+      {sub && <p className="text-[9px] sm:text-[10px] font-medium text-gray-400 mt-1 leading-snug break-words">{sub}</p>}
     </div>
-    <p className={`text-sm sm:text-base font-bold ${color} leading-tight`}>{value}</p>
-    {sub && <p className="text-[9px] sm:text-[10px] text-gray-400 mt-0.5 leading-snug break-words">{sub}</p>}
   </div>
 );
 
@@ -58,77 +114,98 @@ const Bar = ({ value, max, color="bg-emerald-500" }) => (
 );
 
 /* ══ PAY VENDOR MODAL ══ */
-const PayVendorModal = ({ open, onClose, vendor, summary, onPay }) => {
+const PayVendorModal = ({ open, onClose, vendor, summary, onPay, ledgerLabel, isPastMonth }) => {
   const remaining = summary ? Math.max(0, summary.totalBill - summary.totalAdvance - summary.totalPaid) : 0;
   const [amount, setAmount] = useState("");
-  const [date,   setDate]   = useState(new Date().toISOString().slice(0, 10));
+  const [date,   setDate]   = useState(todayLocal());
   const [note,   setNote]   = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open || !summary) return;
     setAmount(remaining > 0 ? String(remaining) : "");
-    setDate(new Date().toISOString().slice(0, 10));
+    setDate(todayLocal());
     setNote("");
-  }, [open, remaining]);
+  }, [open, remaining]); // eslint-disable-line
 
   if (!open || !vendor || !summary) return null;
 
+  const val = Number(amount);
+  const overpay = !Number.isNaN(val) && val > remaining;
+
   const handlePay = async () => {
-    if (!amount || Number(amount) <= 0) {
+    if (!amount || Number.isNaN(val) || val <= 0) {
       Swal.fire({ icon: "warning", title: "Amount দাও", toast: true, position: "top-end", timer: 1800, showConfirmButton: false });
       return;
     }
+    if (overpay) {
+      Swal.fire({ icon: "warning", title: `Due থেকে বেশি দেওয়া যাবে না (${fmt(remaining)})`, toast: true, position: "top-end", timer: 2200, showConfirmButton: false });
+      return;
+    }
     setSaving(true);
-    await onPay({ vendorName: vendor, amount: Number(amount), date, note });
+    await onPay({ vendorName: vendor, amount: val, date, note });
     setSaving(false);
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm max-h-[90vh] overflow-y-auto">
-        <div className="px-4 py-3.5 border-b border-gray-100 sticky top-0 bg-white z-10">
-          <h3 className="text-sm font-bold text-gray-800">Pay Vendor</h3>
-          <p className="text-xs text-gray-400 mt-0.5">{vendor}</p>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
+      <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-sm max-h-[90vh] overflow-y-auto">
+        <div className="px-5 py-4 border-b border-slate-100 sticky top-0 bg-white/95 backdrop-blur z-10 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-black text-slate-800">Pay Vendor</h3>
+            <p className="text-xs text-slate-400 mt-0.5 font-medium">{vendor}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition">✕</button>
         </div>
-        <div className="p-4 space-y-3.5">
-          <div className="bg-gray-50 rounded-lg p-3 text-xs space-y-1.5">
-            <div className="flex justify-between text-gray-500"><span>Total Bill</span><span className="font-semibold text-gray-800">{fmt(summary.totalBill)}</span></div>
-            <div className="flex justify-between text-amber-700"><span>Advance (auto)</span><span className="font-semibold">— {fmt(summary.totalAdvance)}</span></div>
-            {summary.totalPaid > 0 && <div className="flex justify-between text-indigo-700"><span>Already paid</span><span className="font-semibold">— {fmt(summary.totalPaid)}</span></div>}
-            <div className={`flex justify-between font-black pt-1.5 border-t border-gray-200 ${remaining > 0 ? "text-red-600" : "text-emerald-600"}`}>
+        <div className="p-5 space-y-4">
+          {/* কোন month-এর খাতায় ঢুকবে — সবসময় পরিষ্কার দেখানো */}
+          <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 border text-[11px] font-semibold leading-relaxed ${isPastMonth ? "bg-amber-50 border-amber-200 text-amber-800" : "bg-indigo-50/60 border-indigo-100 text-indigo-700"}`}>
+            <span className="mt-px">📒</span>
+            <span>
+              এই payment <b>{ledgerLabel}</b> এর ledger-এ record হবে।
+              {isPastMonth && <span className="block text-[10px] font-medium mt-0.5 text-amber-600">Previous month select করা আছে — Date field-এ শুধু আসল payment এর তারিখ দিন, month বদলাতে হবে না।</span>}
+            </span>
+          </div>
+          <div className="bg-slate-50 rounded-2xl p-3.5 text-xs space-y-2 border border-slate-100">
+            <div className="flex justify-between text-slate-500"><span>Total Bill</span><span className="font-bold text-slate-800">{fmt(summary.totalBill)}</span></div>
+            <div className="flex justify-between text-amber-700"><span>Advance (auto)</span><span className="font-bold">— {fmt(summary.totalAdvance)}</span></div>
+            {summary.totalPaid > 0 && <div className="flex justify-between text-indigo-700"><span>Already paid</span><span className="font-bold">— {fmt(summary.totalPaid)}</span></div>}
+            <div className={`flex justify-between font-black pt-2 border-t border-slate-200 ${remaining > 0 ? "text-red-600" : "text-emerald-600"}`}>
               <span>Remaining Due</span><span>{remaining > 0 ? fmt(remaining) : "✓ Cleared"}</span>
             </div>
           </div>
-          <details className="text-xs text-gray-500 cursor-pointer">
-            <summary className="font-semibold text-gray-600 mb-1">{summary.trips} trips included</summary>
+          <details className="text-xs text-slate-500 cursor-pointer">
+            <summary className="font-bold text-slate-600 mb-1">{summary.trips} trips included</summary>
             <div className="mt-1 space-y-1 pl-2 max-h-28 overflow-y-auto">
               {summary.tripList.map((t, i) => (
                 <div key={i} className="flex justify-between">
-                  <span className="font-mono text-gray-400">{t.tripNumber}</span>
-                  <span className="text-gray-600">{fmt(num(t.rent) + num(t.leborBill))}</span>
+                  <span className="font-mono text-slate-400">{t.tripNumber}</span>
+                  <span className="text-slate-600">{fmt(num(t.rent) + num(t.leborBill))}</span>
                 </div>
               ))}
             </div>
           </details>
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Payment Amount (৳) *</label>
-            <input type="number" min="0" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-500"
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Payment Amount (৳) *</label>
+            <input type="number" min="0" max={remaining} className={INPUT_CLS}
               value={amount} onChange={e => setAmount(e.target.value)} />
+            {overpay && <p className="text-[10px] text-red-500 font-semibold mt-1">⚠ Due ({fmt(remaining)}) থেকে বেশি — কমিয়ে দিন</p>}
+            <AmountWords value={amount} />
           </div>
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Date *</label>
-            <input type="date" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-500" value={date} onChange={e => setDate(e.target.value)} />
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Payment Date *</label>
+            <input type="date" className={INPUT_CLS} value={date} onChange={e => setDate(e.target.value)} />
+            <p className="text-[10px] text-slate-400 mt-1">যেদিন টাকা দেওয়া হলো/হবে — ledger month এতে বদলাবে না</p>
           </div>
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Note</label>
-            <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-500" placeholder="optional..." value={note} onChange={e => setNote(e.target.value)} />
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Note</label>
+            <input className={INPUT_CLS} placeholder="optional..." value={note} onChange={e => setNote(e.target.value)} />
           </div>
         </div>
-        <div className="flex gap-3 px-4 pb-5 pt-1">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50">Cancel</button>
-          <button onClick={handlePay} disabled={saving} className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-500 transition disabled:opacity-60">
+        <div className="flex gap-3 px-5 pb-6 pt-1">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50 transition">Cancel</button>
+          <button onClick={handlePay} disabled={saving || overpay} className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-500 shadow-lg shadow-indigo-600/20 transition disabled:opacity-50">
             {saving ? "Saving…" : "Pay Now"}
           </button>
         </div>
@@ -189,6 +266,7 @@ const PayAdvanceModal = ({ advance, onClose, onPay }) => {
             <input type="number" min="0" max={remaining} autoFocus
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-500"
               value={amount} onChange={e => setAmount(e.target.value)} />
+            <AmountWords value={amount} />
             <div className="flex gap-2 mt-2">
               {quick.map((q, i) => (
                 <button key={i} onClick={() => setAmount(String(q))}
@@ -216,12 +294,12 @@ const PayAdvanceModal = ({ advance, onClose, onPay }) => {
 };
 
 /* ══ MANUAL TX MODAL ══ */
-const ManualTxModal = ({ open, onClose, onSave }) => {
-  const [form, setForm] = useState({ type: "income", description: "", amount: "", date: new Date().toISOString().slice(0, 10), note: "", recipientName: "" });
+const ManualTxModal = ({ open, onClose, onSave, ledgerLabel, isPastMonth }) => {
+  const [form, setForm] = useState({ type: "income", description: "", amount: "", date: todayLocal(), note: "", recipientName: "" });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) setForm({ type: "income", description: "", amount: "", date: new Date().toISOString().slice(0, 10), note: "", recipientName: "" });
+    if (open) setForm({ type: "income", description: "", amount: "", date: todayLocal(), note: "", recipientName: "" });
   }, [open]);
 
   if (!open) return null;
@@ -249,6 +327,11 @@ const ManualTxModal = ({ open, onClose, onSave }) => {
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 p-1 text-lg leading-none">✕</button>
         </div>
         <div className="p-4 space-y-3.5">
+          {/* কোন month-এর খাতায় ঢুকবে */}
+          <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 border text-[11px] font-semibold leading-relaxed ${isPastMonth ? "bg-amber-50 border-amber-200 text-amber-800" : "bg-slate-50 border-slate-200 text-slate-600"}`}>
+            <span className="mt-px">📒</span>
+            <span>Transaction টি <b>{ledgerLabel}</b> এর ledger-এ record হবে{isPastMonth ? " (previous month select করা আছে)" : ""}। Date field = আসল লেনদেনের তারিখ।</span>
+          </div>
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Type</label>
             <div className="grid grid-cols-3 gap-1.5">
@@ -288,6 +371,7 @@ const ManualTxModal = ({ open, onClose, onSave }) => {
                 value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
             </div>
           </div>
+          <AmountWords value={form.amount} />
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Note (optional)</label>
             <textarea rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-500 resize-none"
@@ -412,6 +496,7 @@ const AccountsDashboard = () => {
   const [auditTotal,   setAuditTotal]   = useState(0);
   const [auditPage,    setAuditPage]    = useState(1);
   const [auditSearch,  setAuditSearch]  = useState("");
+  const [auditError,   setAuditError]   = useState("");
   const [restoring,    setRestoring]    = useState(null);
 
   const [prevMonthBalance, setPrevMonthBalance] = useState(null);
@@ -548,12 +633,22 @@ const AccountsDashboard = () => {
   const canWrite = role === 'manager';
 
   /* ── Handlers ── */
+  // Local cache invalidate — mutation-এর পর stale data না দেখানোর জন্য
+  const invalidateMonthCache = (m, y) => {
+    delete apiCache.current[`/accounts?month=${m}&year=${y}`];
+    delete apiCache.current[`/car-rents?month=${m}&year=${y}`];
+  };
+
   const handlePayVendor = async ({ vendorName, amount, date, note }) => {
     try {
-      const res = await axiosSecure.post("/accounts", { type: "vendor_payment", description: `Vendor Payment — ${vendorName}`, amount, date, note, vendorName });
+      // month/year = dashboard-এ selected month — previous month select
+      // করা থাকলে payment সেই month-এর ledger-এই record হবে;
+      // date শুধু আসল payment-এর তারিখ
+      const res = await axiosSecure.post("/accounts", { type: "vendor_payment", description: `Vendor Payment — ${vendorName}`, amount, date, note, vendorName, month, year });
       if (res.data.success) {
         setAccountTxs(prev => [res.data.data, ...prev]);
-        Swal.fire({ icon: "success", title: "Payment saved!", toast: true, position: "top-end", timer: 1800, showConfirmButton: false });
+        invalidateMonthCache(month, year);
+        Swal.fire({ icon: "success", title: `Payment saved — ${MONTHS[month - 1]} ${year} ledger`, toast: true, position: "top-end", timer: 2200, showConfirmButton: false });
       }
     } catch (err) { Swal.fire({ icon: "error", title: err?.response?.data?.message || "Failed" }); }
   };
@@ -565,24 +660,45 @@ const AccountsDashboard = () => {
         description: tx.type === "manual_advance" ? `Advance — ${tx.recipientName}` : tx.description,
         amount: tx.amount, date: tx.date, note: tx.note || "",
         recipientName: tx.recipientName || "", vendorName: tx.vendorName || "",
+        month, year, // selected ledger month
       });
       if (res.data.success) {
         setAccountTxs(prev => [res.data.data, ...prev]);
+        invalidateMonthCache(month, year);
         Swal.fire({ icon: "success", title: "Transaction added", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
       }
     } catch (err) { Swal.fire({ icon: "error", title: err?.response?.data?.message || "Failed" }); }
   };
 
+  // Race-condition guard: search-এ প্রতি keystroke-এ request যায় —
+  // পুরনো (slow) response পরে এসে নতুন result মুছে দিত। Sequence
+  // number দিয়ে শুধু সর্বশেষ request-এর response apply হয়।
+  const auditReqSeq   = useRef(0);
+  const auditDebounce = useRef(null);
+  useEffect(() => () => clearTimeout(auditDebounce.current), []);
+
   const fetchAuditLogs = useCallback(async (page = 1, search = "") => {
+    const seq = ++auditReqSeq.current;
     setAuditLoading(true);
+    setAuditError("");
     try {
-const params = new URLSearchParams({ page, limit: 20, action: "DELETE_TRANSACTION" });
-if (search) params.append("performedBy", search);
+      const params = new URLSearchParams({ page, limit: 20, action: "DELETE_TRANSACTION" });
+      if (search) params.append("performedBy", search);
       const res = await axiosSecure.get(`/audit-logs?${params}`);
+      if (seq !== auditReqSeq.current) return; // stale — ignore
       setAuditLogs(res.data.data || []);
       setAuditTotal(res.data.total || 0);
-    } catch (err) { console.error(err); }
-    setAuditLoading(false);
+    } catch (err) {
+      if (seq !== auditReqSeq.current) return;
+      console.error(err);
+      setAuditLogs([]);
+      setAuditTotal(0);
+      setAuditError(err?.response?.status === 403
+        ? "আপনার role-এ audit log দেখার permission নেই — server update লাগবে।"
+        : "Audit log আনতে সমস্যা হয়েছে — Refresh চাপুন।");
+    } finally {
+      if (seq === auditReqSeq.current) setAuditLoading(false);
+    }
   }, [axiosSecure]);
 
   const handleDeleteTx = async (id) => {
@@ -599,6 +715,7 @@ if (search) params.append("performedBy", search);
       await axiosSecure.delete(`/accounts/${id}`, { data: { reason } });
       setAccountTxs(prev => prev.filter(t => t._id !== id));
       setCarryForwardTxs(prev => prev.filter(t => t._id !== id));
+      invalidateMonthCache(month, year);
       Swal.fire({ icon: "success", title: "Deleted!", toast: true, position: "top-end", timer: 1800, showConfirmButton: false });
       if (tab === "audit") fetchAuditLogs(auditPage, auditSearch);
     } catch (err) { Swal.fire({ icon: "error", title: err?.response?.data?.message || "Failed" }); }
@@ -739,70 +856,90 @@ if (search) params.append("performedBy", search);
 
   const payingVendorSummary = payVendorName ? vendorMap[payVendorName] : null;
 
+  /* Selected month কি current month থেকে আলাদা? — modal-এ warning দেখাতে */
+  const _now = new Date();
+  const isPastMonth = year !== _now.getFullYear() || month !== _now.getMonth() + 1;
+  const ledgerLabel = `${MONTHS[month - 1]} ${year}`;
+
   /* ══════════════════════════════════════════════════════════════
      RENDER
   ══════════════════════════════════════════════════════════════ */
   return (
     <div className="min-h-screen bg-slate-50 page-enter">
       {/* Pay vendor modal শুধু manager দেখবে */}
-      {canWrite && <PayVendorModal open={!!payVendorName} vendor={payVendorName} summary={payingVendorSummary} onClose={() => setPayVendorName(null)} onPay={handlePayVendor} />}
-      {canWrite && <ManualTxModal open={manualModal} onClose={() => setManualModal(false)} onSave={handleAddManualTx} />}
+      {canWrite && <PayVendorModal open={!!payVendorName} vendor={payVendorName} summary={payingVendorSummary} onClose={() => setPayVendorName(null)} onPay={handlePayVendor} ledgerLabel={ledgerLabel} isPastMonth={isPastMonth} />}
+      {canWrite && <ManualTxModal open={manualModal} onClose={() => setManualModal(false)} onSave={handleAddManualTx} ledgerLabel={ledgerLabel} isPastMonth={isPastMonth} />}
       {canWrite && <PayAdvanceModal advance={payAdvance} onClose={() => setPayAdvance(null)} onPay={handlePay} />}
 
       <div className="max-w-full mx-auto p-2 sm:p-3 lg:p-4">
 
-        {/* ── Header ── */}
-        <div className="flex flex-col gap-2 mb-3 sm:mb-4">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <h1 className="text-base sm:text-lg font-black text-slate-900">Accounts</h1>
-              <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
-                {MONTHS[month - 1]} {year} · {trips.length} trips
-                {pendingVendors > 0 && <span className="ml-1.5 text-red-500 font-semibold">· {pendingVendors} pending</span>}
-              </p>
-            </div>
-            {/* Mobile action icons — শুধু manager */}
-            <div className="flex items-center gap-1.5 sm:hidden">
-              {canWrite && (
-                <button onClick={() => setManualModal(true)}
-                  className="flex items-center gap-1 px-2 py-1.5 text-xs rounded bg-emerald-500 text-white hover:bg-emerald-600 transition font-medium">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  Add
-                </button>
-              )}
-              <button onClick={handleExport}
-                className="flex items-center gap-1 px-2 py-1.5 text-xs rounded bg-slate-900 text-white hover:bg-gray-700 transition">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                XLS
-              </button>
-            </div>
-          </div>
+        {/* ── Header — modern dark banner ── */}
+        <div className="relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 shadow-lg mb-3 sm:mb-4">
+          <div className="absolute inset-0 opacity-[0.12]"
+            style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #fff 1px, transparent 0)', backgroundSize: '22px 22px' }} />
+          <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-1/3 w-36 h-36 bg-indigo-500/10 rounded-full blur-3xl" />
 
-          {/* Filter + desktop buttons row */}
-          <div className="flex flex-wrap items-center gap-2">
-            <select className="border border-gray-300 px-2 py-1.5 rounded text-xs sm:text-sm bg-white text-gray-700 focus:outline-none flex-1 min-w-[90px] max-w-[140px]"
-              value={month} onChange={e => setMonth(parseInt(e.target.value))}>
-              {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-            </select>
-            <input type="number" className="border border-gray-300 px-1 py-1.5 rounded text-xs sm:text-sm bg-white text-gray-700 w-16 focus:outline-none"
-              value={year} onChange={e => setYear(parseInt(e.target.value))} />
-            <div className="hidden sm:flex items-center gap-2 ml-auto">
-              {/* Desktop Add button — শুধু manager */}
-              {canWrite && (
-                <button onClick={() => setManualModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm rounded bg-emerald-500 text-white hover:bg-emerald-600 transition font-medium">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  Add Transaction
+          <div className="relative px-4 sm:px-6 py-4 sm:py-5 flex flex-col gap-3">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <div className="flex items-center gap-2 text-emerald-400 mb-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.3em]">Finance Center</span>
+                </div>
+                <h1 className="text-lg sm:text-2xl font-black text-white leading-tight">
+                  Accounts <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">Dashboard</span>
+                </h1>
+                <p className="text-[10px] sm:text-xs text-slate-400 mt-1 font-medium">
+                  {MONTHS[month - 1]} {year} · {trips.length} trips
+                  {pendingVendors > 0 && <span className="ml-1.5 text-red-400 font-bold">· {pendingVendors} pending</span>}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                {canWrite && (
+                  <button onClick={() => setManualModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-2 text-[11px] sm:text-xs rounded-xl bg-emerald-500 text-white hover:bg-emerald-400 transition font-bold shadow-lg shadow-emerald-500/20 active:scale-95">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <span className="hidden sm:inline">Add Transaction</span><span className="sm:hidden">Add</span>
+                  </button>
+                )}
+                <button onClick={handleExport}
+                  className="flex items-center gap-1.5 px-3 py-2 text-[11px] sm:text-xs rounded-xl bg-white/10 border border-white/10 text-white hover:bg-white/20 transition font-bold backdrop-blur active:scale-95">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <span className="hidden sm:inline">Export</span><span className="sm:hidden">XLS</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Month / year picker */}
+            <div className="flex flex-wrap items-center gap-2">
+              <select className="border border-white/10 px-2.5 py-1.5 rounded-xl text-xs sm:text-sm bg-white/10 text-white focus:outline-none focus:border-emerald-400/50 backdrop-blur flex-1 min-w-[100px] max-w-[150px] [&>option]:text-slate-800"
+                value={month} onChange={e => setMonth(parseInt(e.target.value))}>
+                {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+              </select>
+              <input type="number" className="border border-white/10 px-2 py-1.5 rounded-xl text-xs sm:text-sm bg-white/10 text-white w-20 focus:outline-none focus:border-emerald-400/50 backdrop-blur"
+                value={year}
+                onChange={e => { const y = parseInt(e.target.value); if (!Number.isNaN(y)) setYear(y); }} />
+              {isPastMonth && (
+                <button onClick={() => { setMonth(_now.getMonth() + 1); setYear(_now.getFullYear()); }}
+                  className="px-2.5 py-1.5 text-[10px] font-bold rounded-xl bg-white/10 border border-white/10 text-slate-300 hover:bg-white/20 transition backdrop-blur">
+                  ↩ Current Month
                 </button>
               )}
-              <button onClick={handleExport}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm rounded bg-slate-900 text-white hover:bg-gray-700 transition">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Export
-              </button>
             </div>
           </div>
         </div>
+
+        {/* Previous month select করা থাকলে — payments সেই ledger-এই যাবে */}
+        {isPastMonth && (
+          <div className="flex items-start gap-2 px-3.5 py-2.5 mb-3 sm:mb-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <span className="text-sm mt-px">📒</span>
+            <p className="text-[11px] sm:text-xs font-semibold text-amber-800 leading-relaxed">
+              আপনি <b>{ledgerLabel}</b> দেখছেন — এখন Pay Vendor / Add Transaction করলে সেটা <b>{ledgerLabel}</b> এর ledger-এই record হবে। Date field-এ শুধু আসল payment এর তারিখ দিলেই চলবে।
+            </p>
+          </div>
+        )}
 
         {loading || txLoading ? <LoadingSpinner /> : (<>
 
@@ -841,7 +978,7 @@ if (search) params.append("performedBy", search);
 
         {/* ── Tabs ── */}
         <div className="mb-3 sm:mb-4 overflow-x-auto pb-0.5">
-          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm w-max min-w-full sm:min-w-0 sm:w-fit">
+          <div className="flex gap-1 bg-white border border-slate-100 rounded-2xl p-1 shadow-sm w-max min-w-full sm:min-w-0 sm:w-fit">
             {[
               { id: "overview",     label: "Overview" },
               { id: "vendors",      label: `Vendors${pendingVendors > 0 ? ` (${pendingVendors})` : ""}` },
@@ -851,8 +988,8 @@ if (search) params.append("performedBy", search);
             ].map(t => (
               <button key={t.id}
                 onClick={() => { setTab(t.id); if (t.id === "audit") fetchAuditLogs(1, auditSearch); }}
-                className={`px-2.5 sm:px-4 py-1.5 text-[11px] sm:text-xs font-semibold rounded transition-all whitespace-nowrap
-                  ${tab === t.id ? "bg-slate-900 text-white" : "text-gray-500 hover:text-gray-800"}`}>
+                className={`px-2.5 sm:px-4 py-1.5 text-[11px] sm:text-xs font-bold rounded-lg transition-all duration-200 whitespace-nowrap
+                  ${tab === t.id ? "bg-slate-900 text-white shadow-md shadow-slate-900/20" : "text-gray-500 hover:text-gray-800 hover:bg-slate-50"}`}>
                 {t.label}
               </button>
             ))}
@@ -1002,7 +1139,7 @@ if (search) params.append("performedBy", search);
 
         {/* ══ VENDORS ══ */}
         {tab === "vendors" && (
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
             <div className="px-3 sm:px-5 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="text-sm font-bold text-gray-800 truncate">Vendor Summary — {MONTHS[month - 1]} {year}</h3>
@@ -1084,7 +1221,7 @@ if (search) params.append("performedBy", search);
                 ))}
               </div>
 
-              <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+              <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
                 <div className="px-3 sm:px-5 py-3 border-b border-gray-100 flex flex-col gap-2">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-bold text-gray-800">Advance History</h3>
@@ -1219,7 +1356,7 @@ if (search) params.append("performedBy", search);
 
         {/* ══ TRANSACTIONS ══ */}
         {tab === "transactions" && (
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
             <div className="px-3 sm:px-5 py-3 border-b border-gray-100 flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-gray-800">All Transactions</h3>
@@ -1331,7 +1468,14 @@ if (search) params.append("performedBy", search);
                 <div className="flex items-center gap-2">
                   <input className="border border-red-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-red-400 flex-1 bg-white"
                     placeholder="Email দিয়ে filter…" value={auditSearch}
-                    onChange={e => { setAuditSearch(e.target.value); setAuditPage(1); fetchAuditLogs(1, e.target.value); }} />
+                    onChange={e => {
+                      const v = e.target.value;
+                      setAuditSearch(v);
+                      setAuditPage(1);
+                      // Debounce — টাইপ থামার ৪০০ms পর একবারই request যাবে
+                      clearTimeout(auditDebounce.current);
+                      auditDebounce.current = setTimeout(() => fetchAuditLogs(1, v), 400);
+                    }} />
                   <button onClick={() => fetchAuditLogs(auditPage, auditSearch)}
                     className="px-3 py-1.5 bg-red-700 text-white text-xs rounded-lg hover:bg-red-600 transition font-semibold shrink-0">
                     Refresh
@@ -1339,9 +1483,17 @@ if (search) params.append("performedBy", search);
                 </div>
               </div>
 
-              <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+              <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
                 {auditLoading ? (
                   <div className="py-16 text-center text-gray-400 text-sm animate-pulse">লোড হচ্ছে…</div>
+                ) : auditError ? (
+                  <div className="py-14 text-center px-4">
+                    <p className="text-sm font-semibold text-red-500">⚠ {auditError}</p>
+                    <button onClick={() => fetchAuditLogs(auditPage, auditSearch)}
+                      className="mt-3 px-4 py-1.5 text-xs font-bold rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 transition">
+                      ↻ আবার চেষ্টা করুন
+                    </button>
+                  </div>
                 ) : auditLogs.length === 0 ? (
                   <div className="py-16 text-center text-gray-400 italic text-sm">কোনো delete history নেই।</div>
                 ) : (

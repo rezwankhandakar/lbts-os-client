@@ -18,6 +18,7 @@ const EditRecentChallanModal = ({ open, onClose, challan, product, axiosSecure, 
   });
   // Local product typeahead — only shown while user is editing Product Name
   const [showProductSuggest, setShowProductSuggest] = useState(false);
+  const [saving, setSaving] = useState(false);
   const productSuggestRef = useRef(null);
 
   useEffect(() => {
@@ -63,6 +64,16 @@ const EditRecentChallanModal = ({ open, onClose, challan, product, axiosSecure, 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saving) return; // double-save guard
+
+    // Quantity সংখ্যা ও ≥1 কিনা check — Save button form-এর বাইরে থাকায়
+    // browser-এর native required validation চলত না, খালি value পাঠালে
+    // server 400 দিত
+    const qty = Number(formData.quantity);
+    if (!formData.productName.trim() || !formData.model.trim() || Number.isNaN(qty) || qty < 1) {
+      Swal.fire({ icon: "warning", title: "Product, Model ও Quantity (≥1) ঠিকভাবে দিন", toast: true, position: "top-end", timer: 2200, showConfirmButton: false });
+      return;
+    }
 
     // Older challans may not have per-product _id (the auto-generated
     // ObjectId-string field).  Without it, the PUT route can't target a
@@ -82,6 +93,7 @@ const EditRecentChallanModal = ({ open, onClose, challan, product, axiosSecure, 
       return;
     }
 
+    setSaving(true);
     try {
       // Re-resolve capacity + rate from the (possibly edited) product
       // name + model + the challan's location.  If the product hasn't
@@ -110,9 +122,11 @@ const EditRecentChallanModal = ({ open, onClose, challan, product, axiosSecure, 
         currentUser: user?.displayName || user?.email,
       });
       Swal.fire({ icon: "success", title: "Updated Successfully", timer: 1500, showConfirmButton: false });
+      setSaving(false);
       onClose();
       refreshChallan();
     } catch (err) {
+      setSaving(false);
       // Surface the real failure cause to make debugging painless.
       // The server returns { success: false, message: "..." } for
       // expected errors and validation-array for express-validator
@@ -260,10 +274,12 @@ const EditRecentChallanModal = ({ open, onClose, challan, product, axiosSecure, 
             className="flex-1 py-2.5 text-[13px] font-semibold text-slate-500 border border-slate-200 hover:bg-slate-50 rounded-xl transition">
             Discard
           </button>
-          <button type="submit" onClick={handleSubmit}
-            className="flex-[2] py-2.5 text-[13px] font-black text-white rounded-xl flex items-center justify-center gap-2 transition active:scale-[0.98]"
+          <button type="submit" onClick={handleSubmit} disabled={saving}
+            className="flex-[2] py-2.5 text-[13px] font-black text-white rounded-xl flex items-center justify-center gap-2 transition active:scale-[0.98] disabled:opacity-60"
             style={{ background: "linear-gradient(135deg,#059669,#10b981)", boxShadow: "0 4px 14px rgba(16,185,129,0.35)" }}>
-            <Save size={13} /> Save & Update
+            {saving
+              ? (<><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Saving…</>)
+              : (<><Save size={13} /> Save & Update</>)}
           </button>
         </div>
 

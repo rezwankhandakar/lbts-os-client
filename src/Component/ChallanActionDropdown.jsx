@@ -34,7 +34,8 @@ const ChallanActionDropdown = ({ challan, product, axiosSecure, refetchChallans 
           })
           .catch((err) => {
             console.error(err);
-            Swal.fire("Error!", "Delete failed.", "error");
+            // Server-এর কারণটা দেখানো (যেমন: dispatched challan delete করা যায় না)
+            Swal.fire("Error!", err?.response?.data?.message || "Delete failed.", "error");
           });
       }
     });
@@ -55,20 +56,20 @@ const ChallanActionDropdown = ({ challan, product, axiosSecure, refetchChallans 
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-1 w-32 bg-white border rounded shadow-lg z-50 overflow-hidden">
+        <div className="absolute right-0 mt-1 w-36 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
           <button 
             onClick={() => { setEditOpen(true); setOpen(false); }} 
-            className="w-full text-left px-3 py-2 hover:bg-blue-500 hover:text-white flex items-center gap-2 text-sm"
+            className="w-full text-left px-3 py-2 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 text-sm font-semibold text-slate-600 transition-colors"
           >
             ✏️ Edit
           </button>
           <button 
             onClick={handleDelete} 
-            className="w-full text-left px-3 py-2 hover:bg-red-500 hover:text-white flex items-center gap-2 text-sm"
+            className="w-full text-left px-3 py-2 hover:bg-red-50 hover:text-red-600 flex items-center gap-2 text-sm font-semibold text-slate-600 transition-colors"
           >
             🗑️ Delete
           </button>
-          <div className="bg-gray-100 px-3 py-1 italic text-[10px] text-gray-500 border-t">
+          <div className="bg-slate-50 px-3 py-1.5 italic text-[10px] text-slate-400 border-t border-slate-100">
             User: {challan.currentUser || "Admin"}
           </div>
         </div>

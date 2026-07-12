@@ -501,6 +501,7 @@ const AllChallan = () => {
   const setFilter = setter => val => { setter(val); setClientPage(1); };
 
   const debounceRef = useRef(null);
+  const fetchSeqRef = useRef(0);
 
   // current month/year/search ref — window focus এ use হয়
   const monthRef  = useRef(month);
@@ -511,15 +512,18 @@ const AllChallan = () => {
   useEffect(() => { searchRef.current = searchText; }, [searchText]);
 
   const fetchChallans = React.useCallback(async (m, y, search) => {
+    // Race guard — পুরনো slow response নতুন result overwrite করতে পারবে না
+    const seq = ++fetchSeqRef.current;
     setLoading(true);
     try {
       const url = search
         ? `/challans?search=${encodeURIComponent(search)}`
         : `/challans?month=${m}&year=${y}`;
       const res = await axiosSecure.get(url);
+      if (seq !== fetchSeqRef.current) return; // stale
       setChallans(res.data.data || []);
-    } catch (err) { console.error(err); }
-    setLoading(false);
+    } catch (err) { if (seq === fetchSeqRef.current) console.error(err); }
+    if (seq === fetchSeqRef.current) setLoading(false);
   }, [axiosSecure]);
 
   // month / year / search change হলে re-fetch
@@ -635,6 +639,10 @@ const AllChallan = () => {
     () => filteredRows.slice((clientPage - 1) * ITEMS_PER_PAGE, clientPage * ITEMS_PER_PAGE),
     [filteredRows, clientPage]
   );
+  // Filter দিয়ে page সংখ্যা কমে গেলে বড় page-এ আটকে খালি টেবিল দেখাত
+  useEffect(() => {
+    if (totalPages > 0 && clientPage > totalPages) setClientPage(totalPages);
+  }, [totalPages, clientPage]);
   const totalQtyAll = React.useMemo(
     () => filteredRows.reduce((sum, { p }) => sum + (Number(p.quantity) || 0), 0),
     [filteredRows]
@@ -790,8 +798,14 @@ const AllChallan = () => {
         if (!filteredRows.length) return Swal.fire({ icon: "warning", title: "No Data" });
         exportData = filteredRows.map(({ c, p }) => toRow(c, p));
       } else {
-        // Full month — already in state (no limit), extra API call নেই
-        exportData = challans.flatMap(c => (c.products || []).map(p => toRow(c, p)));
+        // Full month — search active থাকলে state-এ search result থাকে
+        // (limit 200), পুরো month নয়; তখন month data আলাদা fetch করতে হয়
+        let monthData = challans;
+        if (searchText) {
+          const res = await axiosSecure.get(`/challans?month=${month}&year=${year}`);
+          monthData = res.data.data || [];
+        }
+        exportData = monthData.flatMap(c => (c.products || []).map(p => toRow(c, p)));
         if (!exportData.length) return Swal.fire({ icon: "warning", title: "No Data" });
       }
       const ws = XLSX.utils.json_to_sheet(exportData);
@@ -817,8 +831,8 @@ const AllChallan = () => {
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
 
           <div className="flex items-center gap-2 shrink-0">
-            <div className="w-7 h-7 bg-emerald-50 rounded-lg flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <div className="w-7 h-7 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center shadow-md shadow-emerald-500/30">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                 <polyline points="14 2 14 8 20 8"/>
               </svg>
@@ -830,9 +844,14 @@ const AllChallan = () => {
             {filteredRows.length} rows{totalPages > 1 && ` · p${clientPage}/${totalPages}`}
           </span>
           {filteredRows.length > 0 && (
-            <span className="text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg px-2 py-0.5 shrink-0">
-              Qty: {totalQtyAll.toLocaleString()}
-            </span>
+            <>
+              <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-0.5 shrink-0">
+                {new Set(filteredRows.map(({ c }) => c._id)).size} challans
+              </span>
+              <span className="text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg px-2 py-0.5 shrink-0">
+                Qty: {totalQtyAll.toLocaleString()}
+              </span>
+            </>
           )}
 
           {activeFilterGroups.map((f, i) => (
@@ -866,7 +885,7 @@ const AllChallan = () => {
 
           <input type="number"
             className={`${tbtn} border-slate-200 text-slate-700 bg-white w-20 focus:outline-none focus:border-orange-400`}
-            value={year} onChange={e => { setYear(parseInt(e.target.value)); setClientPage(1); }} />
+            value={year} onChange={e => { const y = parseInt(e.target.value); if (!Number.isNaN(y)) { setYear(y); setClientPage(1); } }} />
 
           <button onClick={handleResetAll}
             className={`${tbtn} border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500`}>

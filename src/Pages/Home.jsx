@@ -6,7 +6,7 @@ import useAuth from '../hooks/useAuth';
 import {
   FiHome, FiTruck, FiActivity, FiCheckCircle,
   FiUsers, FiBox, FiCalendar, FiArrowUpRight,
-  FiTrendingUp, FiTrendingDown, FiPackage, FiRefreshCw,
+  FiRefreshCw,
 } from 'react-icons/fi';
 import { FaPlusCircle, FaWarehouse } from 'react-icons/fa';
 import { MdOutlineLocalShipping, MdInventory2 } from 'react-icons/md';
@@ -15,50 +15,25 @@ import { TbTruckDelivery, TbClipboardList, TbPackage } from 'react-icons/tb';
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const num = (v) => Number(v || 0).toLocaleString();
 
-/* ═══════════════════════ Small building blocks ═══════════════════════ */
-
-/* গত মাসের সাথে % তুলনা — ↑ সবুজ, ↓ লাল */
-const TrendBadge = ({ current, prev, size = "sm" }) => {
-  if (prev == null) return null;
-  const cls = size === "xs" ? "text-[8px] px-1 py-[1px]" : "text-[9px] px-1.5 py-0.5";
-  if (!prev) {
-    return current > 0 ? (
-      <span className={`inline-flex items-center gap-0.5 rounded-md font-black bg-emerald-50 text-emerald-600 border border-emerald-100 ${cls}`}>
-        <FiTrendingUp size={9} /> NEW
-      </span>
-    ) : null;
-  }
-  const pct = Math.round(((current - prev) / prev) * 100);
-  if (pct === 0) return (
-    <span className={`rounded-md font-black bg-slate-50 text-slate-400 border border-slate-100 ${cls}`}>0%</span>
-  );
-  const up = pct > 0;
-  return (
-    <span className={`inline-flex items-center gap-0.5 rounded-md font-black border ${cls} ${up ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-red-50 text-red-500 border-red-100"}`}>
-      {up ? <FiTrendingUp size={9} /> : <FiTrendingDown size={9} />} {up ? "+" : ""}{pct}%
-    </span>
-  );
+/* % গুলো আলাদা আলাদা Math.round করলে যোগফল ৯৯/১০১ হয়ে যেত —
+   largest remainder method-এ ভাগ করলে সবসময় ঠিক ১০০% হয় */
+const roundShares = (values, total) => {
+  if (!total || total <= 0) return values.map(() => 0);
+  const raw = values.map(v => (Number(v || 0) / total) * 100);
+  const floors = raw.map(Math.floor);
+  const listSum = values.reduce((a, b) => a + Number(b || 0), 0);
+  // লিস্ট truncated হলে (total-এর সব item দেখানো হয়নি) সাধারণ round-ই যথেষ্ট
+  if (listSum !== total) return raw.map(Math.round);
+  let remainder = 100 - floors.reduce((a, b) => a + b, 0);
+  const order = raw
+    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+    .sort((a, b) => b.frac - a.frac);
+  const out = [...floors];
+  for (let k = 0; k < order.length && remainder > 0; k++, remainder--) out[order[k].i] += 1;
+  return out;
 };
 
-/* KPI card — top strip */
-const KpiCard = ({ icon, label, value, sub, trend, color, bg, ring }) => (
-  <div className={`relative bg-white rounded-2xl border border-slate-100 p-4 shadow-sm overflow-hidden group hover:shadow-md hover:-translate-y-0.5 transition-all duration-200`}>
-    <div className={`absolute -top-6 -right-6 w-20 h-20 rounded-full ${ring} opacity-60 group-hover:scale-125 transition-transform duration-500`} />
-    <div className="relative flex items-start justify-between gap-2">
-      <div className="min-w-0">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 truncate">{label}</p>
-        <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-2xl font-black text-slate-800 leading-none">{value}</p>
-          {trend}
-        </div>
-        {sub && <p className="text-[9px] font-semibold text-slate-400 mt-1.5 truncate">{sub}</p>}
-      </div>
-      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${bg}`}>
-        <span className={color}>{icon}</span>
-      </div>
-    </div>
-  </div>
-);
+/* ═══════════════════════ Small building blocks ═══════════════════════ */
 
 /* Segmented progress bar */
 const ProgressSegments = ({ segments, total }) => (
@@ -187,19 +162,26 @@ const Home = () => {
   const gpTotalPcs = Number(gp.totalPcs || 0);
   const unitList = gp.unitBreakdown || [];
   const topUnit = unitList[0];
-  const topUnitShare = gpTotalPcs > 0 && topUnit ? Math.round((topUnit.qty / gpTotalPcs) * 100) : 0;
+  // % গুলো একসাথে হিসাব — যোগফল ঠিক ১০০% থাকে
+  const unitShares = roundShares(unitList.map(u => u.qty), gpTotalPcs);
+  const topUnitShare = unitShares[0] || 0;
 
   /* — Challan derived — */
   const chMonth = ch.monthTotal || 0;
   const chDelivered = ch.delivered || 0;
   const chPending = ch.pending || 0;
   const chRtnPending = ch.returnPending || 0;
-  const chRate = chMonth > 0 ? Math.round((chDelivered / chMonth) * 100) : 0;
+  /* Delivery Progress এখন product qty (PCS) অনুযায়ী */
+  const chTotalPcs = Number(ch.totalPcs || 0);
+  const chDeliveredPcs = Number(ch.deliveredPcs || 0);
+  const chPendingPcs = Number(ch.pendingPcs || 0);
+  const chRtnPendingPcs = Number(ch.returnPendingPcs || 0);
+  const chReturnedPcs = Number(ch.returnedPcs || 0);
+  const chRate = chTotalPcs > 0 ? Math.round((chDeliveredPcs / chTotalPcs) * 100) : 0;
   const chTopMax = Math.max(...(ch.productBreakdown || []).map(p => p.qty), 0);
 
   /* — Delivery derived — */
   const trips = tr.monthCount || 0;
-  const avgChallan = trips > 0 ? (Number(tr.monthChallans || 0) / trips).toFixed(1) : 0;
   const returnRate = tr.deliveredPcs > 0 ? ((Number(tr.returnPcs || 0) / Number(tr.deliveredPcs)) * 100).toFixed(1) : 0;
   const trTopMax = Math.max(...(tr.productBreakdown || []).map(p => p.qty), 0);
 
@@ -264,31 +246,6 @@ const Home = () => {
         </div>
       </div>
 
-      {/* ══ KPI STRIP — এক নজরে এ মাস ══ */}
-      {isOps && (
-        loading ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3"><Pulse h="h-24" /><Pulse h="h-24" /><Pulse h="h-24" /><Pulse h="h-24" /></div>
-        ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KpiCard icon={<FaWarehouse size={15} />} label="Received"
-              value={num(gpTotalPcs)} sub={`${num(gp.monthCount)} gate passes`}
-              trend={<TrendBadge current={gp.monthCount || 0} prev={gp.prevMonthCount} size="xs" />}
-              color="text-sky-600" bg="bg-sky-50" ring="bg-sky-50" />
-            <KpiCard icon={<TbClipboardList size={17} />} label="Challans"
-              value={num(chMonth)} sub={`${num(ch.totalPcs)} PCS booked`}
-              trend={<TrendBadge current={chMonth} prev={ch.prevMonthTotal} size="xs" />}
-              color="text-emerald-600" bg="bg-emerald-50" ring="bg-emerald-50" />
-            <KpiCard icon={<TbTruckDelivery size={17} />} label="Trips"
-              value={num(trips)} sub={tr.activeCount > 0 ? `${tr.activeCount} active now` : "No active trips"}
-              trend={<TrendBadge current={trips} prev={tr.prevMonthCount} size="xs" />}
-              color="text-orange-600" bg="bg-orange-50" ring="bg-orange-50" />
-            <KpiCard icon={<FiPackage size={15} />} label="Delivered"
-              value={num(tr.deliveredPcs)} sub={tr.returnCards > 0 ? `${tr.returnCards} return · ${num(tr.returnPcs)} PCS` : "No returns 🎉"}
-              color="text-violet-600" bg="bg-violet-50" ring="bg-violet-50" />
-          </div>
-        )
-      )}
-
       {/* ══ WAREHOUSE RECEIVING SUMMARY — smart ══ */}
       {isOps && (
         <SectionCard
@@ -318,7 +275,6 @@ const Home = () => {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-3xl font-black text-slate-800 leading-none">{num(gpTotalPcs)}</p>
                     <span className="text-[10px] font-black text-slate-400">PCS</span>
-                    <TrendBadge current={gp.monthCount || 0} prev={gp.prevMonthCount} />
                   </div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Received this month</p>
                 </div>
@@ -331,7 +287,8 @@ const Home = () => {
               {/* Unit cards — real share % */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
                 {unitList.map((item, i) => {
-                  const share = gpTotalPcs > 0 ? Math.round((item.qty / gpTotalPcs) * 100) : 0;
+                  // roundShares() থেকে আসা % — সব unit মিলিয়ে ঠিক ১০০%
+                  const share = unitShares[i] || 0;
                   return (
                     <div key={i} className={`relative rounded-xl p-3 sm:p-4 border transition-all group hover:-translate-y-0.5 hover:shadow-md ${i === 0 ? "bg-sky-50/60 border-sky-200 hover:shadow-sky-500/10" : "bg-slate-50 border-slate-100 hover:bg-white hover:shadow-slate-500/5"}`}>
                       {i === 0 && (
@@ -383,7 +340,6 @@ const Home = () => {
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-3xl font-black text-slate-800 leading-none">{num(chMonth)}</p>
-                      <TrendBadge current={chMonth} prev={ch.prevMonthTotal} />
                     </div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Challans this month</p>
                   </div>
@@ -398,20 +354,23 @@ const Home = () => {
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Delivery Progress</p>
                     <p className="text-[10px] font-black text-slate-700">{chRate}% <span className="text-slate-400 font-semibold">delivered</span></p>
                   </div>
-                  <ProgressSegments total={chMonth} segments={[
-                    { label: "Delivered", value: chDelivered, color: "bg-emerald-500" },
-                    { label: "Return-Pending", value: chRtnPending, color: "bg-amber-400" },
-                    { label: "Pending", value: chPending, color: "bg-slate-300" },
+                  {/* Progress এখন product qty (PCS) অনুযায়ী — challan count নয় */}
+                  <ProgressSegments total={chTotalPcs} segments={[
+                    { label: "Delivered", value: chDeliveredPcs, color: "bg-emerald-500" },
+                    { label: "Return-Pending", value: chRtnPendingPcs, color: "bg-amber-400" },
+                    { label: "Returned", value: chReturnedPcs, color: "bg-red-400" },
+                    { label: "Pending", value: chPendingPcs, color: "bg-slate-300" },
                   ]} />
                   <div className="flex items-center gap-3 mt-2 flex-wrap">
-                    <span className="flex items-center gap-1 text-[9px] font-bold text-slate-500"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Delivered {chDelivered}</span>
-                    {chRtnPending > 0 && <span className="flex items-center gap-1 text-[9px] font-bold text-slate-500"><span className="w-2 h-2 rounded-full bg-amber-400" /> Return-Pending {chRtnPending}</span>}
-                    <span className="flex items-center gap-1 text-[9px] font-bold text-slate-500"><span className="w-2 h-2 rounded-full bg-slate-300" /> Pending {chPending}</span>
+                    <span className="flex items-center gap-1 text-[9px] font-bold text-slate-500"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Delivered {num(chDeliveredPcs)} <span className="text-[8px] text-slate-400">PCS</span></span>
+                    {chRtnPendingPcs > 0 && <span className="flex items-center gap-1 text-[9px] font-bold text-slate-500"><span className="w-2 h-2 rounded-full bg-amber-400" /> Return-Pending {num(chRtnPendingPcs)} <span className="text-[8px] text-slate-400">PCS</span></span>}
+                    {chReturnedPcs > 0 && <span className="flex items-center gap-1 text-[9px] font-bold text-slate-500"><span className="w-2 h-2 rounded-full bg-red-400" /> Returned {num(chReturnedPcs)} <span className="text-[8px] text-slate-400">PCS</span></span>}
+                    <span className="flex items-center gap-1 text-[9px] font-bold text-slate-500"><span className="w-2 h-2 rounded-full bg-slate-300" /> Pending {num(chPendingPcs)} <span className="text-[8px] text-slate-400">PCS</span></span>
                   </div>
-                  <p className={`mt-2 text-[10px] font-bold rounded-lg px-2.5 py-1.5 border ${chPending > 0 ? "text-amber-700 bg-amber-50 border-amber-100" : chMonth > 0 ? "text-emerald-700 bg-emerald-50 border-emerald-100" : "text-slate-400 bg-slate-50 border-slate-100"}`}>
+                  <p className={`mt-2 text-[10px] font-bold rounded-lg px-2.5 py-1.5 border ${chPendingPcs > 0 ? "text-amber-700 bg-amber-50 border-amber-100" : chMonth > 0 ? "text-emerald-700 bg-emerald-50 border-emerald-100" : "text-slate-400 bg-slate-50 border-slate-100"}`}>
                     {chMonth === 0 ? "No challans created this month yet"
-                      : chPending > 0 ? `⏳ ${chPending} challan${chPending > 1 ? "s" : ""} awaiting delivery`
-                      : "🎉 All challans of this month are delivered"}
+                      : chPendingPcs > 0 ? `⏳ ${num(chPendingPcs)} PCS awaiting delivery (${chPending} challan${chPending > 1 ? "s" : ""})`
+                      : "🎉 All products of this month are delivered"}
                   </p>
                 </div>
 
@@ -443,19 +402,18 @@ const Home = () => {
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-3xl font-black text-slate-800 leading-none">{num(trips)}</p>
-                      <TrendBadge current={trips} prev={tr.prevMonthCount} />
                     </div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Trips this month</p>
                   </div>
-                  {tr.activeCount > 0 && (
+                  {tr.lastTripNumber && (
                     <span className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 border border-blue-100 rounded-lg text-[10px] font-black text-blue-600">
-                      <FiActivity size={10} className="animate-pulse" /> {tr.activeCount} Active
+                      <FiActivity size={10} className="animate-pulse" /> Last Trip {tr.lastTripNumber}
                     </span>
                   )}
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
-                  <MiniStat label="Challans" value={num(tr.monthChallans)} sub={`~${avgChallan}/trip`} />
+                  <MiniStat label="Challans" value={num(tr.monthChallans)} />
                   <MiniStat label="Delivered PCS" value={num(tr.deliveredPcs)} color="text-orange-600" />
                   <MiniStat label="Returns" value={tr.returnCards || 0}
                     color={tr.returnCards > 0 ? "text-red-500" : "text-emerald-600"}

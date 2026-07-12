@@ -71,25 +71,18 @@ const SimpleSelect = ({ value, onChange, options }) => (
   </select>
 );
 
-/* ── Payment badge ── */
-const PayBadge = ({ ps, bill }) => {
-  if (!ps || bill === 0) return null;
-  if (ps.status === "paid")    return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 whitespace-nowrap">✓ Paid</span>;
-  if (ps.status === "partial") return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 whitespace-nowrap">Partial</span>;
-  return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200 whitespace-nowrap">Unpaid</span>;
-};
-
 /* ── Mobile Trip Card ── */
-const TripCard = ({ t, idx, ps, onView }) => {
-  const bill      = Number(t.rent || 0) + Number(t.leborBill || 0);
+const TripCard = ({ t, idx, onView }) => {
   const tripTotal = (t.rent != null ? Number(t.rent) : 0) + (t.leborBill != null ? Number(t.leborBill) : 0);
+  const hasBill   = t.rent != null || t.leborBill != null;
+  // Due = Total − Advance
+  const tripDue   = hasBill ? Math.max(0, tripTotal - Number(t.advance || 0)) : null;
   return (
     <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100">
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
           <span className="text-[10px] font-bold text-slate-400 flex-shrink-0">#{idx + 1}</span>
           <span className="text-[10px] bg-slate-900 text-white rounded-lg px-1.5 py-0.5 font-mono font-bold flex-shrink-0">{t.tripNumber}</span>
-          <PayBadge ps={ps} bill={bill} />
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <span className="text-[10px] text-slate-400 hidden xs:block">{new Date(t.createdAt).toLocaleDateString("en-GB")}</span>
@@ -109,17 +102,19 @@ const TripCard = ({ t, idx, ps, onView }) => {
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-4 gap-1 pt-2 border-t border-slate-100">
+        {/* Rent → Lebor → Total → Advance → Due */}
+        <div className="grid grid-cols-5 gap-1 pt-2 border-t border-slate-100">
           {[
-            { l: "Rent",    v: t.rent,      fmt: v => `৳${Number(v).toLocaleString()}`, miss: "text-red-400",    ok: "text-emerald-700" },
-            { l: "Lebor",   v: t.leborBill, fmt: v => `৳${Number(v).toLocaleString()}`, miss: "text-amber-400",  ok: "text-emerald-700" },
-            { l: "Advance", v: t.advance,   fmt: v => `৳${Number(v).toLocaleString()}`, miss: "text-slate-300",  ok: "text-orange-600" },
-            { l: "Total",   v: t.rent != null || t.leborBill != null ? tripTotal : null, fmt: v => `৳${Number(v).toLocaleString()}`, miss: "text-slate-300", ok: "text-indigo-700", bg: "bg-indigo-50 rounded-lg px-0.5" },
+            { l: "Rent",    v: t.rent,      lc: "text-slate-400",  ok: "text-emerald-700", miss: "text-red-400" },
+            { l: "Lebor",   v: t.leborBill, lc: "text-slate-400",  ok: "text-emerald-700", miss: "text-amber-400" },
+            { l: "Total",   v: hasBill ? tripTotal : null, lc: "text-indigo-400", ok: "text-indigo-700", miss: "text-slate-300", bg: "bg-indigo-50 rounded-lg px-0.5" },
+            { l: "Advance", v: t.advance,   lc: "text-slate-400",  ok: "text-orange-600",  miss: "text-slate-300" },
+            { l: "Due",     v: tripDue,     lc: "text-rose-400",   ok: tripDue > 0 ? "text-rose-600" : "text-emerald-600", miss: "text-slate-300", bg: tripDue > 0 ? "bg-rose-50 rounded-lg px-0.5" : "" },
           ].map((item, i) => (
             <div key={i} className={`text-center ${item.bg || ""}`}>
-              <p className={`text-[8px] uppercase font-black tracking-wider ${i === 3 ? "text-indigo-400" : "text-slate-400"}`}>{item.l}</p>
+              <p className={`text-[8px] uppercase font-black tracking-wider ${item.lc}`}>{item.l}</p>
               {item.v != null
-                ? <p className={`text-[11px] font-black ${item.ok}`}>{item.fmt(item.v)}</p>
+                ? <p className={`text-[11px] font-black ${item.ok}`}>৳{Number(item.v).toLocaleString()}</p>
                 : <p className={`text-[9px] font-bold mt-0.5 ${item.miss}`}>—</p>
               }
             </div>
@@ -253,8 +248,9 @@ const VendorTripSummary = () => {
         Point:   t.challans ? t.challans.filter(c => !c.isReturn).length : t.totalChallan,
         Rent:    t.rent      != null ? Number(t.rent)      : "",
         Lebor:   t.leborBill != null ? Number(t.leborBill) : "",
-        Advance: t.advance   != null ? Number(t.advance)   : "",
         Total:   (t.rent != null ? Number(t.rent) : 0) + (t.leborBill != null ? Number(t.leborBill) : 0),
+        Advance: t.advance   != null ? Number(t.advance)   : "",
+        Due:     Math.max(0, ((t.rent != null ? Number(t.rent) : 0) + (t.leborBill != null ? Number(t.leborBill) : 0)) - Number(t.advance || 0)),
       }));
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
@@ -266,21 +262,6 @@ const VendorTripSummary = () => {
       Swal.fire({ icon: "success", title: "Exported!", text: `${rows.length} rows`, timer: 1800, showConfirmButton: false });
     } catch { Swal.fire("Error", "Export failed", "error"); }
   };
-
-  const payStatus = (() => {
-    const sorted = [...trips].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-    let rem = accountTxs.reduce((s, t) => s + Number(t.amount || 0), 0);
-    const map = {};
-    for (const t of sorted) {
-      const bill = Number(t.rent || 0) + Number(t.leborBill || 0);
-      const due  = Math.max(0, bill - Number(t.advance || 0));
-      if (due === 0)       { map[t._id] = { status: "paid",    paidAmount: bill }; }
-      else if (rem >= due) { map[t._id] = { status: "paid",    paidAmount: due  }; rem -= due; }
-      else if (rem > 0)    { map[t._id] = { status: "partial", paidAmount: rem  }; rem = 0; }
-      else                 { map[t._id] = { status: "unpaid",  paidAmount: 0    }; }
-    }
-    return map;
-  })();
 
   const totalPaid  = accountTxs.reduce((s, t) => s + Number(t.amount || 0), 0);
   const totalRent  = filteredTrips.reduce((s, t) => s + (t.rent      != null ? Number(t.rent)      : 0), 0);
@@ -440,16 +421,17 @@ const VendorTripSummary = () => {
                 {filteredTrips.length === 0
                   ? <div className="py-12 text-center text-slate-400 text-sm">No trips match the filter.</div>
                   : filteredTrips.map((t, idx) => (
-                    <TripCard key={t._id} t={t} idx={idx} ps={payStatus[t._id]} onView={openRental} />
+                    <TripCard key={t._id} t={t} idx={idx} onView={openRental} />
                   ))
                 }
                 {filteredTrips.length > 0 && (
-                  <div className="bg-slate-900 rounded-2xl px-4 py-3 grid grid-cols-4 gap-2 text-center">
+                  <div className="bg-slate-900 rounded-2xl px-3 py-3 grid grid-cols-5 gap-1.5 text-center">
                     {[
                       { l: "Rent",  v: `৳${totalRent.toLocaleString()}`,  c: "text-indigo-300" },
                       { l: "Lebor", v: `৳${totalLebor.toLocaleString()}`, c: "text-indigo-300" },
-                      { l: "Adv",   v: `৳${totalAdv.toLocaleString()}`,   c: "text-orange-300" },
                       { l: "Total", v: `৳${totalBill.toLocaleString()}`,  c: "text-emerald-300" },
+                      { l: "Adv",   v: `৳${totalAdv.toLocaleString()}`,   c: "text-orange-300" },
+                      { l: "Due",   v: `৳${Math.max(0, totalBill - totalAdv).toLocaleString()}`, c: "text-rose-300" },
                     ].map((item, i) => (
                       <div key={i}>
                         <p className="text-[8px] text-slate-400 uppercase font-black tracking-widest leading-none mb-0.5">{item.l}</p>
@@ -469,7 +451,7 @@ const VendorTripSummary = () => {
                   <table className="w-full border-collapse text-xs" style={{ minWidth: "720px" }}>
                     <thead className="sticky top-0 z-20">
                       <tr className="bg-slate-900 text-left">
-                        {["#","Date","Trip","Driver","Vehicle","Pt","Rent","Lebor Bill","Advance","Total","Payment","View"].map((h, i) => (
+                        {["#","Date","Trip","Driver","Vehicle","Pt","Rent","Lebor Bill","Total","Advance","Due","View"].map((h, i) => (
                           <th key={i} className="px-2.5 py-2.5 text-[10px] font-black text-slate-400 uppercase tracking-wide whitespace-nowrap border-r border-white/5 last:border-0">{h}</th>
                         ))}
                       </tr>
@@ -494,8 +476,9 @@ const VendorTripSummary = () => {
                     <tbody>
                       {filteredTrips.map((t, idx) => {
                         const tripTotal = (t.rent != null ? Number(t.rent) : 0) + (t.leborBill != null ? Number(t.leborBill) : 0);
-                        const ps   = payStatus[t._id];
-                        const bill = Number(t.rent || 0) + Number(t.leborBill || 0);
+                        const hasBill   = t.rent != null || t.leborBill != null;
+                        // Due = Total − Advance
+                        const tripDue   = hasBill ? Math.max(0, tripTotal - Number(t.advance || 0)) : null;
                         return (
                           <tr key={t._id} className="border-b border-slate-100 hover:bg-amber-50/30 even:bg-slate-50/40 transition-colors">
                             <td className="px-2.5 py-2 text-[10px] font-bold text-slate-400 text-center">{idx + 1}</td>
@@ -516,13 +499,22 @@ const VendorTripSummary = () => {
                                 : <span className="text-[9px] text-amber-500 bg-amber-50 border border-amber-200 rounded-lg px-1.5 py-0.5">Missing</span>
                               }
                             </td>
+                            {/* Total = Rent + Lebor */}
+                            <td className="px-2.5 py-2 text-center">
+                              {hasBill ? <span className="text-[11px] font-black text-indigo-700 bg-indigo-50 rounded-lg px-1.5 py-0.5">৳{tripTotal.toLocaleString()}</span> : <span className="text-slate-300">—</span>}
+                            </td>
                             <td className="px-2.5 py-2 text-center">
                               {t.advance != null ? <span className="text-[11px] font-semibold text-orange-600">৳{Number(t.advance).toLocaleString()}</span> : <span className="text-slate-300">—</span>}
                             </td>
+                            {/* Due = Total − Advance */}
                             <td className="px-2.5 py-2 text-center">
-                              {t.rent != null || t.leborBill != null ? <span className="text-[11px] font-black text-indigo-700">৳{tripTotal.toLocaleString()}</span> : <span className="text-slate-300">—</span>}
+                              {tripDue == null
+                                ? <span className="text-slate-300">—</span>
+                                : tripDue > 0
+                                  ? <span className="text-[11px] font-black text-rose-600 bg-rose-50 rounded-lg px-1.5 py-0.5">৳{tripDue.toLocaleString()}</span>
+                                  : <span className="text-[10px] font-black text-emerald-600">✓ ৳0</span>
+                              }
                             </td>
-                            <td className="px-2.5 py-2 text-center"><PayBadge ps={ps} bill={bill} /></td>
                             <td className="px-2.5 py-2 text-center">
                               <button onClick={() => openRental(t)}
                                 className="px-2.5 py-1 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-black rounded-lg transition">
@@ -538,9 +530,10 @@ const VendorTripSummary = () => {
                         <td colSpan={6} className="px-3 py-2.5 text-[10px] font-black uppercase tracking-widest">Total ({filteredTrips.length} trips)</td>
                         <td className="px-3 py-2.5 text-center font-black text-indigo-300 whitespace-nowrap">৳{totalRent.toLocaleString()}</td>
                         <td className="px-3 py-2.5 text-center font-black text-indigo-300 whitespace-nowrap">৳{totalLebor.toLocaleString()}</td>
-                        <td className="px-3 py-2.5 text-center font-black text-orange-300 whitespace-nowrap">৳{totalAdv.toLocaleString()}</td>
                         <td className="px-3 py-2.5 text-center font-black text-emerald-300 whitespace-nowrap">৳{totalBill.toLocaleString()}</td>
-                        <td /><td />
+                        <td className="px-3 py-2.5 text-center font-black text-orange-300 whitespace-nowrap">৳{totalAdv.toLocaleString()}</td>
+                        <td className="px-3 py-2.5 text-center font-black text-rose-300 whitespace-nowrap">৳{Math.max(0, totalBill - totalAdv).toLocaleString()}</td>
+                        <td />
                       </tr>
                     </tfoot>
                   </table>

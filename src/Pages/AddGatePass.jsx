@@ -17,15 +17,26 @@ const AddGatePass = () => {
   const [editModalOpen,   setEditModalOpen]   = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showRecent,      setShowRecent]      = useState(false);
+  const [submitting,      setSubmitting]      = useState(false);
 
   // FIX: cache + debounce + abort — একই query দ্বিতীয়বার API call করবে না
   const { autoData, activeField, setActiveField, handleAutoSearch } =
     useAutoComplete(axiosSecure, "gatepass");
 
-  const { register, control, handleSubmit, reset, setValue } = useForm({
-    defaultValues: { products: [{ productName: "", model: "", quantity: "" }] },
+  // আজকের তারিখ (local) — date field-এর default
+  const todayLocal = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  const { register, control, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
+    defaultValues: { tripDate: todayLocal(), products: [{ productName: "", model: "", quantity: "" }] },
   });
   const { fields, append, remove } = useFieldArray({ control, name: "products" });
+
+  // Live total qty — product গুলোর quantity যোগফল
+  const watchedProducts = watch("products");
+  const totalQty = (watchedProducts || []).reduce((s, p) => s + (Number(p?.quantity) || 0), 0);
 
   const { data: recentGatePass = null } = useQuery({
     queryKey: ["recent-gate-pass"],
@@ -36,10 +47,26 @@ const AddGatePass = () => {
     staleTime: 30 * 1000,
   });
 
-
-
   const onSubmit = async (data) => {
+    if (submitting) return; // double-click guard
+    setSubmitting(true);
     try {
+      // Duplicate Trip DO check — একই DO আগে থেকে থাকলে সাবধান করা
+      try {
+        const dup = await axiosSecure.get(`/gate-pass?search=${encodeURIComponent(data.tripDo.trim())}`);
+        const exists = (dup.data.data || []).some(g => (g.tripDo || "").trim().toLowerCase() === data.tripDo.trim().toLowerCase());
+        if (exists) {
+          const { isConfirmed } = await Swal.fire({
+            icon: "warning",
+            title: "Trip DO আগেই আছে!",
+            html: `<p style="font-size:13px;color:#6b7280"><b>${data.tripDo}</b> নম্বরের gate pass ইতোমধ্যে system-এ আছে।<br/>তবুও add করবেন?</p>`,
+            showCancelButton: true, confirmButtonColor: "#f97316",
+            confirmButtonText: "হ্যাঁ, add করুন", cancelButtonText: "Cancel",
+          });
+          if (!isConfirmed) { setSubmitting(false); return; }
+        }
+      } catch { /* duplicate check ব্যর্থ হলেও submit আটকাবে না */ }
+
       const tripDateObj = new Date(data.tripDate);
       const payload = {
         ...data,
@@ -51,13 +78,16 @@ const AddGatePass = () => {
       const res = await axiosSecure.post("/gate-pass", payload);
       if (res.data.insertedId) {
         Swal.fire({ icon: "success", title: "Gate Pass Added ✅", timer: 1500, showConfirmButton: false });
-        reset();
+        reset({ tripDate: todayLocal(), products: [{ productName: "", model: "", quantity: "" }] });
         queryClient.invalidateQueries({ queryKey: ["recent-gate-pass"] });
         setShowRecent(true);
       }
     } catch (err) {
-      Swal.fire({ icon: "error", title: "Failed", text: "Gate pass add failed ❌" });
+      // Server-এর validation message দেখানো — আগে শুধু generic "Failed" আসত
+      const serverMsg = err?.response?.data?.errors?.[0]?.msg || err?.response?.data?.message;
+      Swal.fire({ icon: "error", title: "Failed", text: serverMsg || "Gate pass add failed ❌" });
     }
+    setSubmitting(false);
   };
 
   const handleDelete = async (id) => {
@@ -79,8 +109,10 @@ const AddGatePass = () => {
     setEditModalOpen(true);
   };
 
-  const inp   = "w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all";
-  const inpSm = "w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all";
+  const inp   = "w-full pl-9 pr-3 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all";
+  const inpSm = "w-full px-3 py-2 bg-white border rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all";
+  // Validation fail হলে লাল border — আগে error চোখেই পড়ত না
+  const eb = (hasErr) => hasErr ? "border-red-300 bg-red-50/40" : "border-slate-200";
 
   return (
     <div className="min-h-screen bg-slate-50 page-enter">
@@ -110,14 +142,18 @@ const AddGatePass = () => {
           {/* ═══ FORM ═══ */}
           <div className={`lg:col-span-4 bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden ${showRecent ? "hidden lg:block" : "block"}`}>
 
-            {/* Header */}
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-              <div className="w-9 h-9 bg-sky-50 rounded-xl flex items-center justify-center">
-                <FiPackage size={16} className="text-sky-600" />
-              </div>
-              <div>
-                <h2 className="text-base font-black text-slate-800">Add Gate Pass</h2>
-                <p className="text-[11px] text-slate-400 mt-0.5">Enter trip and product details</p>
+            {/* Header — modern dark strip */}
+            <div className="relative bg-slate-900 px-5 py-4 overflow-hidden">
+              <div className="absolute -right-6 -top-6 w-24 h-24 bg-sky-500/20 rounded-full blur-2xl" />
+              <div className="absolute -left-4 -bottom-8 w-20 h-20 bg-orange-500/10 rounded-full blur-2xl" />
+              <div className="relative flex items-center gap-3">
+                <div className="w-9 h-9 bg-sky-500 rounded-xl flex items-center justify-center shadow-lg shadow-sky-500/30">
+                  <FiPackage size={16} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-base font-black text-white">Add Gate Pass</h2>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Enter trip and product details</p>
+                </div>
               </div>
             </div>
 
@@ -130,7 +166,7 @@ const AddGatePass = () => {
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Trip Do</label>
                   <div className="relative">
                     <FiTruck size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input {...register("tripDo", { required: true })} className={inp} placeholder="Trip Do No." />
+                    <input {...register("tripDo", { required: true })} className={`${inp} ${eb(errors.tripDo)}`} placeholder="Trip Do No." />
                   </div>
                 </div>
 
@@ -139,7 +175,7 @@ const AddGatePass = () => {
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Date</label>
                   <div className="relative">
                     <FiCalendar size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input type="date" {...register("tripDate", { required: true })} className={inp} />
+                    <input type="date" {...register("tripDate", { required: true })} className={`${inp} ${eb(errors.tripDate)}`} />
                   </div>
                 </div>
 
@@ -148,14 +184,19 @@ const AddGatePass = () => {
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">CSD</label>
                   <div className="relative">
                     <FiMapPin size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      {...register("csd", { required: true })}
-                      onChange={e => handleAutoSearch("csd", "csd", e.target.value)}
-                      className={inp} placeholder="CSD"
-                    />
+                    {(() => {
+                      const reg = register("csd", { required: true });
+                      return (
+                        <input
+                          {...reg}
+                          onChange={e => { reg.onChange(e); handleAutoSearch("csd", "csd", e.target.value); }}
+                          className={`${inp} ${eb(errors.csd)}`} placeholder="CSD"
+                        />
+                      );
+                    })()}
                   </div>
                   <AutoDropdown fieldKey="csd" autoData={autoData} activeField={activeField}
-                    setActiveField={setActiveField} setFormValue={v => setValue("csd", v)} />
+                    setActiveField={setActiveField} setFormValue={v => setValue("csd", v, { shouldValidate: true })} />
                 </div>
 
                 {/* Unit */}
@@ -163,14 +204,19 @@ const AddGatePass = () => {
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Unit</label>
                   <div className="relative">
                     <FiMapPin size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      {...register("unit", { required: true })}
-                      onChange={e => handleAutoSearch("unit", "unit", e.target.value)}
-                      className={inp} placeholder="Unit"
-                    />
+                    {(() => {
+                      const reg = register("unit", { required: true });
+                      return (
+                        <input
+                          {...reg}
+                          onChange={e => { reg.onChange(e); handleAutoSearch("unit", "unit", e.target.value); }}
+                          className={`${inp} ${eb(errors.unit)}`} placeholder="Unit"
+                        />
+                      );
+                    })()}
                   </div>
                   <AutoDropdown fieldKey="unit" autoData={autoData} activeField={activeField}
-                    setActiveField={setActiveField} setFormValue={v => setValue("unit", v)} />
+                    setActiveField={setActiveField} setFormValue={v => setValue("unit", v, { shouldValidate: true })} />
                 </div>
               </div>
 
@@ -180,32 +226,43 @@ const AddGatePass = () => {
                   { label: "Customer Name", key: "customerName", placeholder: "Customer name" },
                   { label: "Vehicle No",    key: "vehicleNo",    placeholder: "Vehicle number" },
                   { label: "Zone / PO",     key: "zone",         placeholder: "Zone or PO" },
-                ].map(({ label, key, placeholder }) => (
+                ].map(({ label, key, placeholder }) => {
+                  const reg = register(key, { required: true });
+                  return (
                   <div className="relative" key={key}>
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">{label}</label>
                     <div className="relative">
                       <FiMapPin size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
-                        {...register(key, { required: true })}
-                        onChange={e => handleAutoSearch(key, key, e.target.value)}
-                        className={inp} placeholder={placeholder}
+                        {...reg}
+                        onChange={e => { reg.onChange(e); handleAutoSearch(key, key, e.target.value); }}
+                        className={`${inp} ${eb(errors[key])}`} placeholder={placeholder}
                       />
                     </div>
                     <AutoDropdown fieldKey={key} autoData={autoData} activeField={activeField}
-                      setActiveField={setActiveField} setFormValue={v => setValue(key, v)} />
+                      setActiveField={setActiveField} setFormValue={v => setValue(key, v, { shouldValidate: true })} />
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Products */}
               <div className="border-t border-slate-100 pt-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-black text-slate-700">Products</h3>
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-black text-slate-700">Products</h3>
+                    <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded-lg text-[10px] font-black text-slate-500">{fields.length}</span>
+                    {totalQty > 0 && (
+                      <span className="px-2.5 py-0.5 bg-emerald-50 border border-emerald-200 rounded-lg text-[10px] font-black text-emerald-700">
+                        Total: {totalQty.toLocaleString()} PCS
+                      </span>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => append({ productName: "", model: "", quantity: "" })}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-sky-600
-                      bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors"
+                      bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors active:scale-95"
                   >
                     <FiPlus size={13} /> Add Product
                   </button>
@@ -213,63 +270,84 @@ const AddGatePass = () => {
 
                 <div className="space-y-2">
                   {fields.map((item, index) => (
-                    <div key={item.id} className="grid grid-cols-12 gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl items-start">
+                    <div key={item.id} className="relative grid grid-cols-12 gap-2 p-3 pl-9 bg-slate-50 border border-slate-200 rounded-xl items-start hover:border-sky-200 transition-colors">
+                      {/* Row number badge */}
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 bg-slate-800 text-white text-[9px] font-black rounded-md flex items-center justify-center">
+                        {index + 1}
+                      </span>
+
                       {/* Product */}
                       <div className="relative col-span-12 sm:col-span-5">
                         <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Product Name</label>
-                        <input
-                          {...register(`products.${index}.productName`)}
-                          onChange={e => handleAutoSearch(`productName-${index}`, "productName", e.target.value)}
-                          className={inpSm} placeholder="Product name"
-                        />
+                        {(() => {
+                          const reg = register(`products.${index}.productName`, { required: true });
+                          return (
+                            <input
+                              {...reg}
+                              onChange={e => { reg.onChange(e); handleAutoSearch(`productName-${index}`, "productName", e.target.value); }}
+                              className={`${inpSm} ${eb(errors.products?.[index]?.productName)}`} placeholder="Product name"
+                            />
+                          );
+                        })()}
                         <AutoDropdown fieldKey={`productName-${index}`} autoData={autoData} activeField={activeField}
-                          setActiveField={setActiveField} setFormValue={v => setValue(`products.${index}.productName`, v)} />
+                          setActiveField={setActiveField} setFormValue={v => setValue(`products.${index}.productName`, v, { shouldValidate: true })} />
                       </div>
 
                       {/* Model */}
-                      <div className="relative col-span-8 sm:col-span-5">
+                      <div className="relative col-span-7 sm:col-span-4">
                         <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Model</label>
-                        <input
-                          {...register(`products.${index}.model`)}
-                          onChange={e => handleAutoSearch(`model-${index}`, "model", e.target.value)}
-                          className={inpSm} placeholder="Model / SKU"
-                        />
+                        {(() => {
+                          const reg = register(`products.${index}.model`, { required: true });
+                          return (
+                            <input
+                              {...reg}
+                              onChange={e => { reg.onChange(e); handleAutoSearch(`model-${index}`, "model", e.target.value); }}
+                              className={`${inpSm} ${eb(errors.products?.[index]?.model)}`} placeholder="Model / SKU"
+                            />
+                          );
+                        })()}
                         <AutoDropdown fieldKey={`model-${index}`} autoData={autoData} activeField={activeField}
-                          setActiveField={setActiveField} setFormValue={v => setValue(`products.${index}.model`, v)} />
+                          setActiveField={setActiveField} setFormValue={v => setValue(`products.${index}.model`, v, { shouldValidate: true })} />
                       </div>
 
                       {/* Qty */}
-                      <div className="col-span-4 sm:col-span-2">
+                      <div className="col-span-3 sm:col-span-2">
                         <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Qty</label>
                         <input
-                          type="number"
-                          {...register(`products.${index}.quantity`, { required: true })}
-                          className={`${inpSm} text-center`} placeholder="0"
+                          type="number" min="1"
+                          {...register(`products.${index}.quantity`, { required: true, min: 1 })}
+                          className={`${inpSm} text-center ${eb(errors.products?.[index]?.quantity)}`} placeholder="0"
                         />
+                      </div>
+
+                      {/* Per-row remove — আগে শুধু "Remove Last" ছিল, এখন
+                          যেকোনো মাঝের row-ও মুছে ফেলা যায় */}
+                      <div className="col-span-2 sm:col-span-1 flex items-end justify-center h-full pb-0.5">
+                        <button
+                          type="button"
+                          onClick={() => remove(index)}
+                          disabled={fields.length === 1}
+                          title={fields.length === 1 ? "কমপক্ষে ১টি product লাগবে" : "Remove this product"}
+                          className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-300"
+                        >
+                          <FiTrash2 size={14} />
+                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
-
-                {fields.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => remove(fields.length - 1)}
-                    className="mt-2 flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-500
-                      bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors"
-                  >
-                    <FiTrash2 size={12} /> Remove Last
-                  </button>
-                )}
               </div>
 
               {/* Submit */}
               <button
                 type="submit"
-                className="w-full flex items-center justify-center gap-2 py-3 bg-orange-500 hover:bg-orange-600
-                  text-white font-bold rounded-xl shadow-lg shadow-orange-500/20 transition-all active:scale-[0.98]"
+                disabled={submitting}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600
+                  text-white font-bold rounded-xl shadow-lg shadow-orange-500/25 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <FiSend size={15} /> Submit Gate Pass
+                {submitting
+                  ? (<><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Submitting…</>)
+                  : (<><FiSend size={15} /> Submit Gate Pass{totalQty > 0 ? ` · ${totalQty.toLocaleString()} PCS` : ""}</>)}
               </button>
             </form>
           </div>

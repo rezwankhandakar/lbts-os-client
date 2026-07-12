@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import Swal from "sweetalert2";
 import { X, Save } from "lucide-react";
@@ -18,6 +17,7 @@ const EditChallanModal = ({ open, onClose, challan, product, axiosSecure, refetc
   });
   // Local product-name typeahead state
   const [showProductSuggest, setShowProductSuggest] = useState(false);
+  const [saving, setSaving] = useState(false);
   const productSuggestRef = useRef(null);
 
   // ── Local typeahead for thana / district (built-in 64-districts list) ──
@@ -91,6 +91,22 @@ const EditChallanModal = ({ open, onClose, challan, product, axiosSecure, refetc
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saving) return; // double-save guard
+
+    // পুরনো challan-এ per-product _id নাও থাকতে পারে — তখন PUT route
+    // target করতে পারে না, চুপচাপ fail হতো
+    if (!product?._id) {
+      Swal.fire({ icon: "warning", title: "Edit not supported", text: "এই challan-টি পুরনো format-এর (product ID নেই)। Delete করে নতুন করে বানান।" });
+      return;
+    }
+    // Save button form-এর বাইরে থাকায় native required validation চলে না
+    const qty = Number(formData.quantity);
+    if (!formData.productName?.trim() || !formData.model?.trim() || Number.isNaN(qty) || qty < 1) {
+      Swal.fire({ icon: "warning", title: "Product, Model ও Quantity (≥1) ঠিকভাবে দিন", toast: true, position: "top-end", timer: 2200, showConfirmButton: false });
+      return;
+    }
+
+    setSaving(true);
     try {
       // Resolve the effective location once from the (possibly edited)
       // thana/district so both the challan update and the rate lookup use it.
@@ -125,10 +141,13 @@ const EditChallanModal = ({ open, onClose, challan, product, axiosSecure, refetc
         refetchChallans();
       }
       Swal.fire({ icon: "success", title: "Updated Successfully", timer: 1500, showConfirmButton: false });
+      setSaving(false);
       onClose();
     } catch (err) {
       console.error(err);
-      Swal.fire("Error!", "Update failed!", "error");
+      setSaving(false);
+      const serverMsg = err?.response?.data?.errors?.map(x => x.msg).join(", ") || err?.response?.data?.message;
+      Swal.fire("Error!", serverMsg || "Update failed!", "error");
     }
   };
 
@@ -352,10 +371,12 @@ const EditChallanModal = ({ open, onClose, challan, product, axiosSecure, refetc
             className="flex-1 py-2.5 text-[13px] font-semibold text-slate-500 border border-slate-200 hover:bg-slate-50 rounded-xl transition">
             Discard
           </button>
-          <button type="submit" onClick={handleSubmit}
-            className="flex-[2] py-2.5 text-[13px] font-black text-white rounded-xl flex items-center justify-center gap-2 transition active:scale-[0.98]"
+          <button type="submit" onClick={handleSubmit} disabled={saving}
+            className="flex-[2] py-2.5 text-[13px] font-black text-white rounded-xl flex items-center justify-center gap-2 transition active:scale-[0.98] disabled:opacity-60"
             style={{ background: "linear-gradient(135deg,#059669,#10b981)", boxShadow: "0 4px 14px rgba(16,185,129,0.35)" }}>
-            <Save size={13} /> Save & Update
+            {saving
+              ? (<><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Saving…</>)
+              : (<><Save size={13} /> Save & Update</>)}
           </button>
         </div>
 

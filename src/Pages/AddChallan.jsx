@@ -30,6 +30,7 @@ const AddChallan = () => {
   const [editModalOpen,  setEditModalOpen]  = useState(false);
   const [selectedProduct,setSelectedProduct]= useState(null);
   const [showRecent,     setShowRecent]     = useState(false);
+  const [submitting,     setSubmitting]     = useState(false);
 
   // Product-name local typeahead.  Map of row-index → { query, open }
   // We use this to drive a small dropdown over each Product field that
@@ -48,10 +49,14 @@ const AddChallan = () => {
   const [thanaQuery,    setThanaQuery]    = useState("");
   const [districtQuery, setDistrictQuery] = useState("");
 
-  const { register, control, handleSubmit, reset, setValue, getValues, formState: { errors } } = useForm({
+  const { register, control, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = useForm({
     defaultValues: { products: [{ model: "", productName: "", quantity: "" }] },
   });
   const { fields, append, remove } = useFieldArray({ control, name: "products" });
+
+  // Live total qty — সব product এর quantity যোগফল
+  const watchedProducts = watch("products");
+  const totalQty = (watchedProducts || []).reduce((s, p) => s + (Number(p?.quantity) || 0), 0);
 
   const { data: recentChallan = null } = useQuery({
     queryKey: ["recent-challan"],
@@ -65,6 +70,8 @@ const AddChallan = () => {
 
 
   const onSubmit = async (data) => {
+    if (submitting) return; // double-click এ duplicate challan আটকানো
+    setSubmitting(true);
     try {
       // ═══════════════════════════════════════════════════════════════
       //  Location auto-compute
@@ -167,9 +174,12 @@ const AddChallan = () => {
         setDistrictQuery("");
         queryClient.invalidateQueries({ queryKey: ["recent-challan"] });
       }
-    } catch {
-      Swal.fire("Error!", "Failed to add challan", "error");
+    } catch (err) {
+      // Server validation message দেখানো — আগে generic error আসত
+      const serverMsg = err?.response?.data?.errors?.[0]?.msg || err?.response?.data?.message;
+      Swal.fire("Error!", serverMsg || "Failed to add challan", "error");
     }
+    setSubmitting(false);
   };
 
   const handleEdit = (product, index) => {
@@ -187,13 +197,18 @@ const AddChallan = () => {
         await axiosSecure.delete(`/challan/${id}`);
         Swal.fire({ icon: "success", title: "Deleted!", timer: 1200, showConfirmButton: false });
         queryClient.invalidateQueries({ queryKey: ["recent-challan"] });
-      } catch { console.error("delete failed"); }
+      } catch (err) {
+        // আগে silent fail হতো — user বুঝত না delete হয়নি
+        Swal.fire("Error", err?.response?.data?.message || "Failed to delete challan", "error");
+      }
     }
   };
 
   /* ── shared input classes ── */
   const inp   = "w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all";
   const inpSm = "w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all";
+  // Validation fail হলে লাল border — আগে বেশিরভাগ field-এ error দেখাই যেত না
+  const eb = (hasErr) => hasErr ? " !border-red-300 !bg-red-50/40" : "";
 
   // ── Bangla-aware paste handler ──
   // PDF থেকে কপি করা টেক্সট SutonnyMJ / Bijoy (ANSI) অথবা Unicode
@@ -266,14 +281,18 @@ const AddChallan = () => {
           {/* ═══ FORM ═══ */}
           <div className="lg:col-span-7 bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
 
-            {/* Header */}
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-              <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
-                <Package size={16} className="text-blue-600" />
-              </div>
-              <div>
-                <h2 className="text-base font-black text-slate-800">Create Delivery Challan</h2>
-                <p className="text-[11px] text-slate-400 font-medium mt-0.5">Fill in the delivery details below</p>
+            {/* Header — modern dark strip */}
+            <div className="relative bg-slate-900 px-5 py-4 overflow-hidden">
+              <div className="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl" />
+              <div className="absolute -left-4 -bottom-8 w-20 h-20 bg-emerald-500/10 rounded-full blur-2xl" />
+              <div className="relative flex items-center gap-3">
+                <div className="w-9 h-9 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
+                  <Package size={16} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-base font-black text-white">Create Delivery Challan</h2>
+                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">Fill in the delivery details below</p>
+                </div>
               </div>
             </div>
 
@@ -287,7 +306,7 @@ const AddChallan = () => {
                   </label>
                   <div className="relative">
                     <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input {...register("customerName", { required: true })} className={inp} placeholder="Customer name" />
+                    <input {...register("customerName", { required: true })} className={inp + eb(errors.customerName)} placeholder="Customer name" />
                   </div>
                   {errors.customerName && <p className="text-xs text-red-500 mt-1">Required</p>}
                 </div>
@@ -298,7 +317,7 @@ const AddChallan = () => {
                   </label>
                   <div className="relative">
                     <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input {...register("receiverNumber", { required: true })} className={inp} placeholder="017XXXXXXXX" />
+                    <input {...register("receiverNumber", { required: true })} className={inp + eb(errors.receiverNumber)} placeholder="017XXXXXXXX" />
                   </div>
                 </div>
 
@@ -308,14 +327,19 @@ const AddChallan = () => {
                   </label>
                   <div className="relative">
                     <Globe size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      {...register("zone", { required: true })}
-                      onChange={e => handleAutoSearch("zone", "zone", e.target.value)}
-                      className={inp} placeholder="Zone"
-                    />
+                    {(() => {
+                      const reg = register("zone", { required: true });
+                      return (
+                        <input
+                          {...reg}
+                          onChange={e => { reg.onChange(e); handleAutoSearch("zone", "zone", e.target.value); }}
+                          className={inp + eb(errors.zone)} placeholder="Zone"
+                        />
+                      );
+                    })()}
                   </div>
                   <AutoDropdown fieldKey="zone" autoData={autoData} activeField={activeField}
-                    setActiveField={setActiveField} setFormValue={v => setValue("zone", v)} />
+                    setActiveField={setActiveField} setFormValue={v => setValue("zone", v, { shouldValidate: true })} />
                 </div>
               </div>
 
@@ -329,7 +353,7 @@ const AddChallan = () => {
                   <input
                     {...register("address", { required: true })}
                     onPaste={(e) => handleBanglaPaste(e, "address")}
-                    className={inp} placeholder="Full delivery address"
+                    className={inp + eb(errors.address)} placeholder="Full delivery address"
                   />
                 </div>
                 {/* AI Address Parser */}
@@ -433,13 +457,21 @@ const AddChallan = () => {
 
               {/* Products */}
               <div className="border-t border-slate-100 pt-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-black text-slate-700">Product Particulars</h3>
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-black text-slate-700">Product Particulars</h3>
+                    <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded-lg text-[10px] font-black text-slate-500">{fields.length}</span>
+                    {totalQty > 0 && (
+                      <span className="px-2.5 py-0.5 bg-blue-50 border border-blue-200 rounded-lg text-[10px] font-black text-blue-700">
+                        Total: {totalQty.toLocaleString()} PCS
+                      </span>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => append({ model: "", productName: "", quantity: "" })}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-600
-                      bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors"
+                      bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors active:scale-95"
                   >
                     <Plus size={13} /> Add Item
                   </button>
@@ -525,22 +557,27 @@ const AddChallan = () => {
                       {/* Model */}
                       <div className="col-span-4 sm:col-span-5 relative">
                         <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Model</label>
-                        <input
-                          {...register(`products.${index}.model`, { required: true })}
-                          onChange={e => handleAutoSearch(`model-${index}`, "model", e.target.value)}
-                          className={inpSm} placeholder="Model / SKU"
-                        />
+                        {(() => {
+                          const reg = register(`products.${index}.model`, { required: true });
+                          return (
+                            <input
+                              {...reg}
+                              onChange={e => { reg.onChange(e); handleAutoSearch(`model-${index}`, "model", e.target.value); }}
+                              className={inpSm + eb(errors.products?.[index]?.model)} placeholder="Model / SKU"
+                            />
+                          );
+                        })()}
                         <AutoDropdown fieldKey={`model-${index}`} autoData={autoData} activeField={activeField}
-                          setActiveField={setActiveField} setFormValue={v => setValue(`products.${index}.model`, v)} />
+                          setActiveField={setActiveField} setFormValue={v => setValue(`products.${index}.model`, v, { shouldValidate: true })} />
                       </div>
 
                       {/* Qty */}
                       <div className="col-span-3 sm:col-span-2">
                         <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Qty</label>
                         <input
-                          type="number"
-                          {...register(`products.${index}.quantity`, { required: true })}
-                          className={`${inpSm} text-center px-1`} placeholder="0"
+                          type="number" min="1"
+                          {...register(`products.${index}.quantity`, { required: true, min: 1 })}
+                          className={`${inpSm} text-center px-1${eb(errors.products?.[index]?.quantity)}`} placeholder="0"
                         />
                       </div>
 
@@ -549,7 +586,9 @@ const AddChallan = () => {
                         <button
                           type="button"
                           onClick={() => remove(index)}
-                          className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 transition-colors sm:p-1"
+                          disabled={fields.length === 1}
+                          title={fields.length === 1 ? "কমপক্ষে ১টি item লাগবে" : "Remove this item"}
+                          className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 transition-colors sm:p-1 disabled:opacity-30 disabled:hover:text-slate-400"
                         >
                           <Trash2 size={14} />
                           <span className="sm:hidden font-medium">Remove</span>
@@ -563,10 +602,13 @@ const AddChallan = () => {
               {/* Submit */}
               <button
                 type="submit"
-                className="w-full flex items-center justify-center gap-2 py-3 bg-orange-500 hover:bg-orange-600
-                  text-white font-bold rounded-xl shadow-lg shadow-orange-500/20 transition-all active:scale-[0.98]"
+                disabled={submitting}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600
+                  text-white font-bold rounded-xl shadow-lg shadow-orange-500/25 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <Send size={15} /> Submit Challan
+                {submitting
+                  ? (<><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Submitting…</>)
+                  : (<><Send size={15} /> Submit Challan{totalQty > 0 ? ` · ${totalQty.toLocaleString()} PCS` : ""}</>)}
               </button>
             </form>
           </div>
@@ -574,13 +616,16 @@ const AddChallan = () => {
           {/* ═══ RECENT CHALLAN (desktop) ═══ */}
           <div className="hidden lg:block lg:col-span-5">
             <div className="bg-white border border-slate-100 rounded-2xl shadow-sm sticky top-6 overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-3.5 bg-slate-50/50 border-b border-slate-100">
-                <h3 className="font-black text-slate-800 text-sm flex items-center gap-2">
-                  <History size={15} className="text-emerald-500" /> Recent Challan
-                </h3>
-                <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded uppercase tracking-wider">
-                  Latest
-                </span>
+              <div className="relative bg-slate-900 px-5 py-3.5 overflow-hidden">
+                <div className="absolute -right-4 -top-4 w-20 h-20 bg-emerald-500/20 rounded-full blur-2xl" />
+                <div className="relative flex items-center justify-between">
+                  <h3 className="font-black text-white text-sm flex items-center gap-2">
+                    <History size={15} className="text-emerald-400" /> Recent Challan
+                  </h3>
+                  <span className="text-[9px] font-black text-emerald-300 bg-emerald-500/20 border border-emerald-400/30 px-2 py-1 rounded-lg uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Latest
+                  </span>
+                </div>
               </div>
 
               {recentChallan

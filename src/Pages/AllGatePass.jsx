@@ -102,11 +102,11 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
 
 /* ── Mobile Card ── */
 const MobileCard = ({ gp, p, axiosSecure, refetchGatePasses }) => (
-  <div className="bg-white border border-slate-200 rounded-xl p-3 mb-2 shadow-sm">
+  <div className="bg-white border border-slate-200 rounded-2xl p-3 mb-2 shadow-sm hover:shadow-md hover:border-sky-200 transition-all">
     <div className="flex items-center justify-between mb-1.5">
       <div className="flex items-center gap-2 min-w-0">
-        <span className="text-[10px] bg-sky-50 border border-sky-200 rounded-lg px-2 py-0.5 font-mono font-bold text-sky-700 flex-shrink-0">{gp.tripDo}</span>
-        <span className="text-[10px] text-black truncate">{gp.tripDate ? new Date(gp.tripDate).toLocaleDateString("en-GB") : "—"}</span>
+        <span className="text-[10px] bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200 rounded-lg px-2 py-0.5 font-mono font-black text-sky-700 flex-shrink-0">{gp.tripDo}</span>
+        <span className="text-[10px] text-slate-500 font-semibold truncate">{gp.tripDate ? new Date(gp.tripDate).toLocaleDateString("en-GB") : "—"}</span>
       </div>
       <ActionDropdown gp={gp} p={p} axiosSecure={axiosSecure} refetchGatePasses={refetchGatePasses} currentUser={gp.currentUser} />
     </div>
@@ -203,20 +203,25 @@ const AllGatePass = () => {
   const monthRef  = useRef(month);
   const yearRef   = useRef(year);
   const searchRef = useRef(searchText);
+  const fetchSeqRef = useRef(0);
   useEffect(() => { monthRef.current  = month;      }, [month]);
   useEffect(() => { yearRef.current   = year;       }, [year]);
   useEffect(() => { searchRef.current = searchText; }, [searchText]);
 
   const fetchGatePasses = useCallback(async (m, y, search) => {
+    // Race guard — টাইপের সময় পুরনো slow response পরে এসে নতুন result
+    // overwrite করত; sequence number দিয়ে শুধু শেষ request apply হয়
+    const seq = ++fetchSeqRef.current;
     setLoading(true);
     try {
       const url = search
         ? `/gate-pass?search=${encodeURIComponent(search)}`
         : `/gate-pass?month=${m}&year=${y}`;
       const res = await axiosSecure.get(url);
+      if (seq !== fetchSeqRef.current) return; // stale
       setGatePasses(res.data.data || []);
-    } catch (err) { console.error(err); }
-    setLoading(false);
+    } catch (err) { if (seq === fetchSeqRef.current) console.error(err); }
+    if (seq === fetchSeqRef.current) setLoading(false);
   }, [axiosSecure]);
 
   // month / year / search change হলে re-fetch
@@ -282,8 +287,18 @@ const AllGatePass = () => {
     () => filteredRows.slice((clientPage - 1) * ITEMS_PER_PAGE, clientPage * ITEMS_PER_PAGE),
     [filteredRows, clientPage]
   );
+  // Filter দিলে page সংখ্যা কমে গেলে URL-এর পুরনো বড় page-এ আটকে খালি
+  // টেবিল দেখাত — এখন শেষ valid page-এ নেমে আসে
+  useEffect(() => {
+    if (totalPages > 0 && clientPage > totalPages) setClientPage(totalPages);
+  }, [totalPages, clientPage, setClientPage]);
   const totalQtyAll = useMemo(
     () => filteredRows.reduce((sum, { p }) => sum + (Number(p.quantity) || 0), 0),
+    [filteredRows]
+  );
+  // Unique gate pass সংখ্যা (row নয় — একটা pass-এ একাধিক product row থাকে)
+  const uniquePassCount = useMemo(
+    () => new Set(filteredRows.map(({ gp }) => gp._id)).size,
     [filteredRows]
   );
 
@@ -353,8 +368,14 @@ const AllGatePass = () => {
         if (!filteredRows.length) return Swal.fire({ icon: "warning", title: "No Data" });
         exportData = filteredRows.map(({ gp, p }) => toRow(gp, p));
       } else {
-        // Full month — already in state (no limit), extra API call নেই
-        exportData = gatePasses.flatMap(gp => (gp.products || []).map(p => toRow(gp, p)));
+        // Full month — search active থাকলে state-এ search result থাকে
+        // (max 500), পুরো month না। তখন month data আলাদা করে আনতে হয়।
+        let monthData = gatePasses;
+        if (searchText) {
+          const res = await axiosSecure.get(`/gate-pass?month=${month}&year=${year}`);
+          monthData = res.data.data || [];
+        }
+        exportData = monthData.flatMap(gp => (gp.products || []).map(p => toRow(gp, p)));
         if (!exportData.length) return Swal.fire({ icon: "warning", title: "No Data" });
       }
       const ws = XLSX.utils.json_to_sheet(exportData);
@@ -379,8 +400,8 @@ const AllGatePass = () => {
       <div className="flex-shrink-0 bg-white border-b border-slate-200 px-3 sm:px-4 py-2.5 shadow-sm">
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
           <div className="flex items-center gap-2 shrink-0">
-            <div className="w-7 h-7 bg-sky-50 rounded-lg flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" strokeWidth="2.5" strokeLinecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            <div className="w-7 h-7 bg-gradient-to-br from-sky-500 to-blue-600 rounded-lg flex items-center justify-center shadow-md shadow-sky-500/30">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
             </div>
             <h2 className="text-sm font-black text-slate-800">Gate Pass Inventory</h2>
           </div>
@@ -388,9 +409,14 @@ const AllGatePass = () => {
             {filteredRows.length} rows{totalPages > 1 && ` · p${clientPage}/${totalPages}`}
           </span>
           {filteredRows.length > 0 && (
-            <span className="text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg px-2 py-0.5 shrink-0">
-              Qty: {totalQtyAll.toLocaleString()}
-            </span>
+            <>
+              <span className="text-[10px] font-black text-sky-700 bg-sky-50 border border-sky-200 rounded-lg px-2 py-0.5 shrink-0">
+                {uniquePassCount} pass{uniquePassCount > 1 ? "es" : ""}
+              </span>
+              <span className="text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg px-2 py-0.5 shrink-0">
+                Qty: {totalQtyAll.toLocaleString()}
+              </span>
+            </>
           )}
           {activeFilterGroups.map((f, i) => (
             <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-800 text-white text-[9px] rounded-lg font-bold shrink-0">
@@ -414,7 +440,7 @@ const AllGatePass = () => {
             {MONTHS_FULL.map((m, i) => <option key={i} value={i + 1}>{isMobile ? MONTHS_SHORT[i] : m}</option>)}
           </select>
           <input type="number" className={`${tbtn} border-slate-200 text-slate-700 bg-white w-20 focus:outline-none focus:border-orange-400`}
-            value={year} onChange={e => { setYear(parseInt(e.target.value)); setClientPage(1); }} />
+            value={year} onChange={e => { const y = parseInt(e.target.value); if (!Number.isNaN(y)) { setYear(y); setClientPage(1); } }} />
           <button onClick={handleResetAll} className={`${tbtn} border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500`}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
             <span className="hidden sm:inline">Reset</span>
