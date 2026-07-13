@@ -11,6 +11,7 @@ const EditCreateDeliveryChallanModal = ({
   isOpen, editingChallan, setIsEditModalOpen,
   handleEditChange, handleProductChange,
   handleDeleteProduct, handleUpdateChallan, setEditingChallan,
+  saving = false,
 }) => {
   // Which row's product-name field is currently showing suggestions?
   const [openSuggestIdx, setOpenSuggestIdx] = useState(null);
@@ -187,16 +188,18 @@ const EditCreateDeliveryChallanModal = ({
                       onChange={e => handleProductChange(index, "quantity", e.target.value)}
                       className="w-full text-xs font-black text-center text-slate-800 outline-none bg-white border border-slate-200 rounded-lg px-1 py-1.5 focus:border-slate-400" />
                   </div>
-                  {/* Rate (read-only display) — comes from rate matcher.
-                      Quiet hint to the user that we resolved a rate.    */}
-                  {/* <div className="w-14 shrink-0">
+                  {/* Rate — rate-matcher থেকে auto-resolved; user-কে চুপচাপ
+                      দেখানো হয় rate পাওয়া গেছে কিনা (— মানে টেবিলে match নেই)। */}
+                  <div className="w-14 shrink-0">
                     <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Rate</label>
                     <div className={
-                      "w-full text-xs font-black text-center px-1 py-1.5 rounded-lg border " +
+                      "w-full text-[11px] font-black text-center px-1 py-1.5 rounded-lg border " +
                       (p.rate ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : "bg-amber-50 text-amber-600 border-amber-200")
-                    }>{p.rate ? `৳${p.rate}` : "—"}</div>
-                  </div> */}
+                              : "bg-amber-50 text-amber-500 border-amber-200")
+                    } title={p.rate ? "Rate resolved from rate table" : "No rate match found"}>
+                      {p.rate ? `৳${p.rate}` : "—"}
+                    </div>
+                  </div>
                   {editingChallan.products.length > 1 && (
                     <button type="button" onClick={() => handleDeleteProduct(index)}
                       className="shrink-0 w-7 h-7 flex items-center justify-center border border-red-100 rounded-lg text-red-300 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all">
@@ -215,9 +218,11 @@ const EditCreateDeliveryChallanModal = ({
             className="flex-1 py-2.5 text-[13px] font-semibold text-slate-500 border border-slate-200 hover:bg-slate-50 rounded-xl transition">
             Cancel
           </button>
-          <button onClick={handleUpdateChallan}
-            className="flex-[2] py-2.5 text-[13px] font-black text-white rounded-xl flex items-center justify-center gap-2 transition active:scale-[0.98] bg-slate-800 hover:bg-slate-700">
-            <Check size={13} /> Update Challan
+          <button onClick={handleUpdateChallan} disabled={saving}
+            className="flex-[2] py-2.5 text-[13px] font-black text-white rounded-xl flex items-center justify-center gap-2 transition active:scale-[0.98] bg-slate-800 hover:bg-slate-700 disabled:opacity-60 disabled:active:scale-100">
+            {saving
+              ? <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Saving…</>
+              : <><Check size={13} /> Update Challan</>}
           </button>
         </div>
 

@@ -219,8 +219,10 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
           setTimeout(() => onSaveSuccess(updated), 600);
         }
       }
-    } catch {
-      Swal.fire("ত্রুটি", "সংরক্ষণ ব্যর্থ হয়েছে", "error");
+    } catch (err) {
+      // Server validation message দেখাও (যেমন negative rent reject হলে)
+      const msg = err?.response?.data?.message || "সংরক্ষণ ব্যর্থ হয়েছে";
+      Swal.fire("ত্রুটি", msg, "error");
     }
     setSaving(false);
   };
@@ -429,7 +431,9 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                       <div className="flex flex-col">
                         <span className="text-[8px] text-amber-200 uppercase font-black tracking-widest mb-0.5 pl-0.5">Rent (৳)</span>
                         <input
-                          type="number" value={rent} onChange={e => setRent(e.target.value)} placeholder="—"
+                          type="number" min="0" value={rent}
+                          onChange={e => { const v = e.target.value; if (v === "" || Number(v) >= 0) setRent(v); }}
+                          placeholder="—"
                           className="w-20 sm:w-24 text-xs font-bold bg-slate-700 border border-slate-600 text-white placeholder-slate-500 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 text-center"
                         />
                         {/* Bangla amount-in-words — shows live as the user types.
@@ -445,7 +449,9 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                       <div className="flex flex-col">
                         <span className="text-[8px] text-amber-200 uppercase font-black tracking-widest mb-0.5 pl-0.5">Lebor Bill (৳)</span>
                         <input
-                          type="number" value={leborBill} onChange={e => setLeborBill(e.target.value)} placeholder="—"
+                          type="number" min="0" value={leborBill}
+                          onChange={e => { const v = e.target.value; if (v === "" || Number(v) >= 0) setLeborBill(v); }}
+                          placeholder="—"
                           className="w-20 sm:w-24 text-xs font-bold bg-slate-700 border border-slate-600 text-white placeholder-slate-500 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 text-center"
                         />
                         {leborBill !== "" && leborBill != null && takaInWords(leborBill) && (
@@ -640,7 +646,7 @@ const CarRentDetailsModal = ({ selectedRental, setSelectedRental, onRentalUpdate
                                 </td>
                                 <td className={`px-2 py-1.5 text-[9px] uppercase text-[9px]
                                   ${isReturnCard ? "text-orange-700" : "text-black"}`}>
-                                  {p.model}
+                                  {p.model || "—"}
                                 </td>
                                 <td className={`px-2 py-1.5 text-right font-bold whitespace-nowrap
                                   ${isReturnCard ? "text-orange-700" : "text-slate-900"}`}>

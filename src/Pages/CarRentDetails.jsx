@@ -51,6 +51,30 @@ const CarRentDetails = () => {
     (async () => {
       if (!previewRental) setLoading(true);
       try {
+        // ── Fast path: car-rents আর deliveries একই collection-এর একই
+        //    document — তাই dedicated single-trip endpoint-টাই ব্যবহার
+        //    করা যায় (১টা ছোট request, আগের ৬-মাস scan-এর বদলে)।
+        try {
+          const res = await axiosSecure.get(`/deliveries/single/${id}`);
+          if (cancelled) return;
+          if (res.data?.success && res.data.data) {
+            setRental(res.data.data);
+            setLoading(false);
+            return;
+          }
+        } catch (fastErr) {
+          if (fastErr?.response?.status === 404 && fastErr?.response?.data?.message) {
+            if (!cancelled) {
+              if (!previewRental) setError("Rental not found");
+              setLoading(false);
+            }
+            return;
+          }
+          // অন্য failure (পুরনো server build) → নিচের legacy scan-এ যায়
+        }
+        if (cancelled) return;
+
+        // ── Legacy fallback: last 6 months scan (old servers) ──
         const now = new Date();
         for (let i = 0; i < 6; i++) {
           const d = new Date(now.getFullYear(), now.getMonth() - i, 1);

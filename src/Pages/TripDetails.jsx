@@ -62,6 +62,30 @@ const TripDetails = () => {
       // already have a preview, refresh quietly in the background.
       if (!previewTrip) setLoading(true);
       try {
+        // ── Fast path: dedicated single-trip endpoint (1 tiny request) ──
+        try {
+          const res = await axiosSecure.get(`/deliveries/single/${id}`);
+          if (cancelled) return;
+          if (res.data?.success && res.data.data) {
+            setTrip(res.data.data);
+            setLoading(false);
+            return;
+          }
+        } catch (fastErr) {
+          // 404 with the new endpoint = trip genuinely doesn't exist.
+          // Any other failure (e.g. old server build without the route)
+          // falls through to the legacy month-scan below.
+          if (fastErr?.response?.status === 404 && fastErr?.response?.data?.message) {
+            if (!cancelled) {
+              if (!previewTrip) setError("Trip not found");
+              setLoading(false);
+            }
+            return;
+          }
+        }
+        if (cancelled) return;
+
+        // ── Legacy fallback: scan the last 6 months (old servers) ──
         const now = new Date();
         for (let i = 0; i < 6; i++) {
           const d = new Date(now.getFullYear(), now.getMonth() - i, 1);

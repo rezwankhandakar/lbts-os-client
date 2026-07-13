@@ -35,11 +35,21 @@ const VendorDetails = () => {
   const [editVehicleImgUploading, setEditVehicleImgUploading] = useState(false);
 
   useEffect(() => {
-    Promise.all([fetchVendor(), fetchVehicles()]).finally(() => setLoading(false));
+    setLoading(true);
+    fetchAll().finally(() => setLoading(false));
   }, [id]);
 
-  const fetchVendor   = async () => { const res = await axiosSecure.get(`/vendors/${id}`); setVendor(res.data); };
-  const fetchVehicles = async () => { const res = await axiosSecure.get(`/vendors/${id}`); setVehicles(res.data.vehicles || []); };
+  // FIX — আগে fetchVendor + fetchVehicles দুটোই একই GET /vendors/:id কল
+  // করত (mount-এ ২টা identical request)। এখন এক request-এই দুটো set হয়।
+  const fetchAll = async () => {
+    try {
+      const res = await axiosSecure.get(`/vendors/${id}`);
+      setVendor(res.data || {});
+      setVehicles(res.data?.vehicles || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   // Add vehicle - form image upload
   const handleImageUpload = async (e) => {
@@ -73,21 +83,32 @@ const VendorDetails = () => {
     finally { setVehicleImgUploading(false); }
   };
 
+  const [addingVehicle, setAddingVehicle] = useState(false);
   const handleAddVehicle = async (e) => {
     e.preventDefault();
+    if (addingVehicle) return; // ── double-click এ duplicate vehicle ঢুকে যেত
     const form = e.target;
-    const res = await axiosSecure.post("/vehicles", {
-      vendorId:      id,
-      vehicleNumber: form.vehicleNumber.value,
-      vehicleModel:  form.vehicleModel.value,
-      driverName:    form.driverName.value,
-      driverPhone:   form.driverPhone.value,
-      driverImg,
-      vehicleImg,
-    });
-    if (res.data.insertedId) {
-      Swal.fire({ icon: "success", title: "Vehicle Registered ✅", confirmButtonColor: "#f97316" });
-      form.reset(); setDriverImg(""); setVehicleImg(""); setFormOpen(false); fetchVehicles();
+    setAddingVehicle(true);
+    try {
+      const res = await axiosSecure.post("/vehicles", {
+        vendorId:      id,
+        vehicleNumber: form.vehicleNumber.value.trim(),
+        vehicleModel:  form.vehicleModel.value.trim(),
+        driverName:    form.driverName.value.trim(),
+        driverPhone:   form.driverPhone.value.trim(),
+        driverImg,
+        vehicleImg,
+      });
+      if (res.data.insertedId) {
+        Swal.fire({ icon: "success", title: "Vehicle Registered ✅", confirmButtonColor: "#f97316" });
+        form.reset(); setDriverImg(""); setVehicleImg(""); setFormOpen(false); fetchAll();
+      }
+    } catch (err) {
+      // FIX — আগে try/catch ছিল না: fail করলে user কোনো feedback পেত না
+      const msg = err?.response?.data?.errors?.[0]?.message || err?.response?.data?.message || "Failed to register vehicle";
+      Swal.fire({ icon: "error", title: "Could not add vehicle", text: msg });
+    } finally {
+      setAddingVehicle(false);
     }
   };
 
@@ -137,17 +158,28 @@ const VendorDetails = () => {
   };
 
   // Edit modal - save
+  const [savingEdit, setSavingEdit] = useState(false);
   const handleEditSubmit = async () => {
+    if (savingEdit) return;
+    setSavingEdit(true);
     try {
       await axiosSecure.put(`/vehicles/${id}/${editModal._id}`, {
-        ...editForm,
+        vehicleModel:  (editForm.vehicleModel  || "").trim(),
+        vehicleNumber: (editForm.vehicleNumber || "").trim(),
+        driverName:    (editForm.driverName    || "").trim(),
+        driverPhone:   (editForm.driverPhone   || "").trim(),
         driverImg: editImg,
         vehicleImg: editVehicleImg,
       });
-      Swal.fire({ icon: "success", title: "Updated!", timer: 1500, showConfirmButton: false });
+      Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Updated!", timer: 1500, showConfirmButton: false });
       setEditModal(null);
-      fetchVehicles();
-    } catch { Swal.fire("Error", "Update failed", "error"); }
+      fetchAll();
+    } catch (err) {
+      const msg = err?.response?.data?.errors?.[0]?.message || err?.response?.data?.message || "Update failed";
+      Swal.fire("Error", msg, "error");
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   const deleteVehicle = async (vid) => {
@@ -155,7 +187,7 @@ const VendorDetails = () => {
     if (r.isConfirmed) {
       try {
         await axiosSecure.delete(`/vehicles/${id}/${vid}`);
-        fetchVehicles();
+        fetchAll();
         Swal.fire({ icon: "success", title: "Removed!", timer: 1500, showConfirmButton: false });
       } catch { Swal.fire("Error", "Failed", "error"); }
     }
@@ -313,11 +345,13 @@ const VendorDetails = () => {
                   </div>
                 ))}
               </div>
-              <button disabled={uploading}
+              <button disabled={uploading || vehicleImgUploading || addingVehicle}
                 className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 bg-orange-500 hover:bg-orange-600
                   text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-orange-500/20
                   transition active:scale-[0.99] disabled:bg-slate-300">
-                <Plus size={13} /> {uploading ? "Uploading..." : "Add Vehicle to Fleet"}
+                {addingVehicle
+                  ? <><Loader2 size={13} className="animate-spin" /> Saving…</>
+                  : <><Plus size={13} /> {(uploading || vehicleImgUploading) ? "Uploading…" : "Add Vehicle to Fleet"}</>}
               </button>
             </form>
           )}
@@ -562,11 +596,11 @@ const VendorDetails = () => {
               </button>
               <button
                 onClick={handleEditSubmit}
-                disabled={editImgUploading || editVehicleImgUploading}
+                disabled={editImgUploading || editVehicleImgUploading || savingEdit}
                 className="flex-1 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs
                   font-black uppercase tracking-widest transition shadow-lg shadow-orange-500/20
-                  disabled:bg-slate-300 disabled:shadow-none">
-                Save Changes
+                  disabled:bg-slate-300 disabled:shadow-none flex items-center justify-center gap-1.5">
+                {savingEdit ? <><Loader2 size={12} className="animate-spin" /> Saving…</> : "Save Changes"}
               </button>
             </div>
           </div>

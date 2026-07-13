@@ -319,13 +319,20 @@ const CarRentPage = () => {
             const toRow = (r) => {
                 const normalChallans = (r.challans || []).filter(c => !c.isReturn);
                 const allReceived = normalChallans.length > 0 && normalChallans.every(c => c.challanReturnStatus === "received");
+                // Advance/Total/Due — accounts-এর কাজে লাগে, আগে export-এ ছিল না
+                const rowTotal = (r.rent != null ? Number(r.rent) : 0) + (r.leborBill != null ? Number(r.leborBill) : 0);
+                const hasBill  = r.rent != null || r.leborBill != null;
                 return {
-                    Date: new Date(r.createdAt).toLocaleDateString(),
+                    Date: new Date(r.createdAt).toLocaleDateString("en-GB"),
                     "Trip Number": r.tripNumber, Vendor: r.vendorName,
                     "Vendor Number": r.vendorNumber || "", Driver: r.driverName,
                     "Driver Number": r.driverNumber || "", Vehicle: r.vehicleNumber,
-                    Point: r.point ?? "", Challan: allReceived ? "Received" : "Not Received",
+                    Point: r.point ?? (r.challans ? r.challans.filter(c => !c.isReturn).length : ""),
+                    Challan: allReceived ? "Received" : "Not Received",
                     Rent: r.rent ?? "", "Lebor Bill": r.leborBill ?? "",
+                    Total: hasBill ? rowTotal : "",
+                    Advance: r.advance ?? "",
+                    Due: hasBill ? Math.max(0, rowTotal - Number(r.advance || 0)) : "",
                     Note: r.tripNote || "",
                 };
             };
@@ -365,8 +372,8 @@ const CarRentPage = () => {
 
                     {/* Title */}
                     <div className="flex items-center gap-2 shrink-0">
-                        <div className="w-7 h-7 bg-rose-50 rounded-lg flex items-center justify-center">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e11d48" strokeWidth="2.5" strokeLinecap="round"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                        <div className="w-7 h-7 bg-gradient-to-br from-rose-400 to-rose-600 rounded-lg flex items-center justify-center shadow-sm shadow-rose-200">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
                         </div>
                         <h2 className="text-sm font-black text-slate-800">Car Rent</h2>
                     </div>

@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router";
-import { Edit3, Trash2, Eye, Phone, MapPin, X, Loader2, User, ReceiptText } from "lucide-react";
+import { Edit3, Trash2, Eye, Phone, MapPin, X, Loader2, User, ReceiptText, Search, Truck } from "lucide-react";
 import LoadingSpinner from "../Component/LoadingSpinner";
 import useRole from "../hooks/useRole";
 
@@ -17,16 +17,21 @@ const AllVendor = () => {
   const [loading,    setLoading]    = useState(true);
   const [editVendor, setEditVendor] = useState(null);
   const [uploading,  setUploading]  = useState(false);
+  const [saving,     setSaving]     = useState(false);
   const [updatedImg, setUpdatedImg] = useState("");
   const [lightbox,   setLightbox]   = useState(null); // { url, label } for full-size view
+  const [search,     setSearch]     = useState("");
+
+  const fetchVendors = useCallback(() => {
+    return axiosSecure.get("/vendors")
+      .then(res => setVendors(Array.isArray(res.data) ? res.data : []))
+      .catch(console.error);
+  }, [axiosSecure]);
 
   useEffect(() => {
     if (!roleReady) return;
-    axiosSecure.get("/vendors")
-      .then(res => setVendors(res.data))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [roleReady]);
+    fetchVendors().finally(() => setLoading(false));
+  }, [roleReady, fetchVendors]);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -51,12 +56,17 @@ const AllVendor = () => {
       confirmButtonColor: "#ef4444", cancelButtonColor: "#94a3b8",
       confirmButtonText: "Yes, Delete",
     }).then(async (r) => {
-      if (r.isConfirmed) {
+      if (!r.isConfirmed) return;
+      // FIX — আগে try/catch ছিল না: fail করলে unhandled rejection,
+      // user-কে কোনো feedback দেওয়া হতো না।
+      try {
         const res = await axiosSecure.delete(`/vendors/${id}`);
         if (res.data.deletedCount > 0) {
           Swal.fire({ icon: "success", title: "Deleted!", timer: 1200, showConfirmButton: false });
           setVendors(prev => prev.filter(v => v._id !== id));
         }
+      } catch (err) {
+        Swal.fire({ icon: "error", title: "Delete failed", text: err?.response?.data?.message || "Only admins can delete vendors." });
       }
     });
   };
@@ -65,20 +75,36 @@ const AllVendor = () => {
     e.preventDefault();
     const form = e.target;
     const data = {
-      vendorName: form.vendorName.value,
-      vendorPhone: form.vendorPhone.value,
-      vendorAddress: form.vendorAddress.value,
+      vendorName: form.vendorName.value.trim(),
+      vendorPhone: form.vendorPhone.value.trim(),
+      vendorAddress: form.vendorAddress.value.trim(),
       vendorImg: updatedImg || editVendor.vendorImg,
     };
-    const res = await axiosSecure.patch(`/vendors/${editVendor._id}`, data);
-    if (res.data.modifiedCount > 0) {
-      Swal.fire({ icon: "success", title: "Updated!", timer: 1500, showConfirmButton: false });
-      setVendors(prev => prev.map(v => v._id === editVendor._id ? { ...v, ...data } : v));
-      setEditVendor(null); setUpdatedImg("");
+    setSaving(true);
+    // FIX — আগে try/catch ছিল না (fail = silent), আর কিছু না বদলে save
+    // করলে modifiedCount 0 হয়ে modal চুপচাপ খোলা থেকে যেত।
+    try {
+      const res = await axiosSecure.patch(`/vendors/${editVendor._id}`, data);
+      if (res.data.success || res.data.modifiedCount > 0) {
+        Swal.fire({ toast: true, position: "top-end", icon: "success", title: res.data.modifiedCount > 0 ? "Updated!" : "No changes", timer: 1500, showConfirmButton: false });
+        setVendors(prev => prev.map(v => v._id === editVendor._id ? { ...v, ...data } : v));
+        setEditVendor(null); setUpdatedImg("");
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.errors?.[0]?.message || err?.response?.data?.message || "Update failed";
+      Swal.fire({ icon: "error", title: "Could not update", text: msg });
+    } finally {
+      setSaving(false);
     }
   };
 
   if (!roleReady || loading) return <LoadingSpinner text="Fetching Records..." />;
+
+  // ── Search + sort (নাম অনুযায়ী) ──
+  const q = search.trim().toLowerCase();
+  const visibleVendors = vendors
+    .filter(v => !q || [v.vendorName, v.vendorPhone, v.vendorAddress].some(x => x?.toLowerCase().includes(q)))
+    .sort((a, b) => (a.vendorName || "").localeCompare(b.vendorName || ""));
 
   const ActionBtn = ({ onClick, icon, title, hoverClass, borderClass = "border-slate-200" }) => (
     <button onClick={onClick} title={title}
@@ -91,9 +117,9 @@ const AllVendor = () => {
     <div className="flex flex-col h-full page-enter">
 
       {/* ── Header ── */}
-      <div className="flex-shrink-0 flex items-center justify-between mb-4 gap-3">
+      <div className="flex-shrink-0 flex flex-wrap items-center justify-between mb-4 gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 bg-violet-100 rounded-xl flex items-center justify-center text-violet-600 flex-shrink-0">
+          <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl flex items-center justify-center text-white flex-shrink-0 shadow-lg shadow-violet-500/25">
             <User size={16} />
           </div>
           <div className="min-w-0">
@@ -106,27 +132,51 @@ const AllVendor = () => {
           </div>
         </div>
         {!isVendorRole && (
-          <div className="bg-slate-900 px-4 py-2 rounded-xl flex items-center gap-2.5 border border-slate-800 flex-shrink-0">
-            <span className="text-slate-500 font-bold text-[9px] uppercase tracking-widest">Total</span>
-            <span className="text-white font-black text-sm border-l pl-2.5 border-slate-700">{vendors.length}</span>
+          <div className="flex items-center gap-2 flex-1 sm:flex-none justify-end">
+            {/* ── Search — নাম / ফোন / ঠিকানা ── */}
+            <div className="relative flex-1 sm:flex-none sm:w-64 max-w-xs">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search name, phone, address…"
+                className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-7 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition placeholder-slate-400"
+              />
+              {search && (
+                <button onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition">
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+            <div className="bg-slate-900 px-4 py-2 rounded-xl flex items-center gap-2.5 border border-slate-800 flex-shrink-0">
+              <span className="text-slate-500 font-bold text-[9px] uppercase tracking-widest">{q ? "Found" : "Total"}</span>
+              <span className="text-white font-black text-sm border-l pl-2.5 border-slate-700">{visibleVendors.length}</span>
+            </div>
           </div>
         )}
       </div>
 
       {/* ── Empty State ── */}
-      {vendors.length === 0 ? (
+      {visibleVendors.length === 0 ? (
         <div className="flex-1 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center py-16">
           <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-3 text-slate-300">
             <User size={28} />
           </div>
-          <p className="font-semibold text-slate-600">No vendor data found</p>
+          <p className="font-semibold text-slate-600">{q ? "No vendors match your search" : "No vendor data found"}</p>
+          {q && (
+            <button onClick={() => setSearch("")}
+              className="mt-2 text-xs font-semibold text-violet-500 hover:text-violet-700 underline">
+              Clear search
+            </button>
+          )}
           {isVendorRole && <p className="text-slate-400 text-xs mt-1 text-center px-4">You haven't been linked to a vendor yet.</p>}
         </div>
       ) : (
         <>
           {/* ── Mobile cards ── */}
           <div className="sm:hidden flex-1 min-h-0 overflow-y-auto space-y-2 pb-2">
-            {vendors.map((vendor, i) => (
+            {visibleVendors.map((vendor, i) => (
               <div key={vendor._id} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3.5">
                 <div className="flex items-center gap-3 mb-2.5">
                   <button
@@ -142,9 +192,13 @@ const AllVendor = () => {
                   </button>
                   <div className="flex-1 min-w-0">
                     <p className="font-black text-slate-900 text-sm truncate">{vendor.vendorName}</p>
-                    {!isVendorRole && <p className="text-[9px] text-slate-400 font-mono">ID: {vendor._id.slice(-8).toUpperCase()}</p>}
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="inline-flex items-center gap-1 text-[9px] font-bold text-sky-600 bg-sky-50 border border-sky-100 rounded px-1.5 py-0.5">
+                        <Truck size={9} /> {vendor.vehicles?.length || 0}
+                      </span>
+                      {!isVendorRole && <p className="text-[9px] text-slate-400 font-mono">ID: {vendor._id.slice(-8).toUpperCase()}</p>}
+                    </div>
                   </div>
-                  {!isVendorRole && <span className="text-[9px] font-mono text-slate-400">#{i + 1}</span>}
                 </div>
                 <div className="space-y-1.5 mb-3">
                   <div className="flex items-center gap-2 text-xs text-slate-700">
@@ -193,12 +247,13 @@ const AllVendor = () => {
                     {!isVendorRole && <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-10">#</th>}
                     <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Vendor</th>
                     <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact</th>
+                    <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Fleet</th>
                     <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest hidden md:table-cell">Location</th>
                     <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {vendors.map((vendor, i) => (
+                  {visibleVendors.map((vendor, i) => (
                     <tr key={vendor._id} className="hover:bg-slate-50 transition-colors">
                       {!isVendorRole && <td className="px-4 py-3 text-center text-xs font-bold text-slate-400">{i + 1}</td>}
                       <td className="px-4 py-3">
@@ -225,6 +280,12 @@ const AllVendor = () => {
                           <Phone size={11} className="text-emerald-500 flex-shrink-0" />
                           {vendor.vendorPhone}
                         </div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black border
+                          ${(vendor.vehicles?.length || 0) > 0 ? "bg-sky-50 text-sky-700 border-sky-200" : "bg-slate-50 text-slate-400 border-slate-200"}`}>
+                          <Truck size={10} /> {vendor.vehicles?.length || 0}
+                        </span>
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">
                         <p className="text-xs text-slate-600 flex items-start gap-1.5 max-w-[200px]">
@@ -289,18 +350,25 @@ const AllVendor = () => {
 
               <div>
                 <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Vendor Photo</label>
-                <div className="flex items-center gap-3 p-3 border border-slate-200 rounded-xl bg-slate-50">
-                  <div className="w-10 h-10 rounded-xl overflow-hidden bg-white border border-slate-200 flex-shrink-0">
-                    <img src={updatedImg || editVendor.vendorImg} alt="preview" className="w-full h-full object-cover" />
-                  </div>
-                  <input type="file" onChange={handleImageUpload} className="text-xs flex-1 min-w-0"
-                    accept="image/jpeg,image/png,image/webp" disabled={uploading} />
+                <div className="flex items-center gap-3">
+                  <button type="button"
+                    onClick={() => (updatedImg || editVendor.vendorImg) && setLightbox({ url: updatedImg || editVendor.vendorImg, label: editVendor.vendorName })}
+                    className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex-shrink-0 cursor-zoom-in">
+                    {(updatedImg || editVendor.vendorImg)
+                      ? <img src={updatedImg || editVendor.vendorImg} alt="preview" className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex items-center justify-center text-slate-300"><User size={18} /></div>}
+                  </button>
+                  <label className="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 hover:border-orange-400 hover:bg-orange-50/30 cursor-pointer transition">
+                    {uploading
+                      ? <Loader2 size={14} className="animate-spin text-orange-500" />
+                      : <Edit3 size={13} className="text-slate-400" />}
+                    <span className="text-[11px] font-bold text-slate-600">
+                      {uploading ? "Uploading…" : "Change Photo"}
+                    </span>
+                    <input type="file" onChange={handleImageUpload} className="hidden"
+                      accept="image/jpeg,image/png,image/webp" disabled={uploading} />
+                  </label>
                 </div>
-                {uploading && (
-                  <p className="text-[10px] text-orange-500 animate-pulse font-bold flex items-center gap-1 mt-1">
-                    <Loader2 size={10} className="animate-spin" /> Uploading...
-                  </p>
-                )}
               </div>
 
               <div>
@@ -314,9 +382,11 @@ const AllVendor = () => {
                   className="flex-1 py-2.5 text-xs font-bold text-slate-500 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">
                   Cancel
                 </button>
-                <button type="submit" disabled={uploading}
-                  className="flex-1 py-2.5 text-white text-xs font-black rounded-xl transition-all bg-orange-500 hover:bg-orange-600 disabled:bg-slate-300">
-                  {uploading ? "Uploading..." : "Save Changes"}
+                <button type="submit" disabled={uploading || saving}
+                  className="flex-1 py-2.5 text-white text-xs font-black rounded-xl transition-all bg-orange-500 hover:bg-orange-600 disabled:bg-slate-300 flex items-center justify-center gap-1.5">
+                  {saving
+                    ? <><Loader2 size={12} className="animate-spin" /> Saving…</>
+                    : uploading ? "Uploading…" : "Save Changes"}
                 </button>
               </div>
             </form>

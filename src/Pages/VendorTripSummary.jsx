@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import useAxiosSecure from "../hooks/useAxiosSecure";
-import { Wallet, ReceiptText, ArrowLeft, Truck, Briefcase, ChevronDown } from "lucide-react";
+import { Wallet, ReceiptText, ArrowLeft, Truck, Briefcase, ChevronDown, Printer } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import Swal from "sweetalert2";
@@ -270,6 +270,21 @@ const VendorTripSummary = () => {
   const totalBill  = totalRent + totalLebor;
   const totalDue   = Math.max(0, totalBill - totalAdv - totalPaid);
 
+  // ── Direct Print — filtered trips-এর clean A4 statement ──
+  const handlePrint = () => {
+    if (!filteredTrips.length) {
+      return Swal.fire({ icon: "warning", title: "Nothing to print", text: "No trips match the current filter.", timer: 2000, showConfirmButton: false });
+    }
+    // Browser-এ "Headers and footers" চালু থাকলে page title ছাপা হয় —
+    // "LBTS-OS"-এর বদলে পুরো নাম দেখাতে print-এর সময় title বদলে
+    // পরে ফিরিয়ে দেওয়া হয়। (@page margin:0 থাকায় সাধারণত এমনিতেই
+    // header/footer আসে না — এটা বাড়তি সুরক্ষা।)
+    const prevTitle = document.title;
+    document.title = `Line Business Transport Service — ${vendor?.vendorName || ""} ${MONTHS[tripMonth - 1]} ${tripYear}`;
+    window.print();
+    document.title = prevTitle;
+  };
+
   if (vendorLoading) return <LoadingSpinner text="Loading vendor..." />;
   if (!vendor)       return <div className="p-10 text-center text-slate-400">Vendor not found.</div>;
 
@@ -311,6 +326,13 @@ const VendorTripSummary = () => {
               </p>
             </div>
           </div>
+
+          <button onClick={handlePrint}
+            className={`${tbtn} bg-slate-800 text-white border-slate-800 hover:bg-slate-700`}
+            title="Print this statement">
+            <Printer size={11} />
+            <span className="hidden sm:inline">Print</span>
+          </button>
 
           <button onClick={handleExport}
             className={`${tbtn} bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700`}>
@@ -542,6 +564,152 @@ const VendorTripSummary = () => {
             </div>
           </>
         )}
+      </div>
+
+      {/* ════ PRINT-ONLY STATEMENT ════
+          Screen-এ hidden; Print চাপলে শুধু এটাই ছাপা হয় (sidebar,
+          filter, button — কিছুই না)। Clean black & white A4 layout। */}
+      <style>{`
+        #vendor-print-report { display: none; }
+        @media print {
+          /* margin: 0 রাখা হয়েছে — browser-এর নিজস্ব header (page title)
+             আর footer (page URL) margin এলাকায় ছাপা হয়; margin 0 হলে
+             ওগুলো আর আসে না। Content-এর margin report-এর padding দিয়ে। */
+          @page { size: A4; margin: 0; }
+          html, body { height: auto !important; overflow: visible !important; }
+          body * { visibility: hidden !important; }
+          #vendor-print-report, #vendor-print-report * { visibility: visible !important; }
+          #vendor-print-report {
+            display: block !important;
+            position: absolute; top: 0; left: 0; width: 100%;
+            padding: 14mm 12mm;
+            box-sizing: border-box;
+            background: #fff; color: #000;
+            font-family: Arial, Helvetica, sans-serif;
+          }
+          #vendor-print-report table { page-break-inside: auto; }
+          #vendor-print-report tr    { page-break-inside: avoid; }
+          #vendor-print-report thead { display: table-header-group; }
+          #vendor-print-report .sig-block { page-break-inside: avoid; }
+        }
+      `}</style>
+
+      <div id="vendor-print-report">
+        {/* ── Company letterhead ── */}
+        <div style={{ textAlign: "center", marginBottom: "8px" }}>
+          <h1 style={{ margin: 0, fontSize: "21px", fontWeight: 900, letterSpacing: "1px", textTransform: "uppercase" }}>
+            Line Business Transport Service
+          </h1>
+          <p style={{ margin: "3px 0 0", fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#333" }}>
+            Vendor Trip Statement
+          </p>
+        </div>
+
+        {/* ── Vendor + period info ── */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", borderTop: "2px solid #000", borderBottom: "2px solid #000", padding: "7px 0", marginBottom: "10px" }}>
+          <div>
+            <p style={{ margin: 0, fontSize: "13px", fontWeight: 900 }}>{vendor.vendorName}</p>
+            <p style={{ margin: "2px 0 0", fontSize: "10px", color: "#333" }}>
+              {vendor.vendorPhone}{vendor.vendorAddress ? ` · ${vendor.vendorAddress}` : ""}
+            </p>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <p style={{ margin: 0, fontSize: "12px", fontWeight: 900 }}>{MONTHS[tripMonth - 1]} {tripYear}</p>
+            <p style={{ margin: "2px 0 0", fontSize: "9px", color: "#555" }}>
+              Printed: {new Date().toLocaleDateString("en-GB")} {new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+            </p>
+          </div>
+        </div>
+
+        {/* ── Meta ── */}
+        <p style={{ margin: "0 0 8px", fontSize: "10px", color: "#333" }}>
+          Trips: <b>{filteredTrips.length}</b>
+          {hasFilter && <span> (filtered view — full month has {trips.length} trips)</span>}
+        </p>
+
+        {/* ── Trips table ── */}
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10px" }}>
+          <thead>
+            <tr>
+              {["#", "Date", "Trip", "Driver", "Vehicle", "Pt", "Rent", "Lebor", "Total", "Advance", "Due"].map((h, i) => (
+                <th key={i} style={{
+                  border: "1px solid #000", padding: "4px 5px", background: "#eee",
+                  fontWeight: 900, textAlign: i >= 5 ? "right" : "left", whiteSpace: "nowrap",
+                }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filteredTrips.map((t, idx) => {
+              const rowTotal = (t.rent != null ? Number(t.rent) : 0) + (t.leborBill != null ? Number(t.leborBill) : 0);
+              const rowBill  = t.rent != null || t.leborBill != null;
+              const rowDue   = rowBill ? Math.max(0, rowTotal - Number(t.advance || 0)) : null;
+              const num = (v) => v != null ? Number(v).toLocaleString("en-IN") : "—";
+              const cell = (align = "left") => ({ border: "1px solid #000", padding: "3px 5px", textAlign: align, whiteSpace: "nowrap" });
+              return (
+                <tr key={t._id}>
+                  <td style={cell("center")}>{idx + 1}</td>
+                  <td style={cell()}>{new Date(t.createdAt).toLocaleDateString("en-GB")}</td>
+                  <td style={cell()}>{t.tripNumber}</td>
+                  <td style={{ ...cell(), whiteSpace: "normal" }}>{t.driverName}</td>
+                  <td style={{ ...cell(), textTransform: "uppercase" }}>{t.vehicleNumber}</td>
+                  <td style={cell("center")}>{t.challans ? t.challans.filter(c => !c.isReturn).length : (t.totalChallan ?? "—")}</td>
+                  <td style={cell("right")}>{num(t.rent)}</td>
+                  <td style={cell("right")}>{num(t.leborBill)}</td>
+                  <td style={{ ...cell("right"), fontWeight: 700 }}>{rowBill ? rowTotal.toLocaleString("en-IN") : "—"}</td>
+                  <td style={cell("right")}>{num(t.advance)}</td>
+                  <td style={{ ...cell("right"), fontWeight: 700 }}>{rowDue == null ? "—" : rowDue.toLocaleString("en-IN")}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={6} style={{ border: "1px solid #000", padding: "4px 5px", fontWeight: 900, background: "#eee", textTransform: "uppercase", fontSize: "9px", letterSpacing: "0.5px" }}>
+                Total — {filteredTrips.length} trips
+              </td>
+              {[totalRent, totalLebor, totalBill, totalAdv, Math.max(0, totalBill - totalAdv)].map((v, i) => (
+                <td key={i} style={{ border: "1px solid #000", padding: "4px 5px", textAlign: "right", fontWeight: 900, background: "#eee" }}>
+                  {v.toLocaleString("en-IN")}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        </table>
+
+        {/* ── Payment summary ── */}
+        <div className="sig-block" style={{ marginTop: "12px", display: "flex", justifyContent: "flex-end" }}>
+          <table style={{ borderCollapse: "collapse", fontSize: "11px", minWidth: "230px" }}>
+            <tbody>
+              {[
+                ["Total Bill (Rent + Lebor)", totalBill],
+                ["Advance Paid", totalAdv],
+                ["Payments Received", totalPaid],
+              ].map(([l, v]) => (
+                <tr key={l}>
+                  <td style={{ padding: "3px 10px 3px 0", color: "#333" }}>{l}</td>
+                  <td style={{ padding: "3px 0", textAlign: "right", fontWeight: 700 }}>৳ {v.toLocaleString("en-IN")}</td>
+                </tr>
+              ))}
+              <tr>
+                <td style={{ padding: "5px 10px 3px 0", fontWeight: 900, borderTop: "2px solid #000" }}>NET DUE</td>
+                <td style={{ padding: "5px 0 3px", textAlign: "right", fontWeight: 900, borderTop: "2px solid #000" }}>
+                  ৳ {totalDue.toLocaleString("en-IN")}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── Signatures ── */}
+        <div className="sig-block" style={{ display: "flex", justifyContent: "space-between", marginTop: "55px", fontSize: "10px" }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ borderTop: "1px solid #000", width: "170px", paddingTop: "4px" }}>Vendor Signature</div>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ borderTop: "1px solid #000", width: "170px", paddingTop: "4px" }}>Authorized Signature</div>
+          </div>
+        </div>
       </div>
     </div>
   );

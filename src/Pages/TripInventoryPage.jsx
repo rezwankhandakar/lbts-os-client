@@ -208,7 +208,16 @@ const TripInventoryPage = () => {
   useEffect(() => { yearRef.current   = year;       }, [year]);
   useEffect(() => { searchRef.current = searchText; }, [searchText]);
 
-  useEffect(() => { fetchDeliveries(month, year, searchText); }, [month, year, searchText, fetchDeliveries]);
+  useEffect(() => {
+    // Year input মুছে ফেললে parseInt("") = NaN হয়ে `/deliveries?year=NaN`
+    // fire হতো — invalid year এ fetch skip করা হয় (user টাইপ শেষ করলে চলবে)।
+    if (!searchText && (!Number.isFinite(year) || year < 2000 || year > 2100)) return;
+    fetchDeliveries(month, year, searchText);
+  }, [month, year, searchText, fetchDeliveries]);
+
+  // Filter/মাস বদলালে pagination page 1-এ ফিরবে — নাহলে আগের page number
+  // নতুন (ছোট) result set-এর বাইরে পড়ে ফাঁকা টেবিল দেখাতে পারে।
+  useEffect(() => { setClientPage(1); }, [month, year, searchText, tripFilter, vendorFilter, driverFilter, vehicleFilter, noteFilter, dateFilter, challanFilter]);
 
   // window focus — re-fetch
   useEffect(() => {
@@ -276,6 +285,17 @@ const TripInventoryPage = () => {
 
   const hasFilter = tripFilter.length > 0 || vendorFilter.length > 0 || driverFilter.length > 0 ||
     vehicleFilter.length > 0 || noteFilter.length > 0 || dateFilter || challanFilter;
+
+  // ── Summary stats (filtered result-এর উপর) ──
+  const summary = (() => {
+    let points = 0, received = 0;
+    filteredRows.forEach(t => {
+      points += Number(t.challanQty ?? t.totalChallan ?? 0) || 0;
+      const normal = (t.challans || []).filter(c => !c.isReturn);
+      if (normal.length > 0 && normal.every(c => c.challanReturnStatus === "received")) received += 1;
+    });
+    return { trips: filteredRows.length, points, received, pending: filteredRows.length - received };
+  })();
 
   const handleReset = () => {
     setMonth(new Date().getMonth() + 1); setYear(new Date().getFullYear());
@@ -355,14 +375,29 @@ const TripInventoryPage = () => {
       <div className="flex-shrink-0 bg-white border-b border-slate-200 px-3 sm:px-4 py-2.5 shadow-sm">
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
           <div className="flex items-center gap-2 shrink-0">
-            <div className="w-7 h-7 bg-amber-50 rounded-lg flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            <div className="w-7 h-7 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center shadow-sm shadow-orange-200">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
             </div>
             <h2 className="text-sm font-black text-slate-800">Trip Inventory</h2>
           </div>
-          <span className="text-[10px] text-slate-500 bg-slate-100 border border-slate-200 rounded-lg px-2 py-0.5 shrink-0 font-semibold">
-            {filteredRows.length} trips{totalPages > 1 && ` · p${clientPage}/${totalPages}`}
-          </span>
+          {/* ── Smart stat chips (filtered data-র summary) ── */}
+          <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+            <span className="inline-flex items-center gap-1 text-[10px] text-slate-600 bg-slate-100 border border-slate-200 rounded-lg px-2 py-0.5 font-bold">
+              {summary.trips} <span className="font-medium text-slate-400">trips</span>
+              {totalPages > 1 && <span className="text-slate-400 font-medium">· p{clientPage}/{totalPages}</span>}
+            </span>
+            <span className="inline-flex items-center gap-1 text-[10px] text-sky-700 bg-sky-50 border border-sky-200 rounded-lg px-2 py-0.5 font-bold">
+              {summary.points} <span className="font-medium text-sky-500">points</span>
+            </span>
+            <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-0.5 font-bold">
+              {summary.received} <span className="font-medium text-emerald-500">received</span>
+            </span>
+            {summary.pending > 0 && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-2 py-0.5 font-bold">
+                {summary.pending} <span className="font-medium text-rose-400">pending</span>
+              </span>
+            )}
+          </div>
           {activeFilterGroups.map((f, i) => (
             <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-800 text-white text-[9px] rounded-lg font-bold shrink-0">
               {f.label}: {f.values.length === 1 ? f.values[0] : `${f.values.length}`}
@@ -375,8 +410,8 @@ const TripInventoryPage = () => {
             value={month} onChange={e => { setMonth(parseInt(e.target.value)); }}>
             {MONTHS_FULL.map((m, i) => <option key={i} value={i + 1}>{isMobile ? MONTHS_SHORT[i] : m}</option>)}
           </select>
-          <input type="number" className={`${tbtn} border-slate-200 text-slate-700 bg-white w-20 focus:outline-none`}
-            value={year} onChange={e => setYear(parseInt(e.target.value))} />
+          <input type="number" min="2000" max="2100" className={`${tbtn} border-slate-200 text-slate-700 bg-white w-20 focus:outline-none`}
+            value={Number.isFinite(year) ? year : ""} onChange={e => setYear(parseInt(e.target.value))} />
           <button onClick={handleReset} className={`${tbtn} border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500`}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
             <span className="hidden sm:inline">Reset</span>
@@ -420,7 +455,7 @@ const TripInventoryPage = () => {
               </div>
             </div>
             <div className="space-y-2">
-              {paginatedRows.map((t, i) => <MobileTripCard key={i} t={t} onView={openTrip} onImageClick={setLightbox} />)}
+              {paginatedRows.map((t, i) => <MobileTripCard key={t._id || i} t={t} onView={openTrip} onImageClick={setLightbox} />)}
             </div>
           </div>
         ) : (
@@ -459,7 +494,7 @@ const TripInventoryPage = () => {
                       const normalChallans = challans.filter(c => !c.isReturn);
                       const allReceived    = normalChallans.length > 0 && normalChallans.every(c => c.challanReturnStatus === "received");
                       return (
-                        <tr key={i} className="border-b border-slate-100 hover:bg-amber-50/30 even:bg-slate-50/40 transition-colors text-center">
+                        <tr key={t._id || i} className="border-b border-slate-100 hover:bg-amber-50/30 even:bg-slate-50/40 transition-colors text-center">
                           <td className="px-2.5 py-2 text-blue-500 font-semibold whitespace-nowrap text-left">{new Date(t.createdAt).toLocaleDateString("en-GB")}</td>
                           <td className="px-2.5 py-2">
                             <span className="text-[11px] bg-black text-white border rounded-lg px-2 py-0.5 font-mono font-bold">{t.tripNumber}</span>

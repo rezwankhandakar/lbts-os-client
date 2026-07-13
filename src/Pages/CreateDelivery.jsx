@@ -32,6 +32,23 @@ const CreateDelivery = () => {
     const [editingChallan, setEditingChallan] = useState(null);
     const [vehicleSuggestions, setVehicleSuggestions] = useState([]);
     const [mobileTab, setMobileTab] = useState("challans");
+    // Vehicle autocomplete — debounce timer + request sequence (race guard)
+    const vehicleDebounceRef = useRef(null);
+    const vehicleReqSeqRef   = useRef(0);
+
+    const searchVehicles = (val) => {
+        clearTimeout(vehicleDebounceRef.current);
+        if (!val || val.length < 2) { setVehicleSuggestions([]); return; }
+        vehicleDebounceRef.current = setTimeout(async () => {
+            const seq = ++vehicleReqSeqRef.current;
+            try {
+                const res = await axiosSecure.get(`/vehicles/search?search=${encodeURIComponent(val)}`);
+                // ── Race guard: পুরনো request-এর response পরে এলে ignore ──
+                if (seq === vehicleReqSeqRef.current) setVehicleSuggestions(res.data || []);
+            } catch { /* ignore */ }
+        }, 250);
+    };
+    useEffect(() => () => clearTimeout(vehicleDebounceRef.current), []);
 
     const handleDeliveryInfoChange = (e) => {
         const { name, value } = e.target;
@@ -61,9 +78,11 @@ const CreateDelivery = () => {
         }
         if (!deliveryQueue.some(item => item._id === challan._id)) {
             setDeliveryQueue([...deliveryQueue, challan]);
-            setMobileTab("queue");
+            // Tab auto-switch করা হয় না — পরপর কয়েকটা add করার সময় বারবার
+            // queue tab-এ চলে যাওয়া বিরক্তিকর ছিল। Toast + badge count-ই যথেষ্ট।
+            Swal.fire({ toast: true, position: "top-end", icon: "success", title: `${challan.customerName} added`, timer: 1100, showConfirmButton: false });
         } else {
-            Swal.fire({ icon: "info", title: "Already Added", timer: 1500, showConfirmButton: false });
+            Swal.fire({ icon: "info", title: "Already Added", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
         }
     };
 
@@ -74,7 +93,24 @@ const CreateDelivery = () => {
 
     const handleEditChange = (e) => {
         const { name, value } = e.target;
-        setEditingChallan(prev => ({ ...prev, [name]: value }));
+        setEditingChallan(prev => {
+            const next = { ...prev, [name]: value };
+            // ── Thana/District বদলালে location পাল্টায় — আর location বদলালে
+            //    প্রতিটা product-এর rate-ও নতুন করে resolve করতে হয়। আগে
+            //    location stale থেকে যেত, ফলে ভুল rate নিয়ে dispatch হতো।
+            if (name === "thana" || name === "district") {
+                const newLocation = computeLocation(next.thana, next.district) || prev.location || null;
+                next.location = newLocation;
+                next.products = (next.products || []).map(p => {
+                    const { capacity, rate } = findRate({
+                        productName: p.productName, model: p.model,
+                        location: newLocation, capacity: p.capacity || "",
+                    });
+                    return { ...p, capacity: capacity || p.capacity || "", rate };
+                });
+            }
+            return next;
+        });
     };
 
     const handleProductChange = (index, field, value) => {
@@ -118,23 +154,51 @@ const CreateDelivery = () => {
         setEditingChallan({ ...editingChallan, products: updated });
     };
 
+    const [savingChallan, setSavingChallan] = useState(false);
     const handleUpdateChallan = async () => {
+        // ── Payload sanitize: ফাঁকা product row বাদ, quantity coerce ──
+        const cleanProducts = (editingChallan.products || [])
+            .filter(p => (p.productName || "").trim())
+            .map(p => ({ ...p, quantity: Number(p.quantity) || 1 }));
+        if (cleanProducts.length === 0) {
+            return Swal.fire({ icon: "warning", title: "At least one product required" });
+        }
+        setSavingChallan(true);
         try {
-            const res = await axiosSecure.patch(`/challans/${editingChallan._id}`, editingChallan);
+            const payload = {
+                ...editingChallan,
+                products: cleanProducts,
+                // Edited thana/district থেকে recompute হওয়া location server-এ
+                // পাঠানো হয় — server এটা দিয়ে authoritative rate resolve করে।
+                location: editingChallan.location || computeLocation(editingChallan.thana, editingChallan.district) || "",
+                updatedBy: user?.displayName || user?.email || "unknown",
+            };
+            const res = await axiosSecure.patch(`/challans/${editingChallan._id}`, payload);
             if (res.data.modifiedCount || res.data.success) {
-                Swal.fire({ icon: "success", title: "Updated", timer: 1500, showConfirmButton: false });
+                Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Challan updated", timer: 1500, showConfirmButton: false });
                 fetchChallans(searchText);
-                setDeliveryQueue(prev => prev.map(item => item._id === editingChallan._id ? editingChallan : item));
+                setDeliveryQueue(prev => prev.map(item => item._id === editingChallan._id ? { ...editingChallan, products: cleanProducts } : item));
                 setIsEditModalOpen(false);
             }
         } catch (err) {
-            Swal.fire("Error", "Update failed", "error");
+            // Server validation error (400) হলে আসল message দেখাও —
+            // আগে সব ক্ষেত্রেই generic "Update failed" দেখাত।
+            const msg = err?.response?.data?.errors?.[0]?.message
+                || err?.response?.data?.message
+                || "Update failed";
+            Swal.fire({ icon: "error", title: "Could not update", text: msg });
+        } finally {
+            setSavingChallan(false);
         }
     };
 
+    const [dispatching, setDispatching] = useState(false);
     const handleConfirmDispatch = async () => {
-        if (!deliveryInfo.vehicleNumber || !deliveryInfo.driverNumber) {
-            return Swal.fire("Required", "Vehicle and Driver details are mandatory", "warning");
+        if (dispatching) return; // double-click guard
+        // Server-ও driverName require করে (validation) — আগে client শুধু
+        // vehicle+driver phone চেক করত, ফলে নাম ফাঁকা রাখলে confusing 400 আসত।
+        if (!deliveryInfo.vehicleNumber?.trim() || !deliveryInfo.driverName?.trim() || !deliveryInfo.driverNumber?.trim()) {
+            return Swal.fire("Required", "Vehicle number, driver name and driver phone are mandatory", "warning");
         }
         if (deliveryQueue.length === 0) {
             return Swal.fire("Empty Queue", "Please add at least one challan", "warning");
@@ -143,6 +207,26 @@ const CreateDelivery = () => {
         if (deliveredItems.length > 0) {
             return Swal.fire({ icon: "warning", title: "Already Delivered", text: deliveredItems.map(c => c.customerName).join(", ") });
         }
+
+        // ── Dispatch preview — এক নজরে সব দেখে confirm ──
+        const esc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const totalPcs = deliveryQueue.reduce((s, c) => s + (c.products || []).reduce((x, p) => x + (Number(p.quantity) || 0), 0), 0);
+        const { isConfirmed } = await Swal.fire({
+            title: "Confirm Dispatch?",
+            html: `<div style="text-align:left;font-size:13px;color:#475569;line-height:1.8">
+                     <b style="color:#0f172a">🚚 ${esc(deliveryInfo.vehicleNumber)}</b><br/>
+                     Driver: <b>${esc(deliveryInfo.driverName)}</b> (${esc(deliveryInfo.driverNumber)})<br/>
+                     ${deliveryInfo.vendorName ? `Vendor: <b>${esc(deliveryInfo.vendorName)}</b><br/>` : ""}
+                     Points: <b style="color:#059669">${deliveryQueue.length}</b> ·
+                     Products: <b style="color:#0284c7">${totalPcs} PCS</b>
+                   </div>`,
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonColor: "#10b981",
+            confirmButtonText: "Yes, Dispatch",
+            cancelButtonText: "Review Again",
+        });
+        if (!isConfirmed) return;
 
         const deliveryData = deliveryQueue.map(c => ({
             ...deliveryInfo,
@@ -160,6 +244,7 @@ const CreateDelivery = () => {
             createdBy: user?.displayName || user?.email || "unknown",
         }));
 
+        setDispatching(true);
         try {
             const res = await axiosSecure.post("/deliveries", deliveryData);
             if (res.data.success) {
@@ -176,6 +261,8 @@ const CreateDelivery = () => {
         } catch (error) {
             const msg = error?.response?.data?.message || "Failed to create delivery. Try again.";
             Swal.fire({ icon: "error", title: "Dispatch Failed", text: msg });
+        } finally {
+            setDispatching(false);
         }
     };
 
@@ -186,13 +273,17 @@ const CreateDelivery = () => {
             <div className="max-w-[1800px] mx-auto px-2 sm:px-3 lg:px-0">
 
                 {/* ── Header & Vehicle Info ── */}
-                <div className="bg-white shadow-sm border border-slate-200 mb-3 rounded-2xl overflow-hidden">
+                {/* NOTE: এই card-এ overflow-hidden ছিল — সেটা vehicle
+                    autocomplete dropdown-কে clip করে নিচে লুকিয়ে ফেলত।
+                    overflow-hidden সরিয়ে dark top bar-কে নিজস্ব rounded-t
+                    দেওয়া হয়েছে, তাই কোণাগুলো আগের মতোই দেখায়। */}
+                <div className="bg-white shadow-sm border border-slate-200 mb-3 rounded-2xl relative z-30">
 
                     {/* Top bar */}
-                    <div className="bg-slate-950 px-4 py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <div className="bg-slate-950 rounded-t-2xl px-4 py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <div>
                             <h2 className="text-lg sm:text-xl font-black text-white flex items-center gap-2.5">
-                                <div className="w-8 h-8 bg-emerald-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                                <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/30">
                                     <FaTruck className="text-white" size={14} />
                                 </div>
                                 DELIVERY <span className="text-emerald-400">PLANNER</span>
@@ -224,36 +315,29 @@ const CreateDelivery = () => {
                                     type="text" value={deliveryInfo.vehicleNumber}
                                     placeholder="Metro-1234"
                                     className={`${inp} pl-8`}
-                                    onChange={async (e) => {
+                                    onChange={(e) => {
                                         const val = e.target.value;
                                         setDeliveryInfo(prev => ({ ...prev, vehicleNumber: val }));
-                                        if (val.length > 1) {
-                                            try {
-                                                const res = await axiosSecure.get(`/vehicles/search?search=${val}`);
-                                                setVehicleSuggestions(res.data || []);
-                                            } catch { }
-                                        } else { setVehicleSuggestions([]); }
+                                        searchVehicles(val);
                                     }}
                                     onBlur={() => setTimeout(() => setVehicleSuggestions([]), 150)}
                                 />
-                                {vehicleSuggestions.length > 0 && (() => {
-                                    const inp = document.querySelector('input[placeholder="Metro-1234"]');
-                                    const rect = inp ? inp.getBoundingClientRect() : null;
-                                    return rect ? (
-                                        <div style={{ position: "fixed", top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex: 9999 }}
-                                            className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-h-60 overflow-y-auto">
-                                            {vehicleSuggestions.map((v, i) => (
-                                                <div key={i} onMouseDown={() => {
-                                                    setDeliveryInfo({ vehicleNumber: v.vehicleNumber, vendorName: v.vendorName, vendorNumber: v.vendorPhone, driverName: v.driverName, driverNumber: v.driverPhone });
-                                                    setVehicleSuggestions([]);
-                                                }} className="p-2.5 hover:bg-orange-50 cursor-pointer border-b last:border-0 transition-colors">
-                                                    <p className="font-black text-xs text-slate-800">{v.vehicleNumber}</p>
-                                                    <p className="text-[10px] text-slate-500 font-bold uppercase">{v.vendorName} · {v.driverName}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : null;
-                                })()}
+                                {/* Dropdown — relative parent-এর ভেতরে absolute, তাই scroll/
+                                    resize এও ঠিক জায়গায় থাকে (আগের fixed + querySelector
+                                    hack scroll করলে ভেসে থাকত)। */}
+                                {vehicleSuggestions.length > 0 && (
+                                    <div className="absolute top-full left-0 w-full mt-1.5 z-[200] bg-white border border-slate-200 rounded-2xl shadow-2xl max-h-60 overflow-y-auto">
+                                        {vehicleSuggestions.map((v, i) => (
+                                            <div key={i} onMouseDown={() => {
+                                                setDeliveryInfo({ vehicleNumber: v.vehicleNumber, vendorName: v.vendorName, vendorNumber: v.vendorPhone, driverName: v.driverName, driverNumber: v.driverPhone });
+                                                setVehicleSuggestions([]);
+                                            }} className="p-2.5 hover:bg-emerald-50 cursor-pointer border-b border-slate-100 last:border-0 transition-colors">
+                                                <p className="font-black text-xs text-slate-800">{v.vehicleNumber}</p>
+                                                <p className="text-[10px] text-slate-500 font-bold uppercase">{v.vendorName} · {v.driverName}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -356,20 +440,56 @@ const CreateDelivery = () => {
                                 <div className="space-y-3">
                                     {deliveryQueue.map(item => (
                                         <QueueItem key={item._id} item={item}
+                                            onEdit={() => handleEditClick(item)}
                                             onRemove={(id) => setDeliveryQueue(q => q.filter(i => i._id !== id))} />
                                     ))}
                                 </div>
                             )}
                         </div>
 
-                        {deliveryQueue.length > 0 && (
-                            <div className="p-3 sm:p-4 bg-white border-t border-slate-100">
-                                <button onClick={handleConfirmDispatch}
-                                    className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-black text-sm shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-3 transition-all active:scale-[0.98]">
-                                    CONFIRM DISPATCH &amp; GENERATE TRIP <FaTruck size={14} />
-                                </button>
-                            </div>
-                        )}
+                        {deliveryQueue.length > 0 && (() => {
+                            // ── Load summary: total PCS + per-product breakdown ──
+                            const productMap = {};
+                            let totalPcs = 0;
+                            deliveryQueue.forEach(c => (c.products || []).forEach(p => {
+                                const qty = Number(p.quantity) || 0;
+                                totalPcs += qty;
+                                const key = p.productName || p.model || "Item";
+                                productMap[key] = (productMap[key] || 0) + qty;
+                            }));
+                            return (
+                                <div className="bg-white border-t border-slate-100">
+                                    {/* Summary strip */}
+                                    <div className="px-3 sm:px-4 pt-3 flex flex-wrap items-center gap-1.5">
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 border border-emerald-200 rounded-lg text-[10px] font-black text-emerald-700">
+                                            {deliveryQueue.length} <span className="font-semibold text-emerald-500">points</span>
+                                        </span>
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-sky-50 border border-sky-200 rounded-lg text-[10px] font-black text-sky-700">
+                                            {totalPcs} <span className="font-semibold text-sky-500">PCS total</span>
+                                        </span>
+                                        {Object.entries(productMap).map(([name, qty]) => (
+                                            <span key={name} className="inline-flex items-center gap-1 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-semibold text-slate-600 max-w-[160px]">
+                                                <span className="truncate">{name}</span>
+                                                <span className="font-black text-indigo-600 shrink-0">{qty}</span>
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <div className="p-3 sm:p-4">
+                                        <button onClick={handleConfirmDispatch} disabled={dispatching}
+                                            className="w-full py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-xl font-black text-sm shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100">
+                                            {dispatching ? (
+                                                <>
+                                                    <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                                                    CREATING TRIP…
+                                                </>
+                                            ) : (
+                                                <>CONFIRM DISPATCH &amp; GENERATE TRIP <FaTruck size={14} /></>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </div>
                 </div>
             </div>
@@ -383,6 +503,7 @@ const CreateDelivery = () => {
                 handleDeleteProduct={handleDeleteProduct}
                 handleUpdateChallan={handleUpdateChallan}
                 setEditingChallan={setEditingChallan}
+                saving={savingChallan}
             />
         </div>
     );
@@ -424,7 +545,7 @@ const ChallanCard = ({ data, onAdd, onEdit }) => (
             <div className="bg-slate-50 rounded-xl p-2 border border-slate-100">
                 {data.products?.map((p, i) => (
                     <div key={i} className="flex justify-between text-[10px] py-0.5">
-                        <span className="text-slate-600 font-bold truncate pr-3 uppercase">{p.model}</span>
+                        <span className="text-slate-600 font-bold truncate pr-3 uppercase">{p.model || p.productName}</span>
                         <span className="text-blue-600 font-black flex-shrink-0">{p.quantity} PCS</span>
                     </div>
                 ))}
@@ -437,13 +558,22 @@ const ChallanCard = ({ data, onAdd, onEdit }) => (
 );
 
 /* ── QueueItem ── */
-const QueueItem = ({ item, onRemove }) => (
+const QueueItem = ({ item, onRemove, onEdit }) => (
     <div className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm relative group hover:border-emerald-200 transition-all">
-        <button onClick={() => onRemove(item._id)} className="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all">
-            <FaTimes size={13} />
-        </button>
+        <div className="absolute top-3 right-3 flex items-center gap-1">
+            {onEdit && (
+                <button onClick={onEdit} title="Edit challan"
+                    className="p-1.5 text-slate-300 hover:text-blue-500 rounded-lg hover:bg-blue-50 transition-all">
+                    <FaUserEdit size={13} />
+                </button>
+            )}
+            <button onClick={() => onRemove(item._id)} title="Remove from queue"
+                className="p-1.5 text-slate-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all">
+                <FaTimes size={13} />
+            </button>
+        </div>
         <div className="flex flex-col sm:flex-row gap-3">
-            <div className="sm:w-1/2 pr-6 sm:pr-0">
+            <div className="sm:w-1/2 pr-14 sm:pr-0">
                 <span className="text-[10px] font-semibold text-slate-400">{item.createdAt ? new Date(item.createdAt).toLocaleDateString("en-GB") : "—"}</span>
                 <h4 className="font-black text-slate-800 uppercase tracking-tight truncate text-sm">{item.customerName}</h4>
                 <span className="inline-block mt-0.5 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-lg text-[9px] font-black uppercase">Zone: {item.zone}</span>
@@ -458,7 +588,7 @@ const QueueItem = ({ item, onRemove }) => (
                 <div className="space-y-1">
                     {item.products?.map((p, i) => (
                         <div key={i} className="flex justify-between items-center text-[11px]">
-                            <span className="text-slate-700 font-bold uppercase truncate pr-2">{p.model}</span>
+                            <span className="text-slate-700 font-bold uppercase truncate pr-2">{p.model || p.productName}</span>
                             <span className="font-black text-emerald-600 flex-shrink-0">{p.quantity} <span className="text-[9px] text-slate-400">PCS</span></span>
                         </div>
                     ))}

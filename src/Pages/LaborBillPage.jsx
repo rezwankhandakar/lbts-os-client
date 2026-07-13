@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useNavigate } from "react-router";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -76,6 +77,7 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
 ════════════════════════════════════════════════════════════════ */
 const LaborBillPage = () => {
   const axiosSecure = useAxiosSecure();
+  const navigate    = useNavigate();
   const [rows,       setRows]       = useState([]);
   const [loading,    setLoading]    = useState(false);
   const [month,      setMonth]      = useState(now.getMonth() + 1);
@@ -274,15 +276,19 @@ const handleExport = async () => {
 
           {/* Title */}
           <div className="flex items-center gap-2 shrink-0">
-            <div className="w-7 h-7 bg-emerald-50 rounded-lg flex items-center justify-center text-sm">🏢</div>
+            <div className="w-7 h-7 bg-gradient-to-br from-emerald-400 to-teal-600 rounded-lg flex items-center justify-center text-sm shadow-sm shadow-emerald-200">🏢</div>
             <h2 className="text-sm font-black text-slate-800">Labor Bill</h2>
-            
           </div>
 
           {/* Counts */}
           <span className="text-[10px] text-slate-500 bg-slate-100 border border-slate-200 rounded-lg px-2 py-0.5 shrink-0 font-semibold">
             {filteredRows.length} rows{totalPages > 1 && ` · p${clientPage}/${totalPages}`}
           </span>
+          {filteredRows.length > 0 && (
+            <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-0.5 shrink-0">
+              {new Set(filteredRows.map(r => r.tripNumber)).size} <span className="font-semibold text-emerald-500">trips</span>
+            </span>
+          )}
           {totalQty > 0 && (
             <span className="text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg px-2 py-0.5 shrink-0">
               Qty: {totalQty.toLocaleString()}
@@ -355,7 +361,13 @@ const handleExport = async () => {
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-slate-800 text-sm truncate">{r.customerName}</p>
-                    <p className="text-[10px] text-slate-400">{r._date} · {r.tripNumber}</p>
+                    <p className="text-[10px] text-slate-400">
+                      {r._date} ·{" "}
+                      <button onClick={() => r.tripId && navigate(`/trip/${r.tripId}`)}
+                        className="font-mono text-indigo-500 hover:text-indigo-700 underline decoration-dotted">
+                        {r.tripNumber}
+                      </button>
+                    </p>
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0">
                     {r.floor && (
@@ -425,7 +437,16 @@ const handleExport = async () => {
                     {paginatedRows.map((r, idx) => (
                       <tr key={idx} className={`border-b border-slate-100 transition-colors hover:bg-emerald-50/20 ${idx % 2 === 0 ? "" : "bg-slate-50/40"}`}>
                         <td className="px-2 py-1.5 text-black whitespace-nowrap">{r._date}</td>
-                        <td className="px-2 py-1.5 text-black font-mono text-[10px]">{r.tripNumber}</td>
+                        <td className="px-2 py-1.5">
+                          {/* Trip number → trip details (rows-এ tripId আগে থেকেই ছিল, ব্যবহার হতো না) */}
+                          <button
+                            onClick={() => r.tripId && navigate(`/trip/${r.tripId}`)}
+                            title="Open trip details"
+                            className="font-mono text-[10px] text-indigo-600 hover:text-indigo-800 hover:underline transition"
+                          >
+                            {r.tripNumber}
+                          </button>
+                        </td>
                         <td className="px-2 py-1.5 font-semibold text-slate-800 max-w-[100px]" title={r.customerName}><span className="block truncate">{r.customerName}</span></td>
                         <td className="px-2 py-1.5 text-black"><span className="block truncate">{r.zone}</span></td>
                         <td className="px-2 py-1.5 text-black max-w-[100px]" title={r.address}><span className="block truncate">{r.address}</span></td>

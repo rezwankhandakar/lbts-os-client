@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import useAxiosSecure from "../hooks/useAxiosSecure";
@@ -21,7 +20,10 @@ const AddVendor = () => {
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    setPreview(URL.createObjectURL(file));
+    // ── Instant local preview — আগে `preview` set হতো কিন্তু UI-তে কোথাও
+    //    ব্যবহার হতো না, ফলে upload শেষ না হওয়া পর্যন্ত বক্স ফাঁকা দেখাত।
+    //    পুরনো objectURL revoke করা হয় (memory leak এড়াতে)।
+    setPreview(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(file); });
     setUploading(true);
     try {
       const fd = new FormData();
@@ -35,20 +37,34 @@ const AddVendor = () => {
     finally { setUploading(false); }
   };
 
-  const handleReset = () => { setFormData({ vendorName: "", vendorImg: "", vendorAddress: "", vendorPhone: "" }); setPreview(null); };
+  const handleReset = () => {
+    setFormData({ vendorName: "", vendorImg: "", vendorAddress: "", vendorPhone: "" });
+    setPreview(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.vendorImg) return Swal.fire("Wait!", "Please upload a vendor image first.", "warning");
     setLoading(true);
     try {
-      const res = await axiosSecure.post("/vendors", formData);
+      // Trim — নাম/ফোন/ঠিকানায় লিডিং-ট্রেইলিং space নিয়ে save হতো
+      const payload = {
+        vendorName: formData.vendorName.trim(),
+        vendorImg: formData.vendorImg,
+        vendorAddress: formData.vendorAddress.trim(),
+        vendorPhone: formData.vendorPhone.trim(),
+      };
+      const res = await axiosSecure.post("/vendors", payload);
       if (res.data.insertedId) {
         Swal.fire({ icon: "success", title: "Vendor Added!", text: "Vendor has been added to the system.", confirmButtonColor: "#f97316" });
         handleReset();
         queryClient.invalidateQueries({ queryKey: ["vendors"] });
       }
-    } catch { Swal.fire("Error", "Failed to add vendor.", "error"); }
+    } catch (err) {
+      // Server validation message দেখাও — আগে সব ক্ষেত্রে generic error
+      const msg = err?.response?.data?.errors?.[0]?.message || err?.response?.data?.message || "Failed to add vendor.";
+      Swal.fire("Error", msg, "error");
+    }
     finally { setLoading(false); }
   };
 
@@ -60,7 +76,7 @@ const AddVendor = () => {
       {/* ── Page header ── */}
       <div className="max-w-3xl mx-auto mb-5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center text-violet-600">
+          <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-500/25">
             <UserPlus size={20} />
           </div>
           <div>
@@ -76,16 +92,21 @@ const AddVendor = () => {
 
           {/* Mobile top strip */}
           <div className="md:hidden bg-slate-900 px-4 py-4 flex items-center gap-4">
-            <div className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-700 overflow-hidden bg-slate-800 flex-shrink-0">
-              {formData.vendorImg
-                ? <img src={formData.vendorImg} alt="Preview" className="w-full h-full object-cover" />
+            <div className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-700 overflow-hidden bg-slate-800 flex-shrink-0 relative">
+              {(preview || formData.vendorImg)
+                ? <img src={preview || formData.vendorImg} alt="Preview" className={`w-full h-full object-cover ${uploading ? "opacity-60" : ""}`} />
                 : <div className="w-full h-full flex items-center justify-center text-slate-600"><ImageIcon size={22} /></div>
               }
+              {uploading && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Loader2 size={18} className="text-white animate-spin" />
+                </div>
+              )}
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Vendor Profile</h3>
               <p className="text-slate-400 text-[11px] mt-0.5">Upload photo & fill contact info</p>
-              {formData.vendorImg && <span className="text-[10px] text-emerald-400 font-bold">✓ Image uploaded</span>}
+              {formData.vendorImg && !uploading && <span className="text-[10px] text-emerald-400 font-bold">✓ Image uploaded</span>}
             </div>
           </div>
 
@@ -98,14 +119,19 @@ const AddVendor = () => {
               </p>
             </div>
             <div className="flex flex-col items-center mt-8">
-              <div className="w-28 h-28 rounded-2xl border-2 border-dashed border-slate-700 flex items-center justify-center overflow-hidden bg-slate-800">
-                {formData.vendorImg
-                  ? <img src={formData.vendorImg} alt="Preview" className="w-full h-full object-cover" />
+              <div className="w-28 h-28 rounded-2xl border-2 border-dashed border-slate-700 flex items-center justify-center overflow-hidden bg-slate-800 relative">
+                {(preview || formData.vendorImg)
+                  ? <img src={preview || formData.vendorImg} alt="Preview" className={`w-full h-full object-cover ${uploading ? "opacity-60" : ""}`} />
                   : <ImageIcon size={34} className="text-slate-600" />
                 }
+                {uploading && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Loader2 size={22} className="text-white animate-spin" />
+                  </div>
+                )}
               </div>
               <p className="mt-2 text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Image Preview</p>
-              {formData.vendorImg && <span className="mt-1 text-[10px] text-emerald-400 font-bold">✓ Uploaded</span>}
+              {formData.vendorImg && !uploading && <span className="mt-1 text-[10px] text-emerald-400 font-bold">✓ Uploaded</span>}
             </div>
           </div>
 

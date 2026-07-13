@@ -4,7 +4,7 @@ import Swal from "sweetalert2";
 import {
   X, Truck, User, Package, PhoneForwarded,
   Plus, Trash2, Pencil, Check, RotateCcw, StickyNote, Save, Wallet, ChevronDown,
-  Building2, ArrowLeft, Search, Loader2
+  Building2, ArrowLeft, Search, Loader2, Copy
 } from "lucide-react";
 import useAuth from "../hooks/useAuth";
 import useRole from "../hooks/useRole";
@@ -250,7 +250,9 @@ const ReturnModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy 
 
   const handleQtyChange = (i, val) => {
     const max = returnItems[i].deliveredQty;
-    setReturnItems(prev => prev.map((r, idx) => idx === i ? { ...r, returnQty: Math.min(Math.max(0, Number(val)), max) } : r));
+    const n = Number(val);
+    const safe = Number.isFinite(n) ? n : 0; // NaN guard — non-numeric paste ইত্যাদি
+    setReturnItems(prev => prev.map((r, idx) => idx === i ? { ...r, returnQty: Math.min(Math.max(0, safe), max) } : r));
   };
   const handleFieldChange = (i, field, val) =>
     setReturnItems(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
@@ -418,17 +420,30 @@ const RtnNoteModal = ({ tripId, challan, onSave, onClose, axiosSecure, updatedBy
   const handleSave = async () => {
     setSaving(true);
     try {
-      if (deliveryStatus && deliveryStatus !== challan.deliveryStatus) {
+      // Non-empty status → dedicated endpoints (they also stamp
+      // confirmedBy/receivedBy audit fields). Cleared status ("") →
+      // generic /status endpoint, otherwise the clear was only ever
+      // applied locally and a refresh silently brought the old value
+      // back (bug).
+      const dChanged = deliveryStatus      !== (challan.deliveryStatus      || "");
+      const cChanged = challanReturnStatus !== (challan.challanReturnStatus || "");
+      if (dChanged && deliveryStatus) {
         await axiosSecure.patch(`/deliveries/confirm`, {
           tripNumber: challan._tripNumber, challanId: challan.challanId,
           status: deliveryStatus, operator: updatedBy,
         });
       }
-      if (challanReturnStatus && challanReturnStatus !== challan.challanReturnStatus) {
+      if (cChanged && challanReturnStatus) {
         await axiosSecure.patch(`/deliveries/challan-return`, {
           tripNumber: challan._tripNumber, challanId: challan.challanId,
           status: challanReturnStatus, operator: updatedBy,
         });
+      }
+      const clearPayload = {};
+      if (dChanged && !deliveryStatus)      clearPayload.deliveryStatus      = "";
+      if (cChanged && !challanReturnStatus) clearPayload.challanReturnStatus = "";
+      if (Object.keys(clearPayload).length > 0) {
+        await axiosSecure.patch(`/deliveries/${tripId}/challan/${challan.challanId}/status`, clearPayload);
       }
       if (note !== challan.note) {
         await axiosSecure.patch(
@@ -701,7 +716,10 @@ const AddChallanModal = ({ trip, onAdded, onClose, axiosSecure, addedBy }) => {
   const [submitting, setSubmitting] = useState(false);
 
   // challanIds already in this trip — exclude them from results.
-  const existingIds = new Set((trip.challans || []).map(c => String(c.challanId)));
+  // Ref-এ রাখা হয়েছে যাতে runSearch-এর useCallback closure stale না হয়
+  // (আগে প্রথম render-এর Set capture হয়ে থাকত)।
+  const existingIdsRef = React.useRef(new Set());
+  existingIdsRef.current = new Set((trip.challans || []).map(c => String(c.challanId)));
 
   const runSearch = useCallback(async (term) => {
     if (!term || term.trim().length < 1) { setResults([]); return; }
@@ -711,13 +729,13 @@ const AddChallanModal = ({ trip, onAdded, onClose, axiosSecure, addedBy }) => {
       const all = res.data?.data || res.data?.challans || res.data || [];
       const list = Array.isArray(all) ? all : [];
       // Only pending (not delivered) and not already in this trip.
-      setResults(list.filter(c => c.status !== "delivered" && !existingIds.has(String(c._id))));
+      setResults(list.filter(c => c.status !== "delivered" && !existingIdsRef.current.has(String(c._id))));
     } catch {
       setResults([]);
     } finally {
       setLoading(false);
     }
-  }, [axiosSecure]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [axiosSecure]);
 
   // Debounced search as the user types.
   useEffect(() => {
@@ -967,7 +985,6 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
   const canDeleteTrip = role === "admin" || role === "manager";
 
   const [trip,                 setTrip]                 = useState(selectedTrip);
-  const [loadingId,            setLoadingId]            = useState(null);
   const [editingChallan,       setEditingChallan]       = useState(null);
   const [editingTripInfo,      setEditingTripInfo]      = useState(false);
   const [returningChallan,     setReturningChallan]     = useState(null);
@@ -980,6 +997,9 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
   const [statsOpen,            setStatsOpen]            = useState(false);
   const [openActionMenu,       setOpenActionMenu]       = useState(null); // ← নতুন state
   const [showAddChallan,       setShowAddChallan]       = useState(false);
+  // ── Challan quick search + status filter (big trip-এ দ্রুত খুঁজতে) ──
+  const [challanSearch,        setChallanSearch]        = useState("");
+  const [challanTab,           setChallanTab]           = useState("all"); // all | pending | confirmed | not_received | returns
 
   useEffect(() => {
     if (!selectedTrip) { setTrip(null); return; }
@@ -1049,14 +1069,26 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
     }
   };
 
-  const updateStatus = async (challanId, status, endpoint, field) => {
+  // ── Copy a WhatsApp-friendly trip summary to clipboard ──
+  const handleCopySummary = async () => {
+    const normals = (trip.challans || []).filter(c => !c.isReturn);
+    const lines = [
+      `🚚 ${trip.tripNumber} — ${new Date(trip.createdAt).toLocaleDateString("en-GB")}`,
+      `Vendor: ${trip.vendorName}${trip.vendorNumber ? ` (${trip.vendorNumber})` : ""}`,
+      `Driver: ${trip.driverName}${trip.driverNumber ? ` (${trip.driverNumber})` : ""}`,
+      `Vehicle: ${trip.vehicleNumber}`,
+      `Points: ${normals.length}`,
+      "",
+      ...normals.map((c, i) =>
+        `${i + 1}. ${c.customerName} — ${c.zone || ""}${c.receiverNumber ? ` · ${c.receiverNumber}` : ""}\n   ${c.address || ""}`
+      ),
+    ];
     try {
-      setLoadingId(`${challanId}-${field}`);
-      await axiosSecure.patch(`/deliveries/${endpoint}`, { tripNumber: trip.tripNumber, challanId, status, operator: loggedInUser });
-      syncTrip({ ...trip, challans: trip.challans.map(c => c.challanId === challanId ? { ...c, [field]: status } : c) });
-      Swal.fire({ icon: "success", title: "Updated", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
-    } catch { Swal.fire({ icon: "error", title: "Error", text: "Update failed" }); }
-    finally { setLoadingId(null); }
+      await navigator.clipboard.writeText(lines.join("\n"));
+      Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Summary copied!", showConfirmButton: false, timer: 1400 });
+    } catch {
+      Swal.fire({ toast: true, position: "top-end", icon: "error", title: "Copy failed", showConfirmButton: false, timer: 1400 });
+    }
   };
 
   const handleChallansAdded = (addedChallans) => {
@@ -1106,6 +1138,39 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
     });
     return Object.entries(map);
   })();
+
+  // ── Progress (normal challans only) ──
+  const normalCount    = trip.challans?.filter(c => !c.isReturn).length || 0;
+  const confirmedCount = trip.challans?.filter(c => !c.isReturn && c.deliveryStatus === "confirmed").length || 0;
+  const receivedCount  = trip.challans?.filter(c => !c.isReturn && c.challanReturnStatus === "received").length || 0;
+  const returnCount    = trip.challans?.filter(c => c.isReturn).length || 0;
+  const confirmedPct   = normalCount ? Math.round((confirmedCount / normalCount) * 100) : 0;
+  const receivedPct    = normalCount ? Math.round((receivedCount  / normalCount) * 100) : 0;
+
+  // ── Challan search + tab filter ──
+  // NOTE: filter করলেও original index দরকার (serial number + key stability),
+  // তাই আগে index attach করে তারপর filter করা হচ্ছে।
+  const q = challanSearch.trim().toLowerCase();
+  const visibleChallans = (trip.challans || [])
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => {
+      if (challanTab === "returns"      && !c.isReturn) return false;
+      if (challanTab === "confirmed"    && (c.isReturn || c.deliveryStatus !== "confirmed")) return false;
+      if (challanTab === "pending"      && (c.isReturn || !!c.deliveryStatus)) return false;
+      if (challanTab === "not_received" && (c.isReturn || c.challanReturnStatus === "received")) return false;
+      if (!q) return true;
+      return [c.customerName, c.zone, c.address, c.thana, c.district, c.receiverNumber,
+        ...(c.products || []).flatMap(p => [p.productName, p.model])]
+        .some(v => v?.toString().toLowerCase().includes(q));
+    });
+
+  const challanTabs = [
+    { key: "all",          label: "All",           count: trip.challans?.length || 0 },
+    { key: "pending",      label: "Pending",       count: trip.challans?.filter(c => !c.isReturn && !c.deliveryStatus).length || 0 },
+    { key: "confirmed",    label: "Confirmed",     count: confirmedCount },
+    { key: "not_received", label: "Challan Due",   count: normalCount - receivedCount },
+    ...(returnCount > 0 ? [{ key: "returns", label: "Returns", count: returnCount }] : []),
+  ];
 
   // ── Outer wrapper differs by displayMode ──
   //   modal → fixed backdrop + centered box; click outside closes
@@ -1167,6 +1232,13 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
                 )}
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={handleCopySummary}
+                  title="Copy trip summary (share in WhatsApp)"
+                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition"
+                >
+                  <Copy size={10} /> <span className="hidden sm:inline">Copy</span>
+                </button>
                 {!isVendor && (
                   <button
                     onClick={() => setShowTripNote(true)}
@@ -1234,6 +1306,36 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
                 />
               </div>
 
+              {/* ── Progress: delivery confirmations + challan receipts ── */}
+              {normalCount > 0 && (
+                <div className="px-3 pb-1.5 grid grid-cols-2 gap-2">
+                  <div>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[8px] text-slate-500 uppercase font-black tracking-widest">Delivered</span>
+                      <span className={`text-[9px] font-black ${confirmedPct === 100 ? "text-emerald-400" : "text-slate-400"}`}>
+                        {confirmedCount}/{normalCount}
+                      </span>
+                    </div>
+                    <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-500 ${confirmedPct === 100 ? "bg-emerald-400" : "bg-indigo-400"}`}
+                        style={{ width: `${confirmedPct}%` }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[8px] text-slate-500 uppercase font-black tracking-widest">Challan Rcvd</span>
+                      <span className={`text-[9px] font-black ${receivedPct === 100 ? "text-emerald-400" : "text-slate-400"}`}>
+                        {receivedCount}/{normalCount}
+                      </span>
+                    </div>
+                    <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-500 ${receivedPct === 100 ? "bg-emerald-400" : "bg-amber-400"}`}
+                        style={{ width: `${receivedPct}%` }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {statsOpen && (
                 <div className="border-t border-slate-700 px-3 py-3 flex flex-wrap items-start gap-x-4 gap-y-3">
                   <div className="flex items-center gap-2">
@@ -1257,13 +1359,17 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* NOTE: Tailwind can't compile dynamic class strings like
+                        `text-${color}-400` — full class names must appear
+                        literally, otherwise they get purged and the badges
+                        render unstyled. */}
                     {[
-                      { label: "Confirmation Pending", value: deliveryNotConfirmed, color: "rose"  },
-                      { label: "Challan Not Received", value: challanNotReceived,   color: "amber" },
+                      { label: "Confirmation Pending", value: deliveryNotConfirmed, cls: "text-rose-400"  },
+                      { label: "Challan Not Received", value: challanNotReceived,   cls: "text-amber-400" },
                     ].map(b => (
                       <div key={b.label} className="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-center bg-white/5">
-                        <p className={`text-[7px] text-${b.color}-400 uppercase font-black leading-none mb-0.5`}>{b.label}</p>
-                        <p className={`text-xs sm:text-sm font-black text-${b.color}-400 leading-none`}>{b.value}</p>
+                        <p className={`text-[7px] ${b.cls} uppercase font-black leading-none mb-0.5`}>{b.label}</p>
+                        <p className={`text-xs sm:text-sm font-black ${b.cls} leading-none`}>{b.value}</p>
                       </div>
                     ))}
                   </div>
@@ -1273,8 +1379,12 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
                       <p className="text-[8px] text-slate-500 uppercase font-black tracking-widest leading-none mb-1">Advance (৳)</p>
                       <div className="flex items-center gap-1.5">
                         <input
-                          type="number" value={advance}
-                          onChange={e => setAdvance(e.target.value)}
+                          type="number" min="0" value={advance}
+                          onChange={e => {
+                            const v = e.target.value;
+                            // Negative advance অর্থহীন — খালি string allow, নেগেটিভ block
+                            if (v === "" || Number(v) >= 0) setAdvance(v);
+                          }}
                           placeholder="—"
                           className="flex-1 sm:w-24 text-xs font-bold bg-slate-700 border border-slate-600 text-white placeholder-slate-500 rounded-lg px-2 py-1.5 outline-none focus:border-violet-400 text-center"
                         />
@@ -1314,19 +1424,57 @@ const TripDetailsModal = ({ selectedTrip, setSelectedTrip, onTripUpdate, display
 
           {/* ════ CHALLAN GRID ════ */}
           <div className="flex-1 overflow-y-auto p-2 sm:p-2.5 md:p-3">
-            <div className="flex items-center justify-between mb-2.5">
-              <p className="text-xs font-black text-slate-500 uppercase tracking-wider">
-                Challans <span className="text-slate-400">({trip.challans?.length || 0})</span>
-              </p>
+            {/* ── Toolbar: search + status tabs + add ── */}
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2.5">
+              <div className="relative flex-1 min-w-[150px] max-w-xs">
+                <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  value={challanSearch}
+                  onChange={e => setChallanSearch(e.target.value)}
+                  placeholder="Search customer, zone, phone…"
+                  className="w-full bg-white border border-slate-200 rounded-lg pl-7 pr-6 py-1.5 text-[11px] font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition placeholder-slate-400"
+                />
+                {challanSearch && (
+                  <button onClick={() => setChallanSearch("")}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition">
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-1 flex-wrap">
+                {challanTabs.map(t => (
+                  <button key={t.key} onClick={() => setChallanTab(t.key)}
+                    className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all border whitespace-nowrap
+                      ${challanTab === t.key
+                        ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                        : "bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700"}`}>
+                    {t.label} <span className={challanTab === t.key ? "text-slate-400" : "text-slate-400"}>{t.count}</span>
+                  </button>
+                ))}
+              </div>
               <button
                 onClick={() => setShowAddChallan(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition shadow-sm"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition shadow-sm ml-auto"
               >
                 <Plus size={13} /> Add Challan
               </button>
             </div>
+            {visibleChallans.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mb-2">
+                  <Search size={20} className="text-slate-300" />
+                </div>
+                <p className="text-xs font-bold">No challans match</p>
+                {(q || challanTab !== "all") && (
+                  <button onClick={() => { setChallanSearch(""); setChallanTab("all"); }}
+                    className="mt-2 text-[10px] font-semibold text-indigo-500 hover:text-indigo-700 underline">
+                    Clear search & filters
+                  </button>
+                )}
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 md:gap-3">
-             {trip.challans.map((c, i) => {
+             {visibleChallans.map(({ c, i }) => {
   const isReturnCard = c.isReturn === true;
   const totalReturn  = (c.returnedProducts || []).reduce((s, r) => s + (r.returnQty || 0), 0);
   const hasReturn    = !isReturnCard && totalReturn > 0;
