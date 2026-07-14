@@ -239,7 +239,7 @@ const MobileCard = ({ row, isAdmin, onSplit, onDelete }) => {
       </div>
       {challan.address && <p className="text-[11px] text-slate-500 mb-1.5 leading-tight">{challan.address}</p>}
       <div className="grid grid-cols-2 gap-1 mb-2">
-        {[["CSD", challan.csd],["District", challan.district],["Thana", challan.thana],["Location", resolveLocation(challan)],["Receiver", challan.receiverNumber],
+        {[["CSD", challan.csd],["Unit", challan.unit],["District", challan.district],["Thana", challan.thana],["Location", resolveLocation(challan)],["Receiver", challan.receiverNumber],
           ...(isAdmin ? [["Remarks", challan.remarks]] : [])].map(([l, v]) => (
           <div key={l}>
             <p className="text-[9px] text-slate-400 uppercase font-bold">{l}</p>
@@ -707,6 +707,7 @@ const DeliveredPage = () => {
         return {
           Customer: row.challan.customerName,
           CSD: row.challan.csd || "",
+          ...(isAdmin ? { Unit: row.challan.unit || "" } : {}),
           Receiver: row.challan.receiverNumber,
           Address: row.challan.address,
           District: row.challan.district,
@@ -1153,6 +1154,7 @@ const DeliveredPage = () => {
     { key: "tripNumber", header: "Trip Number", w: 90 },
     { key: "customer", header: "Customer", w: 90  },
     { key: "csd",      header: "CSD",      w: 90  },
+    { key: "unit",     header: "Unit",     w: 70,  adminOnly: true },
     { key: "receiver", header: "Receiver", w: 88  },
     { key: "address",  header: "Address",  w: 88  },
     { key: "district", header: "District", w: 68  },
@@ -1402,6 +1404,11 @@ const DeliveredPage = () => {
                                 onSave={saveCsd}
                               />
                             );
+                          case "unit":
+                            // Gate Pass Inventory-র Sync থেকে আসে (matched gate pass-এর unit)
+                            return challan.unit
+                              ? <span className="block truncate font-semibold text-slate-700">{String(challan.unit).toUpperCase()}</span>
+                              : <span className="text-slate-300">—</span>;
                           case "zone":
                             return <span className="block truncate">{challan.zone}</span>;
                           case "address":

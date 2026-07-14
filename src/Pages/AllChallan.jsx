@@ -248,6 +248,67 @@ const RemarksCell = ({ challan, editingRemarks, setEditingRemarks, savingRemarks
 };
 
 /* ══════════════════════════════════════════════════════════════
+   Trip Do cell — Delivered page-এর মতোই inline editable, তবে এখানে
+   challans collection-এর ডেটা দেখায়। Trip Do product-লেভেল field
+   (এক challan-এর ভিন্ন product-এ ভিন্ন Trip Do হতে পারে), তাই
+   editing state challanId + productId দুটো দিয়েই key করা।
+   Save হয় shared PATCH /deliveries/bulk-trip-do দিয়ে — সেটা
+   challans + deliveries দুই collection-এই লেখে, ফলে এই page আর
+   Delivered page সবসময় sync-এ থাকে।
+══════════════════════════════════════════════════════════════ */
+const TripDoCell = ({ challan, product, editingTripDo, setEditingTripDo, savingTripDo, onSave }) => {
+  const editing = editingTripDo &&
+    editingTripDo.challanId === challan._id &&
+    editingTripDo.productId === product._id;
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) inputRef.current.focus();
+  }, [editing]);
+
+  if (!editing) {
+    const display = product.tripDo || "";
+    return (
+      <button
+        type="button"
+        onClick={() => setEditingTripDo({ challanId: challan._id, productId: product._id, value: display })}
+        title={display ? "Click to edit Trip Do" : "Click to set Trip Do"}
+        className="block w-full text-left truncate hover:bg-indigo-50 hover:text-indigo-700 px-1 -mx-1 rounded transition-colors text-[11px]"
+      >
+        {display ? (
+          <span className="block truncate font-semibold text-indigo-700">{display}</span>
+        ) : (
+          <span className="text-indigo-400 italic">click to set</span>
+        )}
+      </button>
+    );
+  }
+
+  const value = editingTripDo.value ?? "";
+
+  return (
+    <div className="relative">
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => setEditingTripDo((cur) => ({ ...cur, value: e.target.value }))}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setEditingTripDo(null);
+          if (e.key === "Enter") onSave(challan, product, (value || "").trim());
+        }}
+        disabled={savingTripDo}
+        autoComplete="off"
+        placeholder="e.g. 4681835"
+        className="w-full px-1.5 py-0.5 border border-indigo-400 rounded text-[11px] outline-none focus:ring-2 focus:ring-indigo-300"
+      />
+      <div className="absolute top-full left-0 mt-0.5 text-[8px] text-slate-400">
+        Enter to save · Esc to cancel
+      </div>
+    </div>
+  );
+};
+
+/* ══════════════════════════════════════════════════════════════
    Status badge
 ══════════════════════════════════════════════════════════════ */
 const StatusBadge = ({ status }) => {
@@ -306,6 +367,34 @@ const MobileCard = ({ c, p, axiosSecure, refetchChallans, isAdmin }) => {
     }
   };
 
+  // Admin-only Trip Do edit — Remarks-এর মতোই Swal prompt। Shared
+  // bulk-trip-do endpoint challans + deliveries দুটোতেই লেখে, তাই
+  // Delivered page সাথে সাথে sync হয়।
+  const handleEditTripDo = async () => {
+    const { value, isDismissed } = await Swal.fire({
+      title: "Set Trip Do",
+      input: "text",
+      inputValue: p.tripDo || "",
+      inputPlaceholder: "e.g. 4681835 — leave blank to clear",
+      showCancelButton: true,
+      confirmButtonColor: "#4f46e5",
+      confirmButtonText: "Save",
+      inputValidator: () => null,   // empty allowed (clears)
+    });
+    if (isDismissed) return;
+    try {
+      await axiosSecure.patch(`/deliveries/bulk-trip-do`, {
+        tripDo: (value || "").trim(),
+        targets: [{ challanId: c._id, productId: p._id }],
+      });
+      if (typeof refetchChallans === "function") refetchChallans();
+      Swal.fire({ toast: true, position: "top-end", icon: "success", title: (value || "").trim() ? "Trip Do saved" : "Trip Do cleared", showConfirmButton: false, timer: 1300 });
+    } catch (err) {
+      console.error("trip do save failed", err);
+      Swal.fire("Error", err?.response?.status === 403 ? "Only admins can edit Trip Do" : "Failed to save Trip Do", "error");
+    }
+  };
+
   return (
     <div className={`border rounded-xl p-3 mb-2 shadow-sm ${(c.status === "delivered" || c.status === "re-delivered") ? "bg-emerald-50/60 border-emerald-200" : "bg-white border-slate-200"}`}>
       <div className="flex items-center justify-between mb-1.5">
@@ -350,6 +439,21 @@ const MobileCard = ({ c, p, axiosSecure, refetchChallans, isAdmin }) => {
           </div>
         );
       })()}
+      {isAdmin && (
+        <button
+          type="button"
+          onClick={handleEditTripDo}
+          title={p.tripDo ? "Click to edit Trip Do" : "Click to set Trip Do"}
+          className="mt-2 w-full flex items-center justify-between gap-2 px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-lg transition-colors text-left"
+        >
+          <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wide shrink-0">Trip Do</span>
+          {p.tripDo ? (
+            <span className="text-[10px] font-semibold text-indigo-700 truncate">{p.tripDo}</span>
+          ) : (
+            <span className="text-[10px] text-indigo-400 italic">click to set</span>
+          )}
+        </button>
+      )}
       {isAdmin && (
         <button
           type="button"
@@ -491,6 +595,11 @@ const AllChallan = () => {
   const [editingRemarks, setEditingRemarks] = useState(null);   // { challanId, value }
   const [savingRemarks,  setSavingRemarks]  = useState(false);
 
+  // Trip Do — product-লেভেল inline edit state (Delivered page-এর মতোই)
+  const [editingTripDo, setEditingTripDo] = useState(null);     // { challanId, productId, value }
+  const [savingTripDo,  setSavingTripDo]  = useState(false);
+  const [tripDoFilter,  setTripDoFilter]  = useState([]);       // Trip Do column filter (admin-only)
+
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
     check();
@@ -575,6 +684,37 @@ const AllChallan = () => {
   }, [axiosSecure, fetchChallans]);
 
   /**
+   * Save an inline Trip Do edit. Trip Do is product-level. Uses the shared
+   * PATCH /deliveries/bulk-trip-do endpoint with a single target — the
+   * endpoint writes to BOTH the challans collection (this page) and the
+   * deliveries collection (Delivered page), so the two pages stay in
+   * sync automatically whichever side the entry is made from.
+   */
+  const saveTripDo = React.useCallback(async (challan, product, newValue) => {
+    setSavingTripDo(true);
+    try {
+      const clean = (newValue ?? "").toString().trim();
+      await axiosSecure.patch(`/deliveries/bulk-trip-do`, {
+        tripDo: clean,
+        targets: [{ challanId: challan._id, productId: product._id }],
+      });
+      await fetchChallans(monthRef.current, yearRef.current, searchRef.current);
+      Swal.fire({
+        toast: true, position: "top-end", icon: "success",
+        title: clean ? `Trip Do set to ${clean}` : "Trip Do cleared",
+        showConfirmButton: false, timer: 1300,
+      });
+    } catch (err) {
+      console.error("trip do save failed", err);
+      const msg = err?.response?.status === 403 ? "Only admins can edit Trip Do" : "Failed to save Trip Do";
+      Swal.fire("Error", msg, "error");
+    } finally {
+      setSavingTripDo(false);
+      setEditingTripDo(null);
+    }
+  }, [axiosSecure, fetchChallans]);
+
+  /**
    * Bulk Remarks button handler lives further below, after `filteredRows`
    * is declared (it needs to read the currently-filtered rows).
    */
@@ -584,7 +724,7 @@ const AllChallan = () => {
     if (setSearchText) setSearchText("");
     setCustomerFilter([]); setAddressFilter([]); setThanaFilter([]);
     setDistrictFilter([]); setLocationFilter([]); setReceiverFilter([]); setZoneFilter([]);
-    setModelFilter([]); setProductNameFilter([]); setRemarksFilter([]); setDateFilter([]); setTripNumberFilter([]); setStatusFilter("");
+    setModelFilter([]); setProductNameFilter([]); setRemarksFilter([]); setDateFilter([]); setTripNumberFilter([]); setStatusFilter(""); setTripDoFilter([]);
     setShowMobileFilters(false);
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
   };
@@ -626,9 +766,10 @@ const AllChallan = () => {
       check("zone",           zoneFilter,        c.zone) &&
       check("productName",    productNameFilter, p.productName) &&
       check("model",          modelFilter,       p.model) &&
+      check("tripDo",         tripDoFilter,      p.tripDo) &&
       check("remarks",        remarksFilter,     c.remarks);
   }, [searchText, statusFilter, customerFilter, addressFilter, thanaFilter, districtFilter, locationFilter,
-      receiverFilter, zoneFilter, productNameFilter, modelFilter, remarksFilter, dateFilter, tripNumberFilter]);
+      receiverFilter, zoneFilter, productNameFilter, modelFilter, remarksFilter, dateFilter, tripNumberFilter, tripDoFilter]);
 
   const filteredRows = React.useMemo(
     () => challans.flatMap(c => (c.products || []).filter(p => rowMatchesAll(c, p)).map(p => ({ c, p }))),
@@ -703,6 +844,61 @@ const AllChallan = () => {
     }
   }, [axiosSecure, fetchChallans, filteredRows]);
 
+  /**
+   * Bulk Trip Do — Delivered page-এর মতোই: active filter-এ যে rows
+   * দেখা যাচ্ছে, তার প্রতিটা product-এ এক Trip Do value বসায়। ফাঁকা
+   * value দিলে clear হয়। Shared endpoint দুই collection-এই লেখে,
+   * তাই Delivered page-ও সাথে সাথে sync হয়ে যায়।
+   */
+  const handleBulkTripDo = React.useCallback(async () => {
+    if (filteredRows.length === 0) {
+      Swal.fire({ icon: "info", title: "No rows", text: "Apply filters first or load data." });
+      return;
+    }
+
+    // De-duplicate per (challanId, productId)
+    const seen = new Set();
+    const targets = [];
+    for (const { c, p } of filteredRows) {
+      if (!c._id || !p._id) continue;
+      const key = `${c._id}|${p._id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      targets.push({ challanId: c._id, productId: p._id });
+    }
+
+    const { value, isDismissed } = await Swal.fire({
+      title: `Set Trip Do for ${targets.length} row${targets.length > 1 ? "s" : ""}`,
+      input: "text",
+      inputLabel: "Trip Do number",
+      inputPlaceholder: "e.g. 4681835 — leave blank to clear",
+      showCancelButton: true,
+      confirmButtonColor: "#4f46e5",
+      confirmButtonText: "Apply to all",
+      inputValidator: () => null,   // empty allowed (clears)
+    });
+    if (isDismissed) return;
+
+    try {
+      const res = await axiosSecure.patch("/deliveries/bulk-trip-do", {
+        tripDo: value || "",
+        targets,
+      });
+      await fetchChallans(monthRef.current, yearRef.current, searchRef.current);
+      Swal.fire({
+        toast: true, position: "top-end", icon: "success",
+        title: value
+          ? `Trip Do "${value}" applied to ${res.data?.touched ?? targets.length} rows`
+          : `Trip Do cleared on ${res.data?.touched ?? targets.length} rows`,
+        showConfirmButton: false, timer: 2000,
+      });
+    } catch (err) {
+      console.error("bulk trip-do failed", err);
+      const msg = err?.response?.status === 403 ? "Only admins can edit Trip Do" : "Bulk Trip Do failed";
+      Swal.fire("Error", msg, "error");
+    }
+  }, [axiosSecure, fetchChallans, filteredRows]);
+
   const getOptionsFor = React.useCallback((field) => {
     const map = new Map();
     let hasBlank = false;
@@ -711,6 +907,7 @@ const AllChallan = () => {
         if (!rowMatchesAll(c, p, field)) return;
         let val;
         if (field === "productName" || field === "model") val = p[field]?.toString().trim();
+        else if (field === "tripDo") val = p.tripDo?.toString().trim();
         else if (field === "location") val = resolveLocation(c);    // fall back to compute for older challans
         else if (field === "date") val = formatDate(c);
         else val = c[field]?.toString().trim();
@@ -746,6 +943,7 @@ const AllChallan = () => {
     { label: "Zone",     values: zoneFilter,        clear: () => { setZoneFilter([]);        setClientPage(1); } },
     { label: "Product",  values: productNameFilter, clear: () => { setProductNameFilter([]); setClientPage(1); } },
     { label: "Model",    values: modelFilter,       clear: () => { setModelFilter([]);       setClientPage(1); } },
+    { label: "Trip Do",  values: tripDoFilter,      clear: () => { setTripDoFilter([]);      setClientPage(1); }, adminOnly: true },
     { label: "Remarks",  values: remarksFilter,     clear: () => { setRemarksFilter([]);     setClientPage(1); }, adminOnly: true },
     ...(statusFilter ? [{ label: "Status", values: [statusFilter], clear: () => { setStatusFilter(""); setClientPage(1); } }] : []),
   ].filter(f => f.values.length > 0 && (isAdmin || !f.adminOnly));
@@ -792,6 +990,7 @@ const AllChallan = () => {
           ...(isAdmin ? { Rate: eff.rate || 0, Amount: eff.amount || 0 } : {}),
           Product: p.productName,
           ...(isAdmin ? { Capacity: eff.capacity || "" } : {}),
+          ...(isAdmin ? { "Trip Do": p.tripDo || "", CSD: c.csd || "", Unit: c.unit || "", Remarks: c.remarks || "" } : {}),
         };
       };
       if (exportType === "filtered") {
@@ -894,6 +1093,14 @@ const AllChallan = () => {
           </button>
 
           {isAdmin && (
+            <button onClick={handleBulkTripDo}
+              className={`${tbtn} bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700`}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              <span className="hidden sm:inline">Bulk Trip Do</span><span className="sm:hidden">TDO</span>
+            </button>
+          )}
+
+          {isAdmin && (
             <button onClick={handleBulkRemarks}
               className={`${tbtn} bg-purple-600 text-white border-purple-600 hover:bg-purple-700`}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
@@ -958,6 +1165,8 @@ const AllChallan = () => {
                         ...(isAdmin ? ["Location"] : []),
                         "Receiver No","Zone","Product","Model","Qty",
                         ...(isAdmin ? ["Rate","Amount","Capacity"] : []),
+                        ...(isAdmin ? ["CSD","Unit"] : []),
+                        ...(isAdmin ? ["Trip Do"] : []),
                         ...(isAdmin ? ["Remarks"] : []),
                         "Action",
                       ].map(h => (
@@ -1006,6 +1215,15 @@ const AllChallan = () => {
                         </>
                       )}
                       {isAdmin && (
+                        <>
+                          <th className="p-1 border-r border-slate-200" />
+                          <th className="p-1 border-r border-slate-200" />
+                        </>
+                      )}
+                      {isAdmin && (
+                        <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("tripDo")} selected={tripDoFilter} onChange={setFilter(setTripDoFilter)} /></th>
+                      )}
+                      {isAdmin && (
                         <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("remarks")} selected={remarksFilter} onChange={setFilter(setRemarksFilter)} /></th>
                       )}
                       <th className="p-1" />
@@ -1049,6 +1267,26 @@ const AllChallan = () => {
                             </>
                           );
                         })()}
+                        {isAdmin && (
+                          <>
+                            {/* CSD/Unit — Gate Pass Inventory-র Sync button দিয়ে
+                                matched gate pass থেকে আসে */}
+                            <td className="px-2.5 py-2 text-black font-mono text-[11px] whitespace-nowrap">{c.csd?.toUpperCase() || <span className="text-slate-300 font-sans">—</span>}</td>
+                            <td className="px-2.5 py-2 text-black whitespace-nowrap">{c.unit?.toUpperCase() || <span className="text-slate-300">—</span>}</td>
+                          </>
+                        )}
+                        {isAdmin && (
+                          <td className="px-2.5 py-2 min-w-[90px]" title={p.tripDo || ""}>
+                            <TripDoCell
+                              challan={c}
+                              product={p}
+                              editingTripDo={editingTripDo}
+                              setEditingTripDo={setEditingTripDo}
+                              savingTripDo={savingTripDo}
+                              onSave={saveTripDo}
+                            />
+                          </td>
+                        )}
                         {isAdmin && (
                           <td className="px-2.5 py-2" title={c.remarks || ""}>
                             <RemarksCell
