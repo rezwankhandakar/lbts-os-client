@@ -11,6 +11,10 @@ import LoadingSpinner from "../Component/LoadingSpinner";
 import { computeGatePassStatus, STATUS_META } from "../utils/gatePassMatch";
 
 const ITEMS_PER_PAGE = 100;
+// Stock carry-forward পেছনের কত মাস পর্যন্ত দেখবে — return-আসা বা
+// undelivered gate-pass item delivery না হওয়া পর্যন্ত প্রতি মাসে
+// forward হতে থাকে (এই window-এর মধ্যে)।
+const STOCK_LOOKBACK_MONTHS = 6;
 // Sentinel used inside MultiSelect dropdowns to mean "rows where this
 // column is empty / blank".  Distinctive string so it can't collide
 // with a real data value.
@@ -24,6 +28,12 @@ const BLANK_OPTION = "(Blank)";
  */
 const formatTripDate = (gp) =>
   gp?.tripDate ? new Date(gp.tripDate).toLocaleDateString("en-GB") : null;
+/**
+ * Month label for a table row — stock rows carry their origin month
+ * (__stockLabel, e.g. "Jun" / "Dec 2025"); regular rows show the
+ * currently selected month. Used by the Month column + its filter.
+ */
+const rowMonthLabel = (gp, currentLabel) => gp.__stockLabel || currentLabel;
 const MONTHS_FULL  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -120,7 +130,7 @@ const MobileCard = ({ gp, p, st, isStock, remaining, stockLabel, axiosSecure, re
       </div>
       <div className="flex items-center gap-1.5">
         <span className={`text-[8px] font-black rounded-full px-1.5 py-0.5 border ${meta.cls}`}>
-          {meta.dot} {meta.label}{st && st.status !== "unbooked" ? ` ${st.deliveredQty}/${st.gpQty}` : ""}
+          {meta.dot} {meta.label}{st && st.status !== "unbooked" ? ` ${st.netDeliveredQty ?? st.deliveredQty}/${st.gpQty}` : ""}{st?.returnQty > 0 ? ` ·↩${st.returnQty}` : ""}
         </span>
         <ActionDropdown gp={gp} p={p} axiosSecure={axiosSecure} refetchGatePasses={refetchGatePasses} currentUser={gp.currentUser} />
       </div>
@@ -150,6 +160,7 @@ const MobileCard = ({ gp, p, st, isStock, remaining, stockLabel, axiosSecure, re
 
 /* ── Mobile filter sheet ── */
 const MobileFilterSheet = ({ onClose, getOptionsFor, tripDoFilter, setTripDoFilter, tripDateFilter, setTripDateFilter,
+  monthFilter, setMonthFilter,
   customerFilter, setCustomerFilter, csdFilter, setCsdFilter, unitFilter, setUnitFilter,
   vehicleFilter, setVehicleFilter, zoneFilter, setZoneFilter, productFilter, setProductFilter, modelFilter, setModelFilter }) => (
   <div className="fixed inset-0 z-50 flex items-end sm:hidden" onClick={onClose}>
@@ -163,6 +174,7 @@ const MobileFilterSheet = ({ onClose, getOptionsFor, tripDoFilter, setTripDoFilt
         <div className="grid grid-cols-2 gap-2.5">
           {[
             { label: "Trip DO",  el: <MultiSelect options={getOptionsFor("tripDo")}       selected={tripDoFilter}   onChange={setTripDoFilter} /> },
+            { label: "Month",    el: <MultiSelect options={getOptionsFor("month")}        selected={monthFilter}    onChange={setMonthFilter} /> },
             { label: "Date",     el: <MultiSelect options={getOptionsFor("date")} selected={tripDateFilter} onChange={setTripDateFilter} /> },
             { label: "Customer", el: <MultiSelect options={getOptionsFor("customerName")} selected={customerFilter} onChange={setCustomerFilter} /> },
             { label: "CSD",      el: <MultiSelect options={getOptionsFor("csd")}          selected={csdFilter}      onChange={setCsdFilter} /> },
@@ -209,6 +221,7 @@ const AllGatePass = () => {
   const [productFilter,  setProductFilter]  = useState([]);
   const [modelFilter,    setModelFilter]    = useState([]);
   const [tripDateFilter, setTripDateFilter] = useState([]);
+  const [monthFilter,    setMonthFilter]    = useState([]);   // NEW: Month column (stock rows show origin month)
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year,  setYear]  = useState(new Date().getFullYear());
 
@@ -276,13 +289,33 @@ const AllGatePass = () => {
     let cancelled = false;
     (async () => {
       try {
-        // আগের মাস — stock carry-forward-এর উৎস (search mode-এ দরকার নেই)
+        // আগের মাসগুলো — stock carry-forward-এর উৎস (search mode-এ দরকার নেই)।
+        // শুধু গত এক মাস নয়: return-আসা বা undelivered product পরের মাসে
+        // deliver না হলে তার পরের মাসেও forward হতে থাকবে — তাই পেছনের
+        // STOCK_LOOKBACK_MONTHS মাস পর্যন্ত দেখা হয়, delivery না হওয়া
+        // পর্যন্ত প্রতিটা মাসের gate pass-এ item টা stock হিসেবে থাকে।
         let prev = [];
         if (!searchText) {
-          const pm = month === 1 ? 12 : month - 1;
-          const py = month === 1 ? year - 1 : year;
-          const prevRes = await axiosSecure.get(`/gate-pass?month=${pm}&year=${py}`);
-          prev = prevRes.data?.data || [];
+          const months = [];
+          let pm = month, py = year;
+          for (let i = 0; i < STOCK_LOOKBACK_MONTHS; i++) {
+            if (pm === 1) { pm = 12; py -= 1; } else { pm -= 1; }
+            months.push({ pm, py });
+          }
+          const results = await Promise.all(
+            months.map(({ pm, py }) =>
+              axiosSecure.get(`/gate-pass?month=${pm}&year=${py}`)
+                .then(r => ({ pm, py, data: r.data?.data || [] }))
+                .catch(() => ({ pm, py, data: [] }))
+            )
+          );
+          prev = results.flatMap(({ pm, py, data }) =>
+            data.map(gp => ({
+              ...gp,
+              __stockLabel: `${MONTHS_SHORT[pm - 1]}${py !== year ? ` ${py}` : ""}`,
+              __stockMonth: pm, __stockYear: py,
+            }))
+          );
         }
         if (cancelled) return;
         setPrevGatePasses(prev);
@@ -328,12 +361,16 @@ const AllGatePass = () => {
     prevGatePasses.forEach(gp => (gp.products || []).forEach((p, pi) => {
       const st = prevStatusResult.rowStatus.get(`${gp._id}|${p._id || pi}`);
       if (!st) return;
-      const remaining = Math.max(0, st.gpQty - st.deliveredQty);
+      // Net delivered — return হয়ে ফেরত-আসা qty বাদ। ফলে returned
+      // product-ও stock হিসেবে পরের মাসগুলোতে forward হতে থাকে,
+      // re-delivery হয়ে গেলে net পূর্ণ হয় আর row টা বাদ পড়ে।
+      const delivered = st.netDeliveredQty ?? st.deliveredQty;
+      const remaining = Math.max(0, st.gpQty - delivered);
       if (st.status === "delivered" || remaining <= 0) return;
-      rows.push({ gp, p, pi, isStock: true, remaining });
+      rows.push({ gp, p, pi, isStock: true, remaining, stockLabel: gp.__stockLabel || stockLabel });
     }));
     return rows;
-  }, [prevGatePasses, prevStatusResult, searchText]);
+  }, [prevGatePasses, prevStatusResult, searchText, stockLabel]);
   const stockQtyTotal = useMemo(() => stockRows.reduce((s, r) => s + r.remaining, 0), [stockRows]);
 
   // Row → তার status (stock row হলে prev month-এর map থেকে)
@@ -365,9 +402,20 @@ const AllGatePass = () => {
     setSyncing(true);
     try {
       const res = await axiosSecure.patch("/challans/bulk-gate-sync", { assignments });
-      Swal.fire({ toast: true, position: "top-end", icon: "success", title: `CSD/Unit synced (${res.data?.touched ?? assignments.length} updates)`, showConfirmButton: false, timer: 2200 });
+      if (res.data?.warning) {
+        Swal.fire({ icon: "warning", title: `Synced with warnings (${res.data?.touched ?? 0} updates)`,
+          text: (res.data.errors || []).join(" | ").slice(0, 300) });
+      } else {
+        Swal.fire({ toast: true, position: "top-end", icon: "success", title: `CSD/Unit synced (${res.data?.touched ?? assignments.length} updates)`, showConfirmButton: false, timer: 2200 });
+      }
     } catch (err) {
-      Swal.fire("Error", err?.response?.data?.message || "Sync failed", "error");
+      // Server এখন আসল কারণটা detail-এ পাঠায় — সেটাই দেখানো হয়।
+      // detail না থাকা মানে পুরনো server code চলছে (restart লাগবে)।
+      const d = err?.response?.data;
+      Swal.fire("Error", d?.detail
+        ? `${d.message}: ${String(d.detail).slice(0, 300)}`
+        : (d?.message ? `${d.message} — server restart/redeploy করা হয়েছে কিনা check করুন (old code running)` : "Sync failed"),
+        "error");
     } finally { setSyncing(false); }
   };
 
@@ -376,11 +424,13 @@ const AllGatePass = () => {
     if (setSearchText) setSearchText("");
     setTripDoFilter([]); setCustomerFilter([]); setCsdFilter([]);
     setUnitFilter([]); setVehicleFilter([]); setZoneFilter([]);
-    setProductFilter([]); setModelFilter([]); setTripDateFilter([]);
+    setProductFilter([]); setModelFilter([]); setTripDateFilter([]); setMonthFilter([]);
     setGpStatusFilter("");
     setShowMobileFilters(false);
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
   };
+
+  const currentMonthLabel = MONTHS_SHORT[month - 1];
 
   const rowMatchesAll = useCallback((gp, p, excludeField = null) => {
     const s = searchText?.toLowerCase() || "";
@@ -397,6 +447,7 @@ const AllGatePass = () => {
       );
     };
     return matchesSearch &&
+      check("month",        monthFilter,    rowMonthLabel(gp, currentMonthLabel)) &&
       check("date",         tripDateFilter, formatTripDate(gp)) &&
       check("tripDo",       tripDoFilter,   gp.tripDo)       &&
       check("customerName", customerFilter, gp.customerName) &&
@@ -406,7 +457,7 @@ const AllGatePass = () => {
       check("zone",         zoneFilter,     gp.zone)         &&
       check("productName",  productFilter,  p.productName)   &&
       check("model",        modelFilter,    p.model);
-  }, [searchText, tripDoFilter, customerFilter, csdFilter, unitFilter, vehicleFilter, zoneFilter, productFilter, modelFilter, tripDateFilter]);
+  }, [searchText, tripDoFilter, customerFilter, csdFilter, unitFilter, vehicleFilter, zoneFilter, productFilter, modelFilter, tripDateFilter, monthFilter, currentMonthLabel]);
 
   const filteredRows  = useMemo(() => {
     // Current month rows + (optionally) previous month-এর undelivered
@@ -474,6 +525,7 @@ const AllGatePass = () => {
       let val;
       if (field === "productName" || field === "model") val = p[field]?.toString().trim();
       else if (field === "date") val = formatTripDate(gp);
+      else if (field === "month") val = rowMonthLabel(gp, currentMonthLabel);
       else val = gp[field]?.toString().trim();
       if (val) {
         if (!map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
@@ -490,9 +542,10 @@ const AllGatePass = () => {
     });
     if (hasBlank) sorted.push(BLANK_OPTION);
     return sorted;
-  }, [gatePasses, stockRows, showStock, rowMatchesAll]);
+  }, [gatePasses, stockRows, showStock, rowMatchesAll, currentMonthLabel]);
 
   const activeFilterGroups = [
+    { label: "Month",    values: monthFilter,     clear: () => setMonthFilter([]) },
     { label: "Date",     values: tripDateFilter,  clear: () => setTripDateFilter([]) },
     { label: "Trip DO",  values: tripDoFilter,   clear: () => setTripDoFilter([]) },
     { label: "Customer", values: customerFilter,  clear: () => setCustomerFilter([]) },
@@ -524,11 +577,13 @@ const AllGatePass = () => {
     });
     if (!exportType) return;
     try {
-      const toRow = (gp, p, pi, isStock = false, remaining = null) => {
+      const toRow = (gp, p, pi, isStock = false, remaining = null, rowStockLabel = null) => {
         const st = (isStock ? prevStatusResult : matchResult).rowStatus.get(`${gp._id}|${p._id || pi}`);
         const meta = STATUS_META[st?.status || "unbooked"];
+        const netDelivered = st ? (st.netDeliveredQty ?? st.deliveredQty) : 0;
         return {
-          Source: isStock ? `Stock (${stockLabel})` : "Current",
+          Source: isStock ? `Stock (${rowStockLabel || gp.__stockLabel || stockLabel})` : "Current",
+          Month: isStock ? (rowStockLabel || gp.__stockLabel || stockLabel) : MONTHS_SHORT[month - 1],
           "Trip Do": gp.tripDo,
           "Trip Date": gp.tripDate ? new Date(gp.tripDate).toLocaleDateString("en-GB") : "",
           Customer: gp.customerName, CSD: gp.csd, Unit: gp.unit || "",
@@ -536,15 +591,16 @@ const AllGatePass = () => {
           Product: p.productName, Model: p.model,
           Qty: Number(p.quantity) || 0,
           "Delivery Status": meta.label,
-          "Delivered Qty": st ? st.deliveredQty : 0,
-          "Remaining Qty": isStock ? remaining : (st ? Math.max(0, st.gpQty - st.deliveredQty) : Number(p.quantity) || 0),
+          "Delivered Qty": netDelivered,
+          "Return Qty": st ? (st.returnQty || 0) : 0,
+          "Remaining Qty": isStock ? remaining : (st ? Math.max(0, st.gpQty - netDelivered) : Number(p.quantity) || 0),
           User: gp.currentUser,
         };
       };
       let exportData = [];
       if (exportType === "filtered") {
         if (!filteredRows.length) return Swal.fire({ icon: "warning", title: "No Data" });
-        exportData = filteredRows.map(r => toRow(r.gp, r.p, r.pi, r.isStock, r.remaining));
+        exportData = filteredRows.map(r => toRow(r.gp, r.p, r.pi, r.isStock, r.remaining, r.stockLabel));
       } else {
         // Full month — search active থাকলে state-এ search result থাকে
         // (max 500), পুরো month না। তখন month data আলাদা করে আনতে হয়।
@@ -556,7 +612,7 @@ const AllGatePass = () => {
         exportData = monthData.flatMap(gp => (gp.products || []).map((p, pi) => toRow(gp, p, pi)));
         // Stock rows দেখানো থাকলে export-এও যাবে (উপরে, যেমন টেবিলে দেখায়)
         if (showStock && stockRows.length) {
-          exportData = [...stockRows.map(r => toRow(r.gp, r.p, r.pi, true, r.remaining)), ...exportData];
+          exportData = [...stockRows.map(r => toRow(r.gp, r.p, r.pi, true, r.remaining, r.stockLabel)), ...exportData];
         }
         if (!exportData.length) return Swal.fire({ icon: "warning", title: "No Data" });
       }
@@ -623,7 +679,7 @@ const AllGatePass = () => {
           {/* ── Stock toggle — আগের মাসের undelivered rows টেবিলে দেখাবে কিনা ── */}
           {stockRows.length > 0 && !searchText && (
             <button onClick={() => { setShowStock(s => !s); setClientPage(1); }}
-              title={`${stockRows.length} undelivered items carried from ${MONTHS_FULL[prevMonthNum - 1]} ${prevYearNum} — click to ${showStock ? "hide" : "show"} in table`}
+              title={`${stockRows.length} undelivered / returned items carried forward from the last ${STOCK_LOOKBACK_MONTHS} months — click to ${showStock ? "hide" : "show"} in table`}
               className={`text-[10px] font-black rounded-lg px-2 py-0.5 border shrink-0 transition-all
                 ${showStock ? "bg-amber-500 text-white border-amber-500" : "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"}`}>
               📦 Stock: {stockRows.length} <span className="font-semibold opacity-70">({stockQtyTotal.toLocaleString()} pcs)</span>
@@ -693,7 +749,7 @@ const AllGatePass = () => {
             {paginatedRows.map((row, idx) => (
               <MobileCard key={`${row.isStock ? "s" : "c"}-${row.gp._id}-${row.p._id || idx}`}
                 gp={row.gp} p={row.p} st={getRowStatus(row)}
-                isStock={row.isStock} remaining={row.remaining} stockLabel={stockLabel}
+                isStock={row.isStock} remaining={row.remaining} stockLabel={row.stockLabel || stockLabel}
                 axiosSecure={axiosSecure} refetchGatePasses={refetchGatePasses} />
             ))}
             {totalPages > 1 && (
@@ -710,15 +766,16 @@ const AllGatePass = () => {
           <div className="h-full flex flex-col mx-3 my-2">
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col flex-1">
               <div className="overflow-auto flex-1">
-                <table className="w-full border-collapse" style={{ minWidth: "940px" }}>
+                <table className="w-full border-collapse" style={{ minWidth: "1010px" }}>
                   <thead className="sticky top-0 z-20">
                     <tr className="bg-slate-900 text-left">
-                      {["Trip DO","Trip Date","Customer","CSD","Unit","Vehicle No","Zone","Product","Model","Qty","Delivery","Action"].map(h => (
+                      {["Trip DO","Month","Trip Date","Customer","CSD","Unit","Vehicle No","Zone","Product","Model","Qty","Delivery","Action"].map(h => (
                         <th key={h} className="px-2.5 py-2.5 text-[10px] font-black text-slate-400 uppercase tracking-wide whitespace-nowrap border-r border-white/5 last:border-0">{h}</th>
                       ))}
                     </tr>
                     <tr className="bg-slate-50 border-b-2 border-slate-200">
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("tripDo")}       selected={tripDoFilter}   onChange={val => { setTripDoFilter(val);   setClientPage(1); }} /></th>
+                      <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("month")}        selected={monthFilter}    onChange={val => { setMonthFilter(val);    setClientPage(1); }} /></th>
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("date")} selected={tripDateFilter} onChange={val => { setTripDateFilter(val); setClientPage(1); }} /></th>
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("customerName")} selected={customerFilter} onChange={val => { setCustomerFilter(val); setClientPage(1); }} /></th>
                       <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("csd")}          selected={csdFilter}      onChange={val => { setCsdFilter(val);      setClientPage(1); }} /></th>
@@ -755,17 +812,20 @@ const AllGatePass = () => {
                             : "border-slate-100 hover:bg-sky-50/30 even:bg-slate-50/40"
                         }`}>
                         <td className="px-2.5 py-2">
-                          <div className="flex items-center gap-1">
-                            <span className={`text-[10px] rounded-lg px-2 py-0.5 font-mono font-bold border ${
-                              isStock ? "bg-amber-100 border-amber-300 text-amber-800" : "bg-sky-50 border-sky-200 text-sky-700"
-                            }`}>{gp.tripDo}</span>
-                            {isStock && (
-                              <span title={`Undelivered stock carried from ${MONTHS_FULL[prevMonthNum - 1]} ${prevYearNum} — ${remaining} pcs still pending`}
-                                className="text-[8px] font-black bg-amber-500 text-white rounded px-1 py-0.5 whitespace-nowrap">
-                                📦 {stockLabel}
-                              </span>
-                            )}
-                          </div>
+                          <span className={`text-[10px] rounded-lg px-2 py-0.5 font-mono font-bold border ${
+                            isStock ? "bg-amber-100 border-amber-300 text-amber-800" : "bg-sky-50 border-sky-200 text-sky-700"
+                          }`}>{gp.tripDo}</span>
+                        </td>
+                        {/* Month — regular row: বর্তমান মাস; stock row: যে মাসের gate pass থেকে forward হয়েছে */}
+                        <td className="px-2.5 py-2 whitespace-nowrap">
+                          {isStock ? (
+                            <span title={`Undelivered / returned stock carried forward from ${row.stockLabel || stockLabel} — ${remaining} pcs still pending`}
+                              className="text-[9px] font-black bg-amber-500 text-white rounded px-1.5 py-0.5 whitespace-nowrap">
+                              📦 {row.stockLabel || stockLabel}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-slate-500">{currentMonthLabel}</span>
+                          )}
                         </td>
                         <td className="px-2.5 py-2 text-black whitespace-nowrap">{gp.tripDate ? new Date(gp.tripDate).toLocaleDateString("en-GB") : "—"}</td>
                         <td className="px-2.5 py-2 font-semibold text-slate-800">{gp.customerName}</td>
@@ -789,7 +849,10 @@ const AllGatePass = () => {
                             {meta.dot} {meta.label}
                           </span>
                           {st && st.status !== "unbooked" && (
-                            <span className="ml-1 text-[9px] font-black text-slate-400">{st.deliveredQty}/{st.gpQty}</span>
+                            <span className="ml-1 text-[9px] font-black text-slate-400">
+                              {st.netDeliveredQty ?? st.deliveredQty}/{st.gpQty}
+                              {st.returnQty > 0 && <span className="text-orange-500"> ·↩{st.returnQty}</span>}
+                            </span>
                           )}
                         </td>
                         <td className="px-2.5 py-2">
@@ -829,6 +892,7 @@ const AllGatePass = () => {
           getOptionsFor={getOptionsFor}
           tripDoFilter={tripDoFilter} setTripDoFilter={setTripDoFilter}
           tripDateFilter={tripDateFilter} setTripDateFilter={setTripDateFilter}
+          monthFilter={monthFilter} setMonthFilter={setMonthFilter}
           customerFilter={customerFilter} setCustomerFilter={setCustomerFilter}
           csdFilter={csdFilter} setCsdFilter={setCsdFilter}
           unitFilter={unitFilter} setUnitFilter={setUnitFilter}

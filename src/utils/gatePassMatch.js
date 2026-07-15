@@ -105,7 +105,7 @@ export const computeGatePassStatus = (gatePasses, challans) => {
       const gpQty = Number(p.quantity) || 0;
       const candidates = byDo.get(String(gp.tripDo ?? "").trim()) || [];
 
-      let deliveredQty = 0, pendingQty = 0, returnQty = 0;
+      let origDeliveredQty = 0, redeliveredQty = 0, pendingQty = 0, returnQty = 0;
       const matches = [];
       const claimedRows = new Set(); // একই challan-row দুইবার গোনা এড়াতে
 
@@ -116,7 +116,8 @@ export const computeGatePassStatus = (gatePasses, challans) => {
         claimedRows.add(rowKey);
         const qty = Number(cp.quantity) || 0;
         const st  = ch.status || "pending";
-        if (st === "delivered" || st === "re-delivered") deliveredQty += qty;
+        if (st === "delivered") origDeliveredQty += qty;
+        else if (st === "re-delivered") redeliveredQty += qty;
         else if (st === "return-pending") returnQty += qty;
         else pendingQty += qty;
         matches.push({
@@ -133,15 +134,25 @@ export const computeGatePassStatus = (gatePasses, challans) => {
         }
       }
 
+      const deliveredQty = origDeliveredQty + redeliveredQty;
       const bookedQty = deliveredQty + pendingQty + returnQty;
+      /* Net delivered — কতগুলো এখন সত্যিই customer-এর কাছে আছে।
+         প্রতিটা re-delivery তার আগের return-এর সমান qty cancel করে
+         (ফেরত এসেছিল → আবার গেছে), তাই re-delivered qty-কে delivered-এ
+         আলাদা করে যোগ করলে double-count হয়। জোড়া কাটাকাটির পর যা থাকে:
+             net = original delivered − এখনো pending return
+         উদাহরণ: 5 delivered, 2 return, 1 re-delivered, 1 return-pending
+             → net = 5 − 1 = 4  (customer-এর কাছে ৪টা, ১টা এখনো ফেরার পথে)
+         সব re-deliver হয়ে গেলে return-pending 0 → net আবার পূর্ণ। */
+      const netDeliveredQty = Math.max(0, origDeliveredQty - returnQty);
       let status;
-      if (matches.length === 0)             status = "unbooked";
-      else if (deliveredQty >= gpQty && gpQty > 0) status = "delivered";
-      else if (deliveredQty > 0)            status = "partial";
-      else if (returnQty > 0)               status = "return";
-      else                                  status = "pending";
+      if (matches.length === 0)                        status = "unbooked";
+      else if (netDeliveredQty >= gpQty && gpQty > 0)  status = "delivered";
+      else if (returnQty > 0)                          status = "return";
+      else if (deliveredQty > 0)                       status = "partial";
+      else                                             status = "pending";
 
-      rowStatus.set(key, { status, gpQty, deliveredQty, pendingQty, returnQty, bookedQty, matches });
+      rowStatus.set(key, { status, gpQty, deliveredQty, netDeliveredQty, pendingQty, returnQty, redeliveredQty, bookedQty, matches });
       summary[status === "return" ? "return" : status] += 1;
       summary.totalRows += 1;
     });

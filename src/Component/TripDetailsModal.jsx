@@ -12,6 +12,9 @@ import useRole from "../hooks/useRole";
 // added to an existing trip carries the same rate the Delivered page expects.
 import { findRate } from "../utils/rateMatcher";
 import { computeLocation } from "../utils/localAddressMatcher";
+// Challan editing inside the Add-Challan modal — same editor Create
+// Delivery uses, so behaviour (location/rate recompute) stays identical.
+import EditCreateDeliveryChallanModal from "./EditCreateDelliveryChallanModal";
 
 /* ── বাংলায় টাকার পরিমাণ ──
    Bangla te 1-99 prottek number er nijoshsho naam ache — English er
@@ -709,15 +712,19 @@ const TripNoteModal = ({ trip, onSave, onClose, axiosSecure, updatedBy }) => {
    them to THIS trip. On confirm they get embedded in the trip, marked
    delivered in /all-challan, and show up on the Delivered page. */
 const AddChallanModal = ({ trip, onAdded, onClose, axiosSecure, addedBy }) => {
-  const [search, setSearch] = useState("");
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState([]);   // array of challan objects
+  const [search, setSearch]         = useState("");
+  const [results, setResults]       = useState([]);
+  const [loading, setLoading]       = useState(false);
+  const [selected, setSelected]     = useState([]);   // queue — challan objects
   const [submitting, setSubmitting] = useState(false);
+  const [mobileTab, setMobileTab]   = useState("challans"); // challans | queue
+  // ── Challan edit (CreateDelivery-র মতো, একই editor modal) ──
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingChallan,  setEditingChallan]  = useState(null);
+  const [savingChallan,   setSavingChallan]   = useState(false);
 
   // challanIds already in this trip — exclude them from results.
-  // Ref-এ রাখা হয়েছে যাতে runSearch-এর useCallback closure stale না হয়
-  // (আগে প্রথম render-এর Set capture হয়ে থাকত)।
+  // Ref-এ রাখা হয়েছে যাতে runSearch-এর useCallback closure stale না হয়।
   const existingIdsRef = React.useRef(new Set());
   existingIdsRef.current = new Set((trip.challans || []).map(c => String(c.challanId)));
 
@@ -728,8 +735,12 @@ const AddChallanModal = ({ trip, onAdded, onClose, axiosSecure, addedBy }) => {
       const res = await axiosSecure.get(`/challans?search=${encodeURIComponent(term.trim())}&page=1&limit=5000`);
       const all = res.data?.data || res.data?.challans || res.data || [];
       const list = Array.isArray(all) ? all : [];
-      // Only pending (not delivered) and not already in this trip.
-      setResults(list.filter(c => c.status !== "delivered" && !existingIdsRef.current.has(String(c._id))));
+      // CreateDelivery-র মতোই: pending + return-pending eligible,
+      // delivered/re-delivered বাদ, আর এই trip-এ আগেই থাকা গুলোও বাদ।
+      setResults(list.filter(c =>
+        c.status !== "delivered" && c.status !== "re-delivered" &&
+        !existingIdsRef.current.has(String(c._id))
+      ));
     } catch {
       setResults([]);
     } finally {
@@ -737,25 +748,128 @@ const AddChallanModal = ({ trip, onAdded, onClose, axiosSecure, addedBy }) => {
     }
   }, [axiosSecure]);
 
-  // Debounced search as the user types.
   useEffect(() => {
     const t = setTimeout(() => runSearch(search), 350);
     return () => clearTimeout(t);
   }, [search, runSearch]);
 
   const isSelected = (id) => selected.some(s => s._id === id);
-  const toggle = (challan) => {
-    setSelected(prev =>
-      prev.some(s => s._id === challan._id)
-        ? prev.filter(s => s._id !== challan._id)
-        : [...prev, challan]
-    );
+  const addToQueue = (challan) => {
+    if (challan.status === "delivered" || challan.status === "re-delivered") {
+      return Swal.fire({ icon: "warning", title: "Already Delivered", toast: true, position: "top-end", timer: 1600, showConfirmButton: false });
+    }
+    if (isSelected(challan._id)) {
+      return Swal.fire({ icon: "info", title: "Already Added", toast: true, position: "top-end", timer: 1300, showConfirmButton: false });
+    }
+    setSelected(prev => [...prev, challan]);
+    Swal.fire({ toast: true, position: "top-end", icon: "success", title: `${challan.customerName} added`, timer: 1000, showConfirmButton: false });
+  };
+  const removeFromQueue = (id) => setSelected(prev => prev.filter(s => s._id !== id));
+
+  /* ── Challan edit — CreateDelivery-র identical logic ──
+     thana/district বদলালে location + প্রতিটা product-এর rate নতুন করে
+     resolve হয়; product name/model/capacity বদলালেও rate re-resolve। */
+  const handleEditClick = (challan) => {
+    setEditingChallan(JSON.parse(JSON.stringify(challan)));
+    setIsEditModalOpen(true);
+  };
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditingChallan(prev => {
+      const next = { ...prev, [name]: value };
+      if (name === "thana" || name === "district") {
+        const newLocation = computeLocation(next.thana, next.district) || prev.location || null;
+        next.location = newLocation;
+        next.products = (next.products || []).map(p => {
+          const { capacity, rate } = findRate({
+            productName: p.productName, model: p.model,
+            location: newLocation, capacity: p.capacity || "",
+          });
+          return { ...p, capacity: capacity || p.capacity || "", rate };
+        });
+      }
+      return next;
+    });
+  };
+  const handleProductChange = (index, field, value) => {
+    const updated = [...editingChallan.products];
+    updated[index] = { ...updated[index], [field]: value };
+    if (field === "productName" || field === "model" || field === "capacity") {
+      const location = editingChallan.location
+        || computeLocation(editingChallan.thana, editingChallan.district)
+        || null;
+      const p = updated[index];
+      const { capacity, rate } = findRate({
+        productName: p.productName, model: p.model, location,
+        capacity: field === "capacity" ? value : (p.capacity || ""),
+      });
+      if (capacity) updated[index].capacity = capacity;
+      else if (field === "capacity") updated[index].capacity = value;
+      updated[index].rate = rate;
+    }
+    setEditingChallan({ ...editingChallan, products: updated });
+  };
+  const handleDeleteProduct = (index) => {
+    const updated = [...editingChallan.products];
+    updated.splice(index, 1);
+    setEditingChallan({ ...editingChallan, products: updated });
+  };
+  const handleUpdateChallan = async () => {
+    const cleanProducts = (editingChallan.products || [])
+      .filter(p => (p.productName || "").trim())
+      .map(p => ({ ...p, quantity: Number(p.quantity) || 1 }));
+    if (cleanProducts.length === 0) {
+      return Swal.fire({ icon: "warning", title: "At least one product required" });
+    }
+    setSavingChallan(true);
+    try {
+      const payload = {
+        ...editingChallan,
+        products: cleanProducts,
+        location: editingChallan.location || computeLocation(editingChallan.thana, editingChallan.district) || "",
+        updatedBy: addedBy || "unknown",
+      };
+      const res = await axiosSecure.patch(`/challans/${editingChallan._id}`, payload);
+      if (res.data.modifiedCount || res.data.success) {
+        Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Challan updated", timer: 1400, showConfirmButton: false });
+        const upd = { ...editingChallan, products: cleanProducts };
+        // Search results + queue — দুই জায়গাতেই sync
+        setResults(prev  => prev.map(c => c._id === upd._id ? { ...c, ...upd } : c));
+        setSelected(prev => prev.map(c => c._id === upd._id ? { ...c, ...upd } : c));
+        setIsEditModalOpen(false);
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.errors?.[0]?.message
+        || err?.response?.data?.message || "Update failed";
+      Swal.fire({ icon: "error", title: "Could not update", text: msg });
+    } finally {
+      setSavingChallan(false);
+    }
   };
 
   const handleConfirm = async () => {
     if (selected.length === 0) {
       return Swal.fire({ icon: "warning", title: "Select at least one challan" });
     }
+    // ── Confirm preview — CreateDelivery-র dispatch preview-এর মতো ──
+    const esc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const pcs = selected.reduce((s, c) => s + (c.products || []).reduce((x, p) => x + (Number(p.quantity) || 0), 0), 0);
+    const { isConfirmed } = await Swal.fire({
+      title: "Add to Trip?",
+      html: `<div style="text-align:left;font-size:13px;color:#475569;line-height:1.8">
+               <b style="color:#0f172a">🚚 ${esc(trip.tripNumber)}</b><br/>
+               ${selected.map(c => `• ${esc(c.customerName)}`).slice(0, 6).join("<br/>")}
+               ${selected.length > 6 ? `<br/>…+${selected.length - 6} more` : ""}<br/>
+               Points: <b style="color:#059669">${selected.length}</b> ·
+               Products: <b style="color:#0284c7">${pcs} PCS</b>
+             </div>`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#10b981",
+      confirmButtonText: "Yes, Add to Trip",
+      cancelButtonText: "Review Again",
+    });
+    if (!isConfirmed) return;
     setSubmitting(true);
     try {
       // Build payload — re-resolve location + per-product capacity/rate so the
@@ -817,13 +931,108 @@ const AddChallanModal = ({ trip, onAdded, onClose, axiosSecure, addedBy }) => {
     }
   };
 
+  // ── Load summary (points / PCS / per-product) — CreateDelivery-র মতো ──
+  const productMap = {};
+  let totalPcs = 0;
+  selected.forEach(c => (c.products || []).forEach(p => {
+    const qty = Number(p.quantity) || 0;
+    totalPcs += qty;
+    const key = p.productName || p.model || "Item";
+    productMap[key] = (productMap[key] || 0) + qty;
+  }));
+
+  /* ── Card (Available Challans panel) ── */
+  const ChallanCard = ({ c }) => {
+    const sel = isSelected(c._id);
+    return (
+      <div className={`bg-white rounded-2xl border overflow-hidden shadow-sm transition-all
+        ${sel ? "border-emerald-300 ring-2 ring-emerald-100" : "border-slate-100 hover:shadow-md hover:border-emerald-200"}`}>
+        <div className="bg-slate-50 px-3 py-2 flex justify-between items-center border-b border-slate-100">
+          <span className="text-[10px] font-semibold text-slate-400">
+            {c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-GB") : "—"}
+          </span>
+          <div className="flex gap-1.5 items-center">
+            {c.status === "return-pending" && (
+              <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-black uppercase rounded-full border border-orange-200">↩ Return-Pending</span>
+            )}
+            <button onClick={() => handleEditClick(c)} title="Edit challan"
+              className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all">
+              <Pencil size={12} />
+            </button>
+            <button
+              onClick={() => (sel ? removeFromQueue(c._id) : addToQueue(c))}
+              className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-1 transition-all shadow-sm
+                ${sel
+                  ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                  : "bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-50"}`}
+            >
+              {sel ? <><Check size={11} /> Added</> : <><Plus size={11} /> Add</>}
+            </button>
+          </div>
+        </div>
+        <div className="p-3">
+          <h4 className="text-sm font-black text-slate-800 uppercase leading-tight mb-0.5">{c.customerName}</h4>
+          <p className="text-[10px] text-emerald-600 font-black uppercase mb-2 tracking-widest">Zone: {c.zone || "—"}</p>
+          <div className="space-y-0.5 mb-3 text-[11px] text-slate-500">
+            <p className="flex gap-1 flex-wrap"><span className="font-bold text-slate-600">Location:</span><span className="break-words">{c.address}</span></p>
+            <p className="flex gap-1 flex-wrap">
+              <span className="font-bold text-slate-600">District:</span><span>{c.district || "—"}</span>
+              <span className="font-bold text-slate-600">Thana:</span><span>{c.thana || "—"}</span>
+            </p>
+            <p className="flex gap-1"><span className="font-bold text-slate-600">Receiver:</span>{c.receiverNumber || "—"}</p>
+          </div>
+          <div className="bg-slate-50 rounded-xl p-2 border border-slate-100">
+            {(c.products || []).map((p, i) => (
+              <div key={i} className="flex justify-between text-[10px] py-0.5">
+                <span className="text-slate-600 font-bold truncate pr-3 uppercase">{p.model || p.productName}</span>
+                <span className="text-blue-600 font-black flex-shrink-0">{p.quantity} PCS</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  /* ── Queue item (right panel) — CreateDelivery-র QueueItem style ── */
+  const QueueItem = ({ item }) => (
+    <div className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm relative group hover:border-emerald-200 transition-all">
+      <div className="absolute top-3 right-3 flex items-center gap-1">
+        <button onClick={() => handleEditClick(item)} title="Edit challan"
+          className="p-1.5 text-slate-300 hover:text-blue-500 rounded-lg hover:bg-blue-50 transition-all">
+          <Pencil size={12} />
+        </button>
+        <button onClick={() => removeFromQueue(item._id)} title="Remove from queue"
+          className="p-1.5 text-slate-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all">
+          <X size={13} />
+        </button>
+      </div>
+      <span className="text-[10px] font-semibold text-slate-400">{item.createdAt ? new Date(item.createdAt).toLocaleDateString("en-GB") : "—"}</span>
+      <h4 className="font-black text-slate-800 uppercase tracking-tight truncate text-sm pr-16">{item.customerName}</h4>
+      <div className="flex items-center gap-1.5 mt-0.5">
+        <span className="inline-block px-2 py-0.5 bg-blue-50 text-blue-600 rounded-lg text-[9px] font-black uppercase">Zone: {item.zone || "—"}</span>
+        {item.status === "return-pending" && (
+          <span className="inline-block px-2 py-0.5 bg-orange-100 text-orange-700 rounded-lg text-[9px] font-black uppercase">↩ Return</span>
+        )}
+      </div>
+      <div className="mt-2 space-y-1">
+        {(item.products || []).map((p, i) => (
+          <div key={i} className="flex justify-between items-center text-[11px]">
+            <span className="text-slate-700 font-bold uppercase truncate pr-2">{p.model || p.productName}</span>
+            <span className="font-black text-emerald-600 flex-shrink-0">{p.quantity} <span className="text-[9px] text-slate-400">PCS</span></span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] flex justify-center items-end sm:items-center z-[80] p-0 sm:p-3"
          onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-slate-50 w-full max-w-2xl max-h-[92vh] overflow-hidden rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col">
+      <div className="bg-slate-50 w-full max-w-5xl h-[94vh] sm:max-h-[92vh] overflow-hidden rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col">
 
         {/* ── Top bar (CreateDelivery "DELIVERY PLANNER" style) ── */}
-        <div className="bg-slate-950 px-4 py-3 flex justify-between items-center gap-2">
+        <div className="bg-slate-950 px-4 py-3 flex justify-between items-center gap-2 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 bg-emerald-500 rounded-xl flex items-center justify-center flex-shrink-0">
               <Truck className="text-white" size={15} />
@@ -836,125 +1045,170 @@ const AddChallanModal = ({ trip, onAdded, onClose, axiosSecure, addedBy }) => {
             </div>
           </div>
           <div className="flex items-center gap-2.5">
-            <div className="text-right">
+            <div className="text-right hidden sm:block">
               <p className="text-slate-500 text-[9px] font-bold uppercase">Results</p>
               <p className="text-white font-black text-lg leading-tight">{results.length}</p>
             </div>
             {selected.length > 0 && (
               <span className="bg-emerald-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase flex-shrink-0">
-                {selected.length} selected
+                {selected.length} in queue
               </span>
             )}
             <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition"><X size={16} /></button>
           </div>
         </div>
 
-        {/* ── Search ── */}
-        <div className="px-3 sm:px-4 py-3 bg-white border-b border-slate-100">
-          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Search Pending Challans</label>
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              autoFocus
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Name, phone, address…"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-400 focus:bg-white transition-all placeholder-slate-400"
-            />
-          </div>
+        {/* ── Mobile tab switcher (Challans | Queue) ── */}
+        <div className="flex md:hidden border-b border-slate-200 bg-white shrink-0">
+          <button onClick={() => setMobileTab("challans")}
+            className={`flex-1 py-2.5 text-xs font-black uppercase tracking-wide transition-all flex items-center justify-center gap-2
+              ${mobileTab === "challans" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50"}`}>
+            <Package size={12} /> Challans
+            {results.length > 0 && (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${mobileTab === "challans" ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-600"}`}>
+                {results.length}
+              </span>
+            )}
+          </button>
+          <button onClick={() => setMobileTab("queue")}
+            className={`flex-1 py-2.5 text-xs font-black uppercase tracking-wide transition-all flex items-center justify-center gap-2
+              ${mobileTab === "queue" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50"}`}>
+            <Truck size={12} /> Queue
+            {selected.length > 0 && (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${mobileTab === "queue" ? "bg-emerald-400 text-white" : "bg-emerald-100 text-emerald-700"}`}>
+                {selected.length}
+              </span>
+            )}
+          </button>
         </div>
 
-        {/* ── Results (ChallanCard style) ── */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-3">
-          {loading ? (
-            <div className="bg-white rounded-2xl p-3 border border-slate-100 animate-pulse space-y-2">
-              <div className="h-3 bg-slate-100 rounded-lg w-1/3" />
-              <div className="h-5 bg-slate-100 rounded-lg w-3/4" />
-              <div className="space-y-1.5"><div className="h-2.5 bg-slate-50 rounded-lg" /><div className="h-2.5 bg-slate-50 rounded-lg w-5/6" /></div>
-            </div>
-          ) : search.trim().length === 0 ? (
-            <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-10 text-center">
-              <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                <Package className="text-slate-300" size={26} />
+        {/* ── Workspace: LEFT challans / RIGHT queue ── */}
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-0 min-h-0">
+
+          {/* ══ LEFT: Available Challans ══ */}
+          <div className={`flex-col min-h-0 border-r border-slate-200 ${mobileTab !== "challans" ? "hidden md:flex" : "flex"}`}>
+            <div className="px-3 sm:px-4 py-3 bg-white border-b border-slate-100 shrink-0">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Search Pending Challans</label>
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  autoFocus
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Name, phone, address…"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-400 focus:bg-white transition-all placeholder-slate-400"
+                />
               </div>
-              <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">Search to find challans</p>
             </div>
-          ) : results.length === 0 ? (
-            <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-10 text-center">
-              <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                <Package className="text-slate-300" size={26} />
-              </div>
-              <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">No pending challans found</p>
-            </div>
-          ) : (
-            results.map(c => {
-              const sel = isSelected(c._id);
-              return (
-                <div
-                  key={c._id}
-                  className={`bg-white rounded-2xl border overflow-hidden shadow-sm transition-all
-                    ${sel ? "border-emerald-300 ring-2 ring-emerald-100" : "border-slate-100 hover:shadow-md hover:border-emerald-200"}`}
-                >
-                  {/* Card header */}
-                  <div className="bg-slate-50 px-3 py-2 flex justify-between items-center border-b border-slate-100">
-                    <span className="text-[10px] font-semibold text-slate-400">
-                      {c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-GB") : "—"}
-                    </span>
-                    <button
-                      onClick={() => toggle(c)}
-                      className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-1 transition-all shadow-sm
-                        ${sel
-                          ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                          : "bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-50"}`}
-                    >
-                      {sel ? <><Check size={11} /> Added</> : <><Plus size={11} /> Add</>}
-                    </button>
-                  </div>
-                  {/* Card body */}
-                  <div className="p-3">
-                    <h4 className="text-sm font-black text-slate-800 uppercase leading-tight mb-0.5">{c.customerName}</h4>
-                    <p className="text-[10px] text-emerald-600 font-black uppercase mb-2 tracking-widest">Zone: {c.zone || "—"}</p>
-                    <div className="space-y-0.5 mb-3 text-[11px] text-slate-500">
-                      <p className="flex gap-1 flex-wrap"><span className="font-bold text-slate-600">Location:</span><span className="break-words">{c.address}</span></p>
-                      <p className="flex gap-1 flex-wrap">
-                        <span className="font-bold text-slate-600">District:</span><span>{c.district || "—"}</span>
-                        <span className="font-bold text-slate-600">Thana:</span><span>{c.thana || "—"}</span>
-                      </p>
-                      <p className="flex gap-1"><span className="font-bold text-slate-600">Receiver:</span>{c.receiverNumber || "—"}</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-2 border border-slate-100">
-                      {(c.products || []).map((p, i) => (
-                        <div key={i} className="flex justify-between text-[10px] py-0.5">
-                          <span className="text-slate-600 font-bold truncate pr-3 uppercase">{p.model || p.productName}</span>
-                          <span className="text-blue-600 font-black flex-shrink-0">{p.quantity} PCS</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+              {loading ? (
+                <div className="bg-white rounded-2xl p-3 border border-slate-100 animate-pulse space-y-2">
+                  <div className="h-3 bg-slate-100 rounded-lg w-1/3" />
+                  <div className="h-5 bg-slate-100 rounded-lg w-3/4" />
+                  <div className="space-y-1.5"><div className="h-2.5 bg-slate-50 rounded-lg" /><div className="h-2.5 bg-slate-50 rounded-lg w-5/6" /></div>
                 </div>
-              );
-            })
-          )}
-        </div>
+              ) : search.trim().length === 0 ? (
+                <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-10 text-center">
+                  <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <Package className="text-slate-300" size={26} />
+                  </div>
+                  <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">Search to find challans</p>
+                </div>
+              ) : results.length === 0 ? (
+                <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-10 text-center">
+                  <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <Package className="text-slate-300" size={26} />
+                  </div>
+                  <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">No pending challans found</p>
+                </div>
+              ) : (
+                results.map(c => <ChallanCard key={c._id} c={c} />)
+              )}
+            </div>
+          </div>
 
-        {/* ── Footer / Confirm bar ── */}
-        <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-t border-slate-200 bg-white">
-          <p className="text-[11px] font-black text-slate-500 uppercase tracking-wider">
-            {selected.length > 0 ? `${selected.length} challan ready` : "Select challans to add"}
-          </p>
-          <div className="flex items-center gap-2">
-            <button onClick={onClose} disabled={submitting}
-                    className="px-4 py-2 text-xs font-black uppercase text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
-              Cancel
-            </button>
-            <button onClick={handleConfirm} disabled={submitting || selected.length === 0}
-                    className="flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition disabled:opacity-50 shadow-sm">
-              {submitting ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-              {submitting ? "Adding…" : `Add to Trip${selected.length ? ` (${selected.length})` : ""}`}
-            </button>
+          {/* ══ RIGHT: Queue ══ */}
+          <div className={`flex-col min-h-0 bg-white ${mobileTab !== "queue" ? "hidden md:flex" : "flex"}`}>
+            <div className="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
+              <div>
+                <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Add Queue</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">Items ready to join {trip.tripNumber}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[11px] font-black uppercase">
+                  {selected.length} Selected
+                </span>
+                {selected.length > 0 && (
+                  <button onClick={() => setSelected([])} title="Clear queue"
+                    className="p-2 hover:bg-red-50 text-red-400 rounded-xl transition-colors">
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="p-3 flex-1 overflow-y-auto bg-slate-50/30">
+              {selected.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-slate-300 py-16">
+                  <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-3">
+                    <Package size={28} className="text-slate-300" />
+                  </div>
+                  <p className="font-bold uppercase text-xs tracking-widest text-slate-400">No Items in Queue</p>
+                  <p className="text-[10px] text-slate-300 mt-1">Add challans from the search panel</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {selected.map(item => <QueueItem key={item._id} item={item} />)}
+                </div>
+              )}
+            </div>
+
+            {/* ── Load summary + confirm (CreateDelivery footer style) ── */}
+            <div className="bg-white border-t border-slate-100 shrink-0">
+              {selected.length > 0 && (
+                <div className="px-3 sm:px-4 pt-3 flex flex-wrap items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 border border-emerald-200 rounded-lg text-[10px] font-black text-emerald-700">
+                    {selected.length} <span className="font-semibold text-emerald-500">points</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-sky-50 border border-sky-200 rounded-lg text-[10px] font-black text-sky-700">
+                    {totalPcs} <span className="font-semibold text-sky-500">PCS total</span>
+                  </span>
+                  {Object.entries(productMap).map(([name, qty]) => (
+                    <span key={name} className="inline-flex items-center gap-1 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-semibold text-slate-600 max-w-[160px]">
+                      <span className="truncate">{name}</span>
+                      <span className="font-black text-indigo-600 shrink-0">{qty}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center justify-end gap-2 p-3 sm:px-4">
+                <button onClick={onClose} disabled={submitting}
+                        className="px-4 py-2 text-xs font-black uppercase text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
+                  Cancel
+                </button>
+                <button onClick={handleConfirm} disabled={submitting || selected.length === 0}
+                        className="flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition disabled:opacity-50 shadow-sm">
+                  {submitting ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                  {submitting ? "Adding…" : `Add to Trip${selected.length ? ` (${selected.length})` : ""}`}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* ── Challan editor — same modal Create Delivery uses (z-[9999]) ── */}
+      <EditCreateDeliveryChallanModal
+        isOpen={isEditModalOpen}
+        editingChallan={editingChallan}
+        setIsEditModalOpen={setIsEditModalOpen}
+        handleEditChange={handleEditChange}
+        handleProductChange={handleProductChange}
+        handleDeleteProduct={handleDeleteProduct}
+        handleUpdateChallan={handleUpdateChallan}
+        setEditingChallan={setEditingChallan}
+        saving={savingChallan}
+      />
     </div>
   );
 };
