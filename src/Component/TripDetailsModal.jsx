@@ -159,7 +159,19 @@ const EditChallanCard = ({ tripId, challan, onSave, onClose, axiosSecure, update
     const p = products[i];
     if (products.length <= 1) return Swal.fire({ icon: "warning", title: "Cannot remove last product" });
     if (p._id && !p._id.startsWith("new_")) {
-      try { await axiosSecure.delete(`/deliveries/${tripId}/challan/${challan.challanId}/product/${p._id}`); }
+      // ── Partial delivery ────────────────────────────────────────────
+      // splitLeftover=1 → server মুছে দেওয়া product-টাকে নতুন pending
+      // challan হিসেবে All-Challan-এ রেখে দেয় (next delivery-র জন্য)।
+      try {
+        const res = await axiosSecure.delete(`/deliveries/${tripId}/challan/${challan.challanId}/product/${p._id}?splitLeftover=1`);
+        const lf = res.data?.leftover;
+        if (lf?.quantity) {
+          Swal.fire({
+            icon: "info", toast: true, position: "top-end", timer: 3000, showConfirmButton: false,
+            title: `${lf.quantity} PCS moved back to pending (All Challan)`,
+          });
+        }
+      }
       catch { return Swal.fire({ icon: "error", title: "Delete failed" }); }
     }
     setProducts(prev => prev.filter((_, idx) => idx !== i));
@@ -168,13 +180,30 @@ const EditChallanCard = ({ tripId, challan, onSave, onClose, axiosSecure, update
     setSaving(true);
     try {
       const res = await axiosSecure.patch(`/deliveries/${tripId}/challan/${challan.challanId}`, { ...form, updatedBy });
+      // ── Partial delivery ──────────────────────────────────────────
+      // splitLeftover: true → qty কমালে (৫ → ২) কমে যাওয়া অংশ (৩) server
+      // নতুন pending challan হিসেবে রেখে দেয় — All-Challan-এ next
+      // delivery-র জন্য available থাকে।
+      let leftoverQty = 0;
       for (const p of products) {
         if (!p.productName || !p.model) continue;
         const isNew = !p._id || p._id.startsWith("new_");
-        if (isNew) await axiosSecure.post(`/deliveries/${tripId}/challan/${challan.challanId}/product`, { productName: p.productName, model: p.model, quantity: Number(p.quantity) || 1 });
-        else await axiosSecure.patch(`/deliveries/${tripId}/challan/${challan.challanId}/product/${p._id}`, { productName: p.productName, model: p.model, quantity: Number(p.quantity) || 1 });
+        // syncChallan: true → নতুন product টা All-Challan-এর canonical
+        // challan record-এও add হয় (একই _id দিয়ে), যাতে Trip Do /
+        // gate-pass matching এই product-এও কাজ করে।
+        if (isNew) await axiosSecure.post(`/deliveries/${tripId}/challan/${challan.challanId}/product`, { productName: p.productName, model: p.model, quantity: Number(p.quantity) || 1, syncChallan: true });
+        else {
+          const pr = await axiosSecure.patch(`/deliveries/${tripId}/challan/${challan.challanId}/product/${p._id}`, { productName: p.productName, model: p.model, quantity: Number(p.quantity) || 1, splitLeftover: true, updatedBy });
+          leftoverQty += Number(pr.data?.leftover?.quantity) || 0;
+        }
       }
-      Swal.fire({ icon: "success", title: "Updated!", toast: true, position: "top-end", timer: 1500, showConfirmButton: false });
+      Swal.fire({
+        icon: "success", toast: true, position: "top-end", showConfirmButton: false,
+        timer: leftoverQty ? 3500 : 1500,
+        title: leftoverQty
+          ? `Updated — ${leftoverQty} PCS moved back to pending (All Challan)`
+          : "Updated!",
+      });
       onSave({ ...challan, ...form, products }, res.data?.data);
       onClose();
     } catch (err) {
@@ -828,10 +857,20 @@ const AddChallanModal = ({ trip, onAdded, onClose, axiosSecure, addedBy }) => {
         products: cleanProducts,
         location: editingChallan.location || computeLocation(editingChallan.thana, editingChallan.district) || "",
         updatedBy: addedBy || "unknown",
+        // ── Partial delivery — CreateDelivery-র মতোই: row remove / qty
+        // কমালে বাদ পড়া অংশ নতুন pending challan হয়ে All-Challan-এ থাকে।
+        splitLeftover: true,
       };
       const res = await axiosSecure.patch(`/challans/${editingChallan._id}`, payload);
       if (res.data.modifiedCount || res.data.success) {
-        Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Challan updated", timer: 1400, showConfirmButton: false });
+        const lf = res.data.leftover;
+        Swal.fire({
+          toast: true, position: "top-end", icon: "success",
+          title: lf?.quantity
+            ? `Challan updated — ${lf.quantity} PCS kept pending for next delivery`
+            : "Challan updated",
+          timer: lf?.quantity ? 3000 : 1400, showConfirmButton: false,
+        });
         const upd = { ...editingChallan, products: cleanProducts };
         // Search results + queue — দুই জায়গাতেই sync
         setResults(prev  => prev.map(c => c._id === upd._id ? { ...c, ...upd } : c));

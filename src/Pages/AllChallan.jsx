@@ -9,6 +9,7 @@ import Swal from "sweetalert2";
 import LoadingSpinner from "../Component/LoadingSpinner";
 import { computeLocation } from "../utils/localAddressMatcher";
 import { findRate } from "../utils/rateMatcher";
+import { productMatches } from "../utils/gatePassMatch";
 
 const ITEMS_PER_PAGE = 500;
 // Sentinel value used inside the MultiSelect dropdowns to represent
@@ -82,6 +83,30 @@ const LocationBadge = ({ value }) => {
   return (
     <span className={`inline-flex px-1.5 py-0.5 rounded-md text-[9px] font-bold border whitespace-nowrap ${cls}`}>
       {value}
+    </span>
+  );
+};
+
+/**
+ * GP Match badge — Trip Do বসানোর পর এই product row All-Gate-Pass-এর
+ * কোনো gate pass-এর সাথে match করছে কিনা দেখায়।
+ *   match  = null   → Trip Do-ই বসানো হয়নি (—)
+ *   matched: true   → ✓ Matched   (Trip Do exact + customer/model fuzzy verify)
+ *   matched: false  → ✗ No Match  (Trip Do আছে কিন্তু কোনো gate pass মেলেনি)
+ */
+const GpMatchBadge = ({ match }) => {
+  if (!match) return <span className="text-slate-300">—</span>;
+  return match.matched ? (
+    <span
+      title={match.gp ? `Matched gate pass — ${match.gp.customerName}${match.gp.csd ? ` · CSD ${match.gp.csd}` : ""}` : "Matched gate pass"}
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black border whitespace-nowrap bg-emerald-50 text-emerald-700 border-emerald-200">
+      ✓ Matched
+    </span>
+  ) : (
+    <span
+      title="Trip Do set, but no gate pass matched (Trip Do exact + customer/model verify)"
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black border whitespace-nowrap bg-red-50 text-red-600 border-red-200">
+      ✗ No Match
     </span>
   );
 };
@@ -340,7 +365,7 @@ const StatusBadge = ({ status }) => {
 /* ══════════════════════════════════════════════════════════════
    Mobile card
 ══════════════════════════════════════════════════════════════ */
-const MobileCard = ({ c, p, axiosSecure, refetchChallans, isAdmin }) => {
+const MobileCard = ({ c, p, axiosSecure, refetchChallans, isAdmin, gpMatch }) => {
   // Admin-only Remarks edit — a lightweight SweetAlert prompt instead of a
   // full inline text field, since the mobile card doesn't otherwise carry
   // any editable state. Saves straight to the challan document; the
@@ -453,6 +478,13 @@ const MobileCard = ({ c, p, axiosSecure, refetchChallans, isAdmin }) => {
             <span className="text-[10px] text-indigo-400 italic">click to set</span>
           )}
         </button>
+      )}
+      {/* GP Match — Trip Do বসানো থাকলেই দেখানো হয় */}
+      {isAdmin && p.tripDo && (
+        <div className="mt-1.5 flex items-center justify-between gap-2 px-2.5 py-1.5 bg-slate-50 border border-slate-100 rounded-lg">
+          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide shrink-0">GP Match</span>
+          <GpMatchBadge match={gpMatch} />
+        </div>
       )}
       {isAdmin && (
         <button
@@ -657,6 +689,58 @@ const AllChallan = () => {
     fetchChallans(monthRef.current, yearRef.current, searchRef.current);
   }, [fetchChallans]);
 
+  /* ── GP Match — Trip Do বসানো product গুলো All-Gate-Pass-এর সাথে
+     মিলছে কিনা। All-Gate-Pass page যেভাবে challans/by-trip-do দিয়ে
+     উল্টোদিক থেকে match করে, এখানে ঠিক তার আয়না: visible challan-দের
+     সব Trip Do এক request-এ /gate-pass/by-trip-do তে পাঠিয়ে gate pass
+     গুলো আনা হয়, তারপর একই fuzzy engine (productMatches: Trip Do
+     exact + customer + model verify) দিয়ে প্রতিটা row যাচাই হয়। ── */
+  const [linkedGatePasses, setLinkedGatePasses] = useState([]);
+  const [gpMatchFilter,    setGpMatchFilter]    = useState("");   // "" | matched | unmatched
+
+  useEffect(() => {
+    if (!isAdmin) { setLinkedGatePasses([]); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const tripDos = [...new Set(
+          challans.flatMap(c => (c.products || []).map(p => String(p.tripDo ?? "").trim()).filter(Boolean))
+        )];
+        if (tripDos.length === 0) { if (!cancelled) setLinkedGatePasses([]); return; }
+        const res = await axiosSecure.post("/gate-pass/by-trip-do", { tripDos });
+        if (!cancelled) setLinkedGatePasses(res.data?.data || []);
+      } catch (err) {
+        if (!cancelled) { setLinkedGatePasses([]); console.error("gate-pass linkage failed", err); }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [challans, axiosSecure, isAdmin]);
+
+  // tripDo → gate pass list index (দ্রুত lookup)
+  const gpByDo = React.useMemo(() => {
+    const map = new Map();
+    for (const gp of linkedGatePasses) {
+      const key = String(gp.tripDo ?? "").trim();
+      if (!key) continue;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(gp);
+    }
+    return map;
+  }, [linkedGatePasses]);
+
+  /** null → Trip Do নেই; নাহলে { matched, gp } */
+  const getGpMatch = React.useCallback((c, p) => {
+    const tripDo = String(p?.tripDo ?? "").trim();
+    if (!tripDo) return null;
+    const candidates = gpByDo.get(tripDo) || [];
+    for (const gp of candidates) {
+      for (const gpProduct of (gp.products || [])) {
+        if (productMatches(gp, gpProduct, c, p)) return { matched: true, gp };
+      }
+    }
+    return { matched: false, gp: null };
+  }, [gpByDo]);
+
   /**
    * Save an inline Remarks edit for a challan. Admin-only. Uses the shared
    * bulk endpoint with a single target (same pattern as Trip Do on the
@@ -724,7 +808,7 @@ const AllChallan = () => {
     if (setSearchText) setSearchText("");
     setCustomerFilter([]); setAddressFilter([]); setThanaFilter([]);
     setDistrictFilter([]); setLocationFilter([]); setReceiverFilter([]); setZoneFilter([]);
-    setModelFilter([]); setProductNameFilter([]); setRemarksFilter([]); setDateFilter([]); setTripNumberFilter([]); setStatusFilter(""); setTripDoFilter([]);
+    setModelFilter([]); setProductNameFilter([]); setRemarksFilter([]); setDateFilter([]); setTripNumberFilter([]); setStatusFilter(""); setTripDoFilter([]); setGpMatchFilter("");
     setShowMobileFilters(false);
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
   };
@@ -772,8 +856,17 @@ const AllChallan = () => {
       receiverFilter, zoneFilter, productNameFilter, modelFilter, remarksFilter, dateFilter, tripNumberFilter, tripDoFilter]);
 
   const filteredRows = React.useMemo(
-    () => challans.flatMap(c => (c.products || []).filter(p => rowMatchesAll(c, p)).map(p => ({ c, p }))),
-    [challans, rowMatchesAll]
+    () => challans
+      .flatMap(c => (c.products || []).filter(p => rowMatchesAll(c, p)).map(p => ({ c, p })))
+      .filter(({ c, p }) => {
+        // GP Match filter (admin-only column) — "matched"/"unmatched"
+        // শুধু Trip Do বসানো rows-এর মধ্যে থেকে বাছাই করে।
+        if (!gpMatchFilter) return true;
+        const m = getGpMatch(c, p);
+        if (!m) return false;
+        return gpMatchFilter === "matched" ? m.matched : !m.matched;
+      }),
+    [challans, rowMatchesAll, gpMatchFilter, getGpMatch]
   );
   const totalPages    = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
   const paginatedRows = React.useMemo(
@@ -990,7 +1083,11 @@ const AllChallan = () => {
           ...(isAdmin ? { Rate: eff.rate || 0, Amount: eff.amount || 0 } : {}),
           Product: p.productName,
           ...(isAdmin ? { Capacity: eff.capacity || "" } : {}),
-          ...(isAdmin ? { "Trip Do": p.tripDo || "", CSD: c.csd || "", Unit: c.unit || "", Remarks: c.remarks || "" } : {}),
+          ...(isAdmin ? {
+            "Trip Do": p.tripDo || "",
+            "GP Match": (() => { const m = getGpMatch(c, p); return m ? (m.matched ? "Matched" : "Not Matched") : ""; })(),
+            CSD: c.csd || "", Unit: c.unit || "", Remarks: c.remarks || "",
+          } : {}),
         };
       };
       if (exportType === "filtered") {
@@ -1134,7 +1231,7 @@ const AllChallan = () => {
           /* ── MOBILE ── */
           <div className="h-full overflow-y-auto p-2">
             {paginatedRows.map(({ c, p }, idx) => (
-              <MobileCard key={`${c._id}-${idx}`} c={c} p={p} axiosSecure={axiosSecure} refetchChallans={refetchChallans} isAdmin={isAdmin} />
+              <MobileCard key={`${c._id}-${idx}`} c={c} p={p} axiosSecure={axiosSecure} refetchChallans={refetchChallans} isAdmin={isAdmin} gpMatch={getGpMatch(c, p)} />
             ))}
             {totalPages > 1 && (
               <div className="flex items-center justify-between py-3 px-1 mt-1">
@@ -1157,7 +1254,7 @@ const AllChallan = () => {
           <div className="h-full flex flex-col mx-3 my-2">
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col flex-1">
               <div className="overflow-auto flex-1">
-                <table className="border-collapse w-full" style={{ minWidth: "900px" }}>
+                <table className="border-collapse w-full" style={{ minWidth: "980px" }}>
                   <thead className="sticky top-0 z-20">
                     <tr className="bg-slate-900 text-left">
                       {[
@@ -1167,6 +1264,7 @@ const AllChallan = () => {
                         ...(isAdmin ? ["Rate","Amount","Capacity"] : []),
                         ...(isAdmin ? ["CSD","Unit"] : []),
                         ...(isAdmin ? ["Trip Do"] : []),
+                        ...(isAdmin ? ["GP Match"] : []),
                         ...(isAdmin ? ["Remarks"] : []),
                         "Action",
                       ].map(h => (
@@ -1222,6 +1320,16 @@ const AllChallan = () => {
                       )}
                       {isAdmin && (
                         <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("tripDo")} selected={tripDoFilter} onChange={setFilter(setTripDoFilter)} /></th>
+                      )}
+                      {isAdmin && (
+                        <th className="p-1 border-r border-slate-200">
+                          <select value={gpMatchFilter} onChange={e => { setGpMatchFilter(e.target.value); setClientPage(1); }}
+                            className={`w-full px-1.5 py-1 text-[11px] rounded-lg border outline-none ${gpMatchFilter ? "border-slate-700 bg-slate-800 text-white" : "border-slate-200 bg-white text-slate-400"}`}>
+                            <option value="">All</option>
+                            <option value="matched">✓ Matched</option>
+                            <option value="unmatched">✗ No Match</option>
+                          </select>
+                        </th>
                       )}
                       {isAdmin && (
                         <th className="p-1 border-r border-slate-200"><MultiSelect options={getOptionsFor("remarks")} selected={remarksFilter} onChange={setFilter(setRemarksFilter)} /></th>
@@ -1285,6 +1393,11 @@ const AllChallan = () => {
                               savingTripDo={savingTripDo}
                               onSave={saveTripDo}
                             />
+                          </td>
+                        )}
+                        {isAdmin && (
+                          <td className="px-2.5 py-2 whitespace-nowrap">
+                            <GpMatchBadge match={getGpMatch(c, p)} />
                           </td>
                         )}
                         {isAdmin && (

@@ -172,10 +172,22 @@ const CreateDelivery = () => {
                 // পাঠানো হয় — server এটা দিয়ে authoritative rate resolve করে।
                 location: editingChallan.location || computeLocation(editingChallan.thana, editingChallan.district) || "",
                 updatedBy: user?.displayName || user?.email || "unknown",
+                // ── Partial delivery ──────────────────────────────────
+                // Product row remove বা qty কমালে (৫ → ২) বাদ পড়া অংশটা
+                // server নতুন pending challan হিসেবে রেখে দেয় — All-Challan-এ
+                // next delivery-র জন্য available থাকে।
+                splitLeftover: true,
             };
             const res = await axiosSecure.patch(`/challans/${editingChallan._id}`, payload);
             if (res.data.modifiedCount || res.data.success) {
-                Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Challan updated", timer: 1500, showConfirmButton: false });
+                const lf = res.data.leftover;
+                Swal.fire({
+                    toast: true, position: "top-end", icon: "success",
+                    title: lf?.quantity
+                        ? `Challan updated — ${lf.quantity} PCS kept pending for next delivery`
+                        : "Challan updated",
+                    timer: lf?.quantity ? 3000 : 1500, showConfirmButton: false,
+                });
                 fetchChallans(searchText);
                 setDeliveryQueue(prev => prev.map(item => item._id === editingChallan._id ? { ...editingChallan, products: cleanProducts } : item));
                 setIsEditModalOpen(false);

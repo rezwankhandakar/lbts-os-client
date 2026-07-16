@@ -37,6 +37,23 @@ const rowMonthLabel = (gp, currentLabel) => gp.__stockLabel || currentLabel;
 const MONTHS_FULL  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
+/**
+ * এক row-এর qty breakdown — Delivered / Return / Remaining।
+ * Excel export-এর হিসাবের সাথে হুবহু এক:
+ *   delivered = netDeliveredQty (re-delivery double-count বাদ)
+ *   return    = এখনো ফেরার পথে থাকা (return-pending) qty
+ *   remaining = gate-pass qty থেকে যতটা এখনো deliver হয়নি
+ *               (stock row-এ আগেই হিসাব করা remaining টাই)
+ */
+const rowQtyBreakdown = (st, p, isStock = false, remaining = null) => {
+  const net = st ? (st.netDeliveredQty ?? st.deliveredQty) || 0 : 0;
+  const ret = st ? (st.returnQty || 0) : 0;
+  const rem = isStock
+    ? (Number(remaining) || 0)
+    : (st ? Math.max(0, (st.gpQty || 0) - net) : (Number(p?.quantity) || 0));
+  return { net, ret, rem };
+};
+
 /* ── Multi-select ── */
 const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
   const [open, setOpen]     = useState(false);
@@ -154,6 +171,26 @@ const MobileCard = ({ gp, p, st, isStock, remaining, stockLabel, axiosSecure, re
         )}
       </div>
     </div>
+    {/* Delivered / Return / Remaining — desktop column-এর mobile সংস্করণ */}
+    {(() => {
+      const b = rowQtyBreakdown(st, p, isStock, remaining);
+      return (
+        <div className="grid grid-cols-3 gap-1 mt-1.5">
+          <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-1.5 py-1 text-center">
+            <p className="text-[7px] font-black text-emerald-500 uppercase tracking-wide">Delivered</p>
+            <p className="text-[11px] font-black text-emerald-700 leading-tight">{b.net}</p>
+          </div>
+          <div className="bg-orange-50 border border-orange-100 rounded-lg px-1.5 py-1 text-center">
+            <p className="text-[7px] font-black text-orange-400 uppercase tracking-wide">Return</p>
+            <p className="text-[11px] font-black text-orange-600 leading-tight">{b.ret}</p>
+          </div>
+          <div className="bg-amber-50 border border-amber-100 rounded-lg px-1.5 py-1 text-center">
+            <p className="text-[7px] font-black text-amber-500 uppercase tracking-wide">Remaining</p>
+            <p className="text-[11px] font-black text-amber-700 leading-tight">{b.rem}</p>
+          </div>
+        </div>
+      );
+    })()}
   </div>
   );
 };
@@ -489,6 +526,17 @@ const AllGatePass = () => {
     () => filteredRows.reduce((sum, r) => sum + (r.isStock ? r.remaining : (Number(r.p.quantity) || 0)), 0),
     [filteredRows]
   );
+  // Delivered / Return / Remaining column-এর footer totals — filtered
+  // rows-এর উপর, header filter row-তে Qty total-এর মতোই দেখানো হয়।
+  const qtyBreakTotals = useMemo(() => {
+    const t = { net: 0, ret: 0, rem: 0 };
+    for (const row of filteredRows) {
+      const st = getRowStatus(row);
+      const b = rowQtyBreakdown(st, row.p, row.isStock, row.remaining);
+      t.net += b.net; t.ret += b.ret; t.rem += b.rem;
+    }
+    return t;
+  }, [filteredRows, getRowStatus]);
   // Unique gate pass সংখ্যা (row নয় — একটা pass-এ একাধিক product row থাকে)
   const uniquePassCount = useMemo(
     () => new Set(filteredRows.map(({ gp }) => gp._id)).size,
@@ -580,7 +628,7 @@ const AllGatePass = () => {
       const toRow = (gp, p, pi, isStock = false, remaining = null, rowStockLabel = null) => {
         const st = (isStock ? prevStatusResult : matchResult).rowStatus.get(`${gp._id}|${p._id || pi}`);
         const meta = STATUS_META[st?.status || "unbooked"];
-        const netDelivered = st ? (st.netDeliveredQty ?? st.deliveredQty) : 0;
+        const b = rowQtyBreakdown(st, p, isStock, remaining);
         return {
           Source: isStock ? `Stock (${rowStockLabel || gp.__stockLabel || stockLabel})` : "Current",
           Month: isStock ? (rowStockLabel || gp.__stockLabel || stockLabel) : MONTHS_SHORT[month - 1],
@@ -591,9 +639,9 @@ const AllGatePass = () => {
           Product: p.productName, Model: p.model,
           Qty: Number(p.quantity) || 0,
           "Delivery Status": meta.label,
-          "Delivered Qty": netDelivered,
-          "Return Qty": st ? (st.returnQty || 0) : 0,
-          "Remaining Qty": isStock ? remaining : (st ? Math.max(0, st.gpQty - netDelivered) : Number(p.quantity) || 0),
+          "Delivered Qty": b.net,
+          "Return Qty": b.ret,
+          "Remaining Qty": b.rem,
           User: gp.currentUser,
         };
       };
@@ -766,10 +814,10 @@ const AllGatePass = () => {
           <div className="h-full flex flex-col mx-3 my-2">
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col flex-1">
               <div className="overflow-auto flex-1">
-                <table className="w-full border-collapse" style={{ minWidth: "1010px" }}>
+                <table className="w-full border-collapse" style={{ minWidth: "1240px" }}>
                   <thead className="sticky top-0 z-20">
                     <tr className="bg-slate-900 text-left">
-                      {["Trip DO","Month","Trip Date","Customer","CSD","Unit","Vehicle No","Zone","Product","Model","Qty","Delivery","Action"].map(h => (
+                      {["Trip DO","Month","Trip Date","Customer","CSD","Unit","Vehicle No","Zone","Product","Model","Qty","Delivery","Delivered Qty","Return Qty","Remaining Qty","Action"].map(h => (
                         <th key={h} className="px-2.5 py-2.5 text-[10px] font-black text-slate-400 uppercase tracking-wide whitespace-nowrap border-r border-white/5 last:border-0">{h}</th>
                       ))}
                     </tr>
@@ -796,6 +844,10 @@ const AllGatePass = () => {
                           <option value="unbooked">Not Booked</option>
                         </select>
                       </th>
+                      {/* Delivered / Return / Remaining — filtered rows-এর totals */}
+                      <th className="p-1 border-r border-slate-200 text-center text-xs font-black text-emerald-600">{qtyBreakTotals.net.toLocaleString()}</th>
+                      <th className="p-1 border-r border-slate-200 text-center text-xs font-black text-orange-500">{qtyBreakTotals.ret.toLocaleString()}</th>
+                      <th className="p-1 border-r border-slate-200 text-center text-xs font-black text-amber-600">{qtyBreakTotals.rem.toLocaleString()}</th>
                       <th className="p-1" />
                     </tr>
                   </thead>
@@ -855,6 +907,17 @@ const AllGatePass = () => {
                             </span>
                           )}
                         </td>
+                        {/* Delivered / Return / Remaining Qty — Excel export-এর হিসাবের সাথে এক */}
+                        {(() => {
+                          const b = rowQtyBreakdown(st, p, isStock, remaining);
+                          return (
+                            <>
+                              <td className={`px-2.5 py-2 text-center font-black ${b.net > 0 ? "text-emerald-600" : "text-slate-300"}`}>{b.net}</td>
+                              <td className={`px-2.5 py-2 text-center font-black ${b.ret > 0 ? "text-orange-500" : "text-slate-300"}`}>{b.ret}</td>
+                              <td className={`px-2.5 py-2 text-center font-black ${b.rem > 0 ? "text-amber-600" : "text-slate-300"}`}>{b.rem}</td>
+                            </>
+                          );
+                        })()}
                         <td className="px-2.5 py-2">
                           <ActionDropdown gp={gp} p={p} axiosSecure={axiosSecure} refetchGatePasses={refetchGatePasses} currentUser={gp.currentUser} />
                         </td>
