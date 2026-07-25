@@ -369,7 +369,7 @@ const Home = () => {
                   </div>
                   <p className={`mt-2 text-[10px] font-bold rounded-lg px-2.5 py-1.5 border ${chPendingPcs > 0 ? "text-amber-700 bg-amber-50 border-amber-100" : chMonth > 0 ? "text-emerald-700 bg-emerald-50 border-emerald-100" : "text-slate-400 bg-slate-50 border-slate-100"}`}>
                     {chMonth === 0 ? "No challans created this month yet"
-                      : chPendingPcs > 0 ? `⏳ ${num(chPendingPcs)} PCS awaiting delivery (${chPending} challan${chPending > 1 ? "s" : ""})`
+                      : chPendingPcs > 0 ? `⏳ ${num(chPendingPcs)} PCS awaiting delivery`
                       : "🎉 All products of this month are delivered"}
                   </p>
                 </div>

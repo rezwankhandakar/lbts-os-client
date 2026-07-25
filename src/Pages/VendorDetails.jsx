@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import LoadingSpinner from "../Component/LoadingSpinner";
 import useRole from "../hooks/useRole";
+import { uploadImage } from "../utils/uploadImage";
 
 const VendorDetails = () => {
   const { id }      = useParams();
@@ -57,14 +58,11 @@ const VendorDetails = () => {
     if (!file) return;
     setUploading(true);
     try {
-      const fd = new FormData(); fd.append("image", file);
-      const res = await axiosSecure.post("/upload-image", fd, { headers: { "Content-Type": "multipart/form-data" } });
-      if (res.data.success) {
-        setDriverImg(res.data.url);
-        Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Driver Photo Uploaded", showConfirmButton: false, timer: 1500 });
-      }
-    } catch { Swal.fire("Error", "Image upload failed", "error"); }
-    finally { setUploading(false); }
+      const url = await uploadImage(axiosSecure, file);
+      setDriverImg(url);
+      Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Driver Photo Uploaded", showConfirmButton: false, timer: 1500 });
+    } catch (err) { Swal.fire("Upload Failed", err.message, "error"); }
+    finally { setUploading(false); e.target.value = ""; }
   };
 
   // Add vehicle - vehicle image upload (imgbb via /upload-image)
@@ -73,14 +71,11 @@ const VendorDetails = () => {
     if (!file) return;
     setVehicleImgUploading(true);
     try {
-      const fd = new FormData(); fd.append("image", file);
-      const res = await axiosSecure.post("/upload-image", fd, { headers: { "Content-Type": "multipart/form-data" } });
-      if (res.data.success) {
-        setVehicleImg(res.data.url);
-        Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Vehicle Photo Uploaded", showConfirmButton: false, timer: 1500 });
-      }
-    } catch { Swal.fire("Error", "Image upload failed", "error"); }
-    finally { setVehicleImgUploading(false); }
+      const url = await uploadImage(axiosSecure, file);
+      setVehicleImg(url);
+      Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Vehicle Photo Uploaded", showConfirmButton: false, timer: 1500 });
+    } catch (err) { Swal.fire("Upload Failed", err.message, "error"); }
+    finally { setVehicleImgUploading(false); e.target.value = ""; }
   };
 
   const [addingVehicle, setAddingVehicle] = useState(false);
@@ -131,14 +126,9 @@ const VendorDetails = () => {
     if (!file) return;
     setEditVehicleImgUploading(true);
     try {
-      const fd = new FormData();
-      fd.append("image", file);
-      const res = await axiosSecure.post("/upload-image", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      if (res.data.success) setEditVehicleImg(res.data.url);
-    } catch { Swal.fire("Error", "Image upload failed", "error"); }
-    finally { setEditVehicleImgUploading(false); }
+      setEditVehicleImg(await uploadImage(axiosSecure, file));
+    } catch (err) { Swal.fire("Upload Failed", err.message, "error"); }
+    finally { setEditVehicleImgUploading(false); e.target.value = ""; }
   };
 
   // Edit modal - image upload
@@ -147,14 +137,9 @@ const VendorDetails = () => {
     if (!file) return;
     setEditImgUploading(true);
     try {
-      const fd = new FormData();
-      fd.append("image", file);
-      const res = await axiosSecure.post("/upload-image", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      if (res.data.success) setEditImg(res.data.url);
-    } catch { Swal.fire("Error", "Image upload failed", "error"); }
-    finally { setEditImgUploading(false); }
+      setEditImg(await uploadImage(axiosSecure, file));
+    } catch (err) { Swal.fire("Upload Failed", err.message, "error"); }
+    finally { setEditImgUploading(false); e.target.value = ""; }
   };
 
   // Edit modal - save

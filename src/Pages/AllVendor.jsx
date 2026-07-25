@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import useAxiosSecure from "../hooks/useAxiosSecure";
+import { uploadImage } from "../utils/uploadImage";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router";
 import { Edit3, Trash2, Eye, Phone, MapPin, X, Loader2, User, ReceiptText, Search, Truck } from "lucide-react";
@@ -38,15 +39,11 @@ const AllVendor = () => {
     if (!file) return;
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append("image", file);
-      const res = await axiosSecure.post("/upload-image", fd, { headers: { "Content-Type": "multipart/form-data" } });
-      if (res.data.success) {
-        setUpdatedImg(res.data.url);
-        Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Photo uploaded", showConfirmButton: false, timer: 1500 });
-      }
-    } catch { Swal.fire("Error", "Image upload failed", "error"); }
-    finally { setUploading(false); }
+      const url = await uploadImage(axiosSecure, file);
+      setUpdatedImg(url);
+      Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Photo uploaded", showConfirmButton: false, timer: 1500 });
+    } catch (err) { Swal.fire("Upload Failed", err.message, "error"); }
+    finally { setUploading(false); e.target.value = ""; }
   };
 
   const handleDelete = (id) => {

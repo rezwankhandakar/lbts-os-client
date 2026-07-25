@@ -15,6 +15,17 @@
 
 const MATCH_THRESHOLD = 0.72;
 
+/* Model-এর জন্য আলাদা, কড়া threshold।
+   Customer name-এ 0.72 ঠিক আছে ("Rahim Traders" vs "RAHIM TRADER"),
+   কিন্তু model code-এ একই family-র sibling model গুলো মাত্র ১–২ অক্ষরে
+   আলাদা হয় (WFA-2D4 / WFD-1D4 / WFD-1B6 / WFA-2A3) — এদের bigram
+   similarity ~0.73 আসে, ফলে 0.72 threshold-এ এক gate-pass row একাধিক
+   ভুল challan row-এর সাথে match হয়ে Delivered Qty ফুলে যেত (2-এর
+   জায়গায় 6/2)। 0.85-এ sibling-রা আলাদা থাকে, অথচ prefix-হারানো split
+   row ("2D4-GDEL-XX" vs "WFA-2D4-GDEL-XX") contains-rule-এ 0.9 পেয়ে
+   ঠিকই match করে। */
+const MODEL_MATCH_THRESHOLD = 0.85;
+
 /** Lowercase + শুধু অক্ষর-সংখ্যা রাখা — space/dash/dot সব বাদ */
 export const normalizeText = (s) =>
   String(s ?? "").toLowerCase().replace(/[^a-z0-9\u0980-\u09FF]/g, "");
@@ -62,7 +73,7 @@ export const productMatches = (gp, gpProduct, ch, chProduct) => {
   // Model fuzzy — দুই পাশেই model থাকলে model দিয়ে, নাহলে productName দিয়ে
   const gpModel = String(gpProduct.model ?? "").trim();
   const chModel = String(chProduct.model ?? "").trim();
-  if (gpModel && chModel) return isFuzzyMatch(gpModel, chModel);
+  if (gpModel && chModel) return isFuzzyMatch(gpModel, chModel, MODEL_MATCH_THRESHOLD);
   return isFuzzyMatch(
     gpModel || gpProduct.productName,
     chModel || chProduct.productName
@@ -95,6 +106,24 @@ export const computeGatePassStatus = (gatePasses, challans) => {
     }
   }
 
+  /* Exact-model reservation index ──────────────────────────────────
+     একই tripDo-তে কোন কোন gate-pass model (normalized) আছে তার set।
+     কোনো challan row-এর model যদি এই set-এর কোনো GP model-এর সাথে
+     হুবহু মিলে যায়, তাহলে সেই challan row-টা শুধু তার exact GP twin-ই
+     claim করতে পারবে — অন্য কোনো GP row fuzzy দিয়ে সেটাকে টেনে নিয়ে
+     নিজের Delivered Qty ফুলাতে পারবে না। (WFD-1D4 challan-টা GP-র
+     WFD-1D4 row-এর, WFA-2D4 row fuzzy-তে ওটা গুনবে না।) */
+  const gpModelsByDo = new Map(); // tripDo → Set<normalized model>
+  for (const gp of gatePasses || []) {
+    const doKey = String(gp.tripDo ?? "").trim();
+    if (!doKey) continue;
+    if (!gpModelsByDo.has(doKey)) gpModelsByDo.set(doKey, new Set());
+    for (const p of gp.products || []) {
+      const nm = normalizeText(p.model);
+      if (nm) gpModelsByDo.get(doKey).add(nm);
+    }
+  }
+
   const rowStatus = new Map();
   const assignMap = new Map(); // challanId → { csd, unit }
   const summary = { delivered: 0, partial: 0, pending: 0, return: 0, unbooked: 0, totalRows: 0 };
@@ -103,7 +132,10 @@ export const computeGatePassStatus = (gatePasses, challans) => {
     (gp.products || []).forEach((p, idx) => {
       const key = `${gp._id}|${p._id || idx}`;
       const gpQty = Number(p.quantity) || 0;
-      const candidates = byDo.get(String(gp.tripDo ?? "").trim()) || [];
+      const gpDoKey = String(gp.tripDo ?? "").trim();
+      const candidates = byDo.get(gpDoKey) || [];
+      const exactSet = gpModelsByDo.get(gpDoKey);
+      const gpNorm = normalizeText(p.model);
 
       let origDeliveredQty = 0, redeliveredQty = 0, pendingQty = 0, returnQty = 0;
       const matches = [];
@@ -112,6 +144,10 @@ export const computeGatePassStatus = (gatePasses, challans) => {
       for (const { ch, cp } of candidates) {
         const rowKey = `${ch._id}|${cp._id}`;
         if (claimedRows.has(rowKey)) continue;
+        // Reservation rule: challan model-টা অন্য কোনো GP row-এর সাথে
+        // EXACT মিললে, fuzzy দিয়ে এই row-এ আনা যাবে না।
+        const chNorm = normalizeText(cp.model);
+        if (chNorm && exactSet?.has(chNorm) && chNorm !== gpNorm) continue;
         if (!productMatches(gp, p, ch, cp)) continue;
         claimedRows.add(rowKey);
         const qty = Number(cp.quantity) || 0;
