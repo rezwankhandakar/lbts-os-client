@@ -3,12 +3,13 @@ import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router';
 import useAuth from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 import useRole from '../hooks/useRole';
+import useRateOverrides from '../hooks/useRateOverrides';
 import { useSearchInput } from '../hooks/SearchContext';
 import {
   FiHome, FiLogOut, FiUser, FiSearch, FiMenu, FiPackage, FiX,
   FiShield, FiDatabase, FiUsers, FiChevronDown
 } from 'react-icons/fi';
-import { FaFileInvoice, FaPlusCircle, FaWarehouse } from 'react-icons/fa';
+import { FaFileInvoice, FaPlusCircle, FaWarehouse, FaTags } from 'react-icons/fa';
 import { MdOutlineLocalShipping, MdInventory2 } from 'react-icons/md';
 import { IoMdCash } from 'react-icons/io';
 import { TbTruckDelivery, TbClipboardList, TbPackage } from 'react-icons/tb';
@@ -87,6 +88,9 @@ const SectionLabel = ({ label }) => (
 const RootLayout = () => {
   const { user, logOut } = useAuth();
   const { role, status } = useRole();
+  // FIX #55 — admin-যোগ করা product/model rate গুলো একবার load করে
+  // rateMatcher-এ বসায় (নিচের সব page এটাই ব্যবহার করে)।
+  useRateOverrides();
   const { rawText: searchText, setRawText: setSearchText, resetSearch } = useSearchInput();
   const location = useLocation();
   const navigate = useNavigate();
@@ -141,6 +145,16 @@ const RootLayout = () => {
             <SectionLabel label="Admin" />
             <ul className="space-y-0.5">
               <li><NavItem to="/user-management" icon={<FiShield size={14} />} label="User Control" iconColor="text-indigo-400" /></li>
+            </ul>
+          </div>
+        )}
+
+        {/* Setup section — rate table management (FIX #55) */}
+        {['admin', 'manager', 'ceo'].includes(role) && status === 'approved' && (
+          <div>
+            <SectionLabel label="Setup" />
+            <ul className="space-y-0.5">
+              <li><NavItem to="/product-rates" icon={<FaTags size={13} />} label="Product Rates" iconColor="text-orange-400" /></li>
             </ul>
           </div>
         )}

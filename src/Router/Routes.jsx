@@ -1,4 +1,3 @@
-
 import { createBrowserRouter } from "react-router";
 import { lazy } from "react";
 import RootLayout from "../Layout/RootLayout";
@@ -12,6 +11,8 @@ const VendorTripSummary = lazy(() => import("../Pages/VendorTripSummary"));
 const AccountsDashboard = lazy(() => import("../Pages/AccountsDashboard"));
 const BillTracker = lazy(() => import("../Pages/BillTracker"));
 const LaborBillPage = lazy(() => import("../Pages/LaborBillPage"));
+// FIX #55 — client থেকে নতুন product/model + rate যোগ করার page
+const ProductRates = lazy(() => import("../Pages/ProductRates"));
 
 const Home = lazy(() => import("../Pages/Home"));
 const Login = lazy(() => import("../Pages/Login"));
@@ -64,6 +65,12 @@ export const router = createBrowserRouter([
       },
 
       // ── Non-vendor routes (vendor ঢুকতে পারবে না) ──
+      {
+        // Rate table management — admin/manager add-edit করতে পারে,
+        // ceo শুধু দেখতে পারে (server-এ POST/PATCH/DELETE admin+manager only)।
+        path: "/product-rates",
+        element: <PrivateRoute><RoleRoute roles={["admin", "manager", "ceo"]}><S><ProductRates /></S></RoleRoute></PrivateRoute>,
+      },
       {
         path: "/user-management",
         element: <PrivateRoute><RoleRoute roles={["admin"]}><S><UserManagement /></S></RoleRoute></PrivateRoute>,

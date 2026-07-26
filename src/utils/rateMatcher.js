@@ -16,12 +16,18 @@
 //      Match rule: product name (case-insensitive) + location.
 //      A few items (Gas Stove, Air Cooler, Weight Machine) have
 //      multiple capacity rows.  When that's the case AND no capacity
-//      is yet selected, the matcher returns the FIRST row's rate as a
-//      provisional value with `capacity: ""` so the Delivered page can
-//      prompt the user to pick the right capacity.  Once a capacity is
-//      passed in, the exact row is used.
+//      is yet selected, the matcher returns needsCapacity so the
+//      Delivered page can prompt the user to pick the right capacity.
 //
-// Public API:
+// ── FIX #55 — DB-backed custom entries ─────────────────────────────────
+// উপরের দুটো file (withModelData.js / withoutModelData.js) এখন **baseline**।
+// Admin "Product Rates" page থেকে যোগ করা row গুলো rateStore.js-এ থাকে আর
+// এখানে baseline-এর **আগে** বসে। ফলে:
+//   • নতুন product/model → কোনো code edit ছাড়াই কাজ করে
+//   • একই product+model দিয়ে row বানালে baseline rate override হয়
+// Overlay load না হলে (offline / প্রথম render) baseline দিয়েই আগের মতো চলে।
+//
+// Public API (অপরিবর্তিত — সব page আগের মতোই কাজ করবে):
 //   findRate({ productName, model, location, capacity })
 //     → { capacity, rate, source, needsCapacity }
 //        - capacity:       resolved capacity string or "" if unknown
@@ -31,19 +37,33 @@
 //                          has multiple capacity rows AND user hasn't
 //                          picked one yet
 //
-//   suggestProducts(query, limit = 8)
-//     → [{ name, hasModel }] for product-name typeahead
+//   suggestProducts(query, limit = 8)   → [{ name, hasModel, isCustom }]
+//   getCapacityOptions(productName)     → [string]
+//   suggestCapacities(productName, query, limit)
+//   productNeedsCapacityPick(productName)
 //
-//   getCapacityOptions(productName)
-//     → [string]  — capacity variants for a without-model product
+// নতুন helper (Product Rates page + model typeahead এর জন্য):
+//   getAllProducts()                          → [{ name, hasModel, isCustom }]
+//   getModelOptions / suggestModels(product, query, limit)
+//   describeMatch({ productName, model })     → কোন row-এ match হচ্ছে
+//   countModelCollisions({ productName, model })
 // ════════════════════════════════════════════════════════════════════════
 
-import { WITH_MODEL_DATA, WITH_MODEL_PRODUCTS } from "./withModelData";
+import {
+  WITH_MODEL_DATA,
+  WITH_MODEL_PRODUCTS,
+  WITH_MODEL_MODELS_BY_PRODUCT,
+} from "./withModelData";
 import {
   WITHOUT_MODEL_DATA,
   WITHOUT_MODEL_PRODUCTS,
   WITHOUT_MODEL_CAPACITY_BY_PRODUCT,
 } from "./withoutModelData";
+import {
+  getCustomWithModel,
+  getCustomWithoutModel,
+  getRateVersion,
+} from "./rateStore";
 
 // Allowed location keys in the rate tables
 const LOCATION_KEYS = ["ISD", "OSD-Metro", "OSD-Thana"];
@@ -74,6 +94,86 @@ const productMatches = (typed, candidate) => {
   return false;
 };
 
+/* ── merged tables (baseline + custom), memoised by overlay version ── */
+
+let _cache = null;
+let _cacheVersion = -1;
+
+function buildTables() {
+  const customWith = getCustomWithModel();
+  const customWithout = getCustomWithoutModel();
+
+  // custom আগে → একই product+model থাকলে custom row জিতবে (override)
+  const withModel = [...customWith, ...WITH_MODEL_DATA];
+  const withoutModel = [...customWithout, ...WITHOUT_MODEL_DATA];
+
+  // ── product name list ──
+  const pushName = (list, seen, name, hasModel, isCustom) => {
+    const clean = String(name || "").trim();
+    if (!clean) return;
+    const key = norm(clean);
+    if (seen.has(key)) return;
+    seen.add(key);
+    list.push({ name: clean, hasModel, isCustom });
+  };
+
+  const seen = new Set();
+  const allProducts = [];
+  WITH_MODEL_PRODUCTS.forEach((n) => pushName(allProducts, seen, n, true, false));
+  WITHOUT_MODEL_PRODUCTS.forEach((n) => pushName(allProducts, seen, n, false, false));
+  customWith.forEach((r) => pushName(allProducts, seen, r.product, true, true));
+  customWithout.forEach((r) => pushName(allProducts, seen, r.product, false, true));
+
+  // ── capacity options per without-model product ──
+  // আগে এটা হাতে লেখা map ছিল (WITHOUT_MODEL_CAPACITY_BY_PRODUCT)। এখন
+  // merged row থেকেই derive করি, তাই নতুন capacity variant যোগ করলে
+  // Delivered page-এর dropdown-এ অটোমেটিক আসে। হাতে-লেখা map-ও union
+  // করা হয় যাতে কোনো পুরনো entry বাদ না পড়ে।
+  const capacityByProduct = {};
+  const addCapacity = (product, capacity) => {
+    const p = String(product || "").trim();
+    const c = String(capacity || "").trim();
+    if (!p || !c) return;
+    const key = Object.keys(capacityByProduct).find((k) => norm(k) === norm(p)) || p;
+    if (!capacityByProduct[key]) capacityByProduct[key] = [];
+    if (!capacityByProduct[key].some((x) => norm(x) === norm(c))) {
+      capacityByProduct[key].push(c);
+    }
+  };
+  Object.entries(WITHOUT_MODEL_CAPACITY_BY_PRODUCT).forEach(([p, list]) =>
+    list.forEach((c) => addCapacity(p, c))
+  );
+  withoutModel.forEach((r) => addCapacity(r.product, r.capacity));
+
+  // ── model list per with-model product ──
+  const modelsByProduct = {};
+  const addModel = (product, model) => {
+    const p = String(product || "").trim();
+    const m = String(model || "").trim();
+    if (!p || !m) return;
+    const key = Object.keys(modelsByProduct).find((k) => norm(k) === norm(p)) || p;
+    if (!modelsByProduct[key]) modelsByProduct[key] = [];
+    if (!modelsByProduct[key].some((x) => norm(x) === norm(m))) {
+      modelsByProduct[key].push(m);
+    }
+  };
+  Object.entries(WITH_MODEL_MODELS_BY_PRODUCT).forEach(([p, list]) =>
+    list.forEach((m) => addModel(p, m))
+  );
+  withModel.forEach((r) => addModel(r.product, r.model));
+
+  return { withModel, withoutModel, allProducts, capacityByProduct, modelsByProduct };
+}
+
+function tables() {
+  const v = getRateVersion();
+  if (!_cache || _cacheVersion !== v) {
+    _cache = buildTables();
+    _cacheVersion = v;
+  }
+  return _cache;
+}
+
 /* ── main rate-finder ──────────────────────────────────────────────── */
 
 /**
@@ -92,12 +192,13 @@ export function findRate({ productName, model, location, capacity }) {
     return empty;
   }
 
+  const { withModel, withoutModel } = tables();
+
   // ── 1. Try WITH-MODEL first (more specific). ──
-  // We try every with-model row; first hit wins.  Because the same
-  // product+model substring uniquely keys to a single capacity row, this
-  // is fine.
+  // We try every with-model row; first hit wins.  Custom rows sit at the
+  // front of the list, so an admin-added row overrides the built-in one.
   if (model) {
-    for (const row of WITH_MODEL_DATA) {
+    for (const row of withModel) {
       if (!productMatches(productName, row.product)) continue;
       if (!includesCI(model, row.model)) continue;
       return {
@@ -111,16 +212,12 @@ export function findRate({ productName, model, location, capacity }) {
 
   // ── 2. WITHOUT-MODEL. ──
   // Collect every row matching the product name.
-  const rows = WITHOUT_MODEL_DATA.filter(
-    (row) => productMatches(productName, row.product)
-  );
+  const rows = withoutModel.filter((row) => productMatches(productName, row.product));
   if (rows.length === 0) return empty;
 
   // 2a. If user explicitly passed a capacity, use the row that matches it.
   if (capacity && capacity.trim()) {
-    const exact = rows.find(
-      (r) => norm(r.capacity) === norm(capacity)
-    );
+    const exact = rows.find((r) => norm(r.capacity) === norm(capacity));
     if (exact) {
       return {
         capacity: exact.capacity || "",
@@ -129,8 +226,8 @@ export function findRate({ productName, model, location, capacity }) {
         needsCapacity: false,
       };
     }
-    // Capacity supplied but doesn't match → still return first row but
-    // flag needsCapacity so caller knows the supplied capacity is invalid.
+    // Capacity supplied but doesn't match → still flag needsCapacity so
+    // caller knows the supplied capacity is invalid.
     return {
       capacity: "",
       rate: 0,
@@ -162,12 +259,10 @@ export function findRate({ productName, model, location, capacity }) {
 
 /* ── product-name typeahead suggestions ───────────────────────────── */
 
-// Build a single unified list once.  `hasModel` lets the UI hint the
-// user whether a Model is required.
-const ALL_PRODUCTS = [
-  ...WITH_MODEL_PRODUCTS.map((name) => ({ name, hasModel: true })),
-  ...WITHOUT_MODEL_PRODUCTS.map((name) => ({ name, hasModel: false })),
-];
+/** Full product list — { name, hasModel, isCustom } */
+export function getAllProducts() {
+  return tables().allProducts;
+}
 
 /**
  * Suggest product names matching `query` (1-2 letters is enough).
@@ -180,7 +275,7 @@ export function suggestProducts(query, limit = 8) {
   const q = norm(query);
   if (!q) return [];
   const scored = [];
-  for (const p of ALL_PRODUCTS) {
+  for (const p of tables().allProducts) {
     const n = norm(p.name);
     let score = -1;
     if (n.startsWith(q)) score = 2;
@@ -194,6 +289,7 @@ export function suggestProducts(query, limit = 8) {
   return scored.slice(0, limit).map((item) => ({
     name: item.name,
     hasModel: item.hasModel,
+    isCustom: !!item.isCustom,
   }));
 }
 
@@ -201,18 +297,17 @@ export function suggestProducts(query, limit = 8) {
 
 /**
  * Return capacity choices for a without-model product (Gas Stove, Air
- * Cooler, etc.) or null/[] when the product doesn't need one.
+ * Cooler, etc.) or [] when the product doesn't need one.
  */
 export function getCapacityOptions(productName) {
   if (!productName) return [];
+  const map = tables().capacityByProduct;
   // Try direct map first
-  const direct = WITHOUT_MODEL_CAPACITY_BY_PRODUCT[productName];
+  const direct = map[productName];
   if (direct) return direct;
   // Fallback — case-insensitive lookup
-  const key = Object.keys(WITHOUT_MODEL_CAPACITY_BY_PRODUCT).find(
-    (k) => norm(k) === norm(productName)
-  );
-  return key ? WITHOUT_MODEL_CAPACITY_BY_PRODUCT[key] : [];
+  const key = Object.keys(map).find((k) => norm(k) === norm(productName));
+  return key ? map[key] : [];
 }
 
 /**
@@ -224,9 +319,7 @@ export function suggestCapacities(productName, query, limit = 8) {
   if (!opts || opts.length === 0) return [];
   const q = norm(query);
   if (!q) return opts.slice(0, limit);
-  return opts
-    .filter((c) => norm(c).includes(q))
-    .slice(0, limit);
+  return opts.filter((c) => norm(c).includes(q)).slice(0, limit);
 }
 
 /**
@@ -235,4 +328,69 @@ export function suggestCapacities(productName, query, limit = 8) {
  */
 export function productNeedsCapacityPick(productName) {
   return getCapacityOptions(productName).length > 1;
+}
+
+/* ── model typeahead (Product Rates page + future model fields) ────── */
+
+/** Known model strings for a with-model product */
+export function getModelOptions(productName) {
+  if (!productName) return [];
+  const map = tables().modelsByProduct;
+  const direct = map[productName];
+  if (direct) return direct;
+  const key = Object.keys(map).find((k) => norm(k) === norm(productName));
+  return key ? map[key] : [];
+}
+
+export function suggestModels(productName, query, limit = 10) {
+  const opts = getModelOptions(productName);
+  if (!opts.length) return [];
+  const q = norm(query);
+  if (!q) return opts.slice(0, limit);
+  return opts.filter((m) => norm(m).includes(q)).slice(0, limit);
+}
+
+/* ── match explainer (admin preview / conflict warning) ────────────── */
+
+/**
+ * কোন row-এ match হচ্ছে সেটা ফেরত দেয় — Product Rates page-এ নতুন entry
+ * সেভ করার আগে দেখানোর জন্য: "এটা এখন Refrigerator/2A3 (built-in) এ
+ * match করছে — override করতে চান?"
+ *
+ * @return {null | { row, source, isCustom, matchedOn, variantCount? }}
+ */
+export function describeMatch({ productName, model }) {
+  if (!productName) return null;
+  const { withModel, withoutModel } = tables();
+
+  if (model) {
+    for (const row of withModel) {
+      if (!productMatches(productName, row.product)) continue;
+      if (!includesCI(model, row.model)) continue;
+      return { row, source: "with-model", isCustom: !!row._custom, matchedOn: row.model };
+    }
+  }
+
+  const rows = withoutModel.filter((r) => productMatches(productName, r.product));
+  if (rows.length) {
+    return {
+      row: rows[0],
+      source: "without-model",
+      isCustom: !!rows[0]._custom,
+      matchedOn: rows[0].product,
+      variantCount: rows.length,
+    };
+  }
+  return null;
+}
+
+/**
+ * একটা model string কতগুলো ভিন্ন with-model row-এ match করে — খুব ছোট
+ * model string (যেমন "A") দিলে ambiguity ধরার জন্য।
+ */
+export function countModelCollisions({ productName, model }) {
+  if (!productName || !model) return 0;
+  return tables().withModel.filter(
+    (row) => productMatches(productName, row.product) && includesCI(model, row.model)
+  ).length;
 }

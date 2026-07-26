@@ -9,6 +9,7 @@ import Swal from "sweetalert2";
 import LoadingSpinner from "../Component/LoadingSpinner";
 import { computeLocation } from "../utils/localAddressMatcher";
 import { findRate } from "../utils/rateMatcher";
+import { useRateVersion } from "../utils/rateStore";
 import { productMatches } from "../utils/gatePassMatch";
 
 const ITEMS_PER_PAGE = 500;
@@ -114,7 +115,7 @@ const GpMatchBadge = ({ match }) => {
 /* ══════════════════════════════════════════════════════════════
    Multi-select dropdown
 ══════════════════════════════════════════════════════════════ */
-const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
+const MultiSelect = ({ options, selected, onChange, placeholder = "All", blankLabel = BLANK_OPTION }) => {
   const [open, setOpen]     = useState(false);
   const [search, setSearch] = useState("");
   const ref = useRef(null);
@@ -125,9 +126,12 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  const filtered = options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
+  // Blank sentinel-এর display text column-ভেদে বদলানো যায় (value একই থাকে)।
+  // Rate column-এ "(Blank)" এর বদলে "(No rate)" অনেক পরিষ্কার।
+  const showOpt = (o) => (o === BLANK_OPTION ? blankLabel : o);
+  const filtered = options.filter(o => showOpt(o).toLowerCase().includes(search.toLowerCase()));
   const label    = selected.length === 0 ? placeholder
-    : selected.length === 1 ? selected[0]
+    : selected.length === 1 ? showOpt(selected[0])
     : selected.length === options.length ? "All"
     : `${selected.length} selected`;
   const toggle = (val) => onChange(selected.includes(val) ? selected.filter(v => v !== val) : [...selected, val]);
@@ -194,7 +198,7 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
                   className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-slate-50 transition-colors ${selected.includes(opt) ? "bg-orange-50/50" : ""}`}>
                   <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)}
                     className="w-3 h-3 accent-orange-500 cursor-pointer flex-shrink-0" />
-                  <span className={`truncate ${isBlank ? "italic text-slate-400" : "text-slate-700"}`}>{opt}</span>
+                  <span className={`truncate ${isBlank ? "italic text-slate-400" : "text-slate-700"}`}>{showOpt(opt)}</span>
                 </label>
                 );
               })
@@ -514,7 +518,7 @@ const MobileFilterSheet = ({ onClose, getOptionsFor,
   locationFilter, setLocationFilter,
   receiverFilter, setReceiverFilter, zoneFilter, setZoneFilter,
   productNameFilter, setProductNameFilter, modelFilter, setModelFilter,
-  remarksFilter, setRemarksFilter,
+  remarksFilter, setRemarksFilter, rateFilter, setRateFilter,
   dateFilter, setDateFilter, tripNumberFilter, setTripNumberFilter, statusFilter, setStatusFilter, setClientPage,
   isAdmin }) => {
 
@@ -559,13 +563,15 @@ const MobileFilterSheet = ({ onClose, getOptionsFor,
               { label: "Zone",     opts: "zone",           sel: zoneFilter,        set: setZoneFilter },
               { label: "Product",  opts: "productName",    sel: productNameFilter, set: setProductNameFilter },
               { label: "Model",    opts: "model",          sel: modelFilter,       set: setModelFilter },
+              { label: "Rate",     opts: "rate",           sel: rateFilter,        set: setRateFilter,     adminOnly: true, blankLabel: "(No rate)" },
               { label: "Remarks",  opts: "remarks",        sel: remarksFilter,     set: setRemarksFilter, adminOnly: true },
             ]
               .filter(f => isAdmin || !f.adminOnly)
               .map((f, i) => (
               <div key={i}>
                 <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 font-semibold">{f.label}</p>
-                <MultiSelect options={getOptionsFor(f.opts)} selected={f.sel} onChange={setF(f.set)} />
+                <MultiSelect options={getOptionsFor(f.opts)} selected={f.sel} onChange={setF(f.set)}
+                  blankLabel={f.blankLabel || BLANK_OPTION} />
               </div>
             ))}
           </div>
@@ -598,6 +604,33 @@ const AllChallan = () => {
 
   const [challans,          setChallans]          = useState([]);
   const [loading,           setLoading]           = useState(false);
+
+  /**
+   * Rate overrides (Product Rates page থেকে যোগ করা product/model) load
+   * বা বদল হলে এই version bump হয় — এটা না থাকলে override গুলো আসার পর
+   * page re-render হতো না, আর নতুন product-এর rate "—" দেখাত যতক্ষণ
+   * অন্য কোনো কারণে render না হয়।
+   */
+  const rateVersion = useRateVersion();
+
+  /**
+   * effOf(c, p) — resolveProductRate() এর memoised মোড়ক।
+   * Rate filter, Amount total আর ৫০০টা visible row — সবই একই হিসাব চায়,
+   * আর rate resolve না থাকলে findRate() পুরো table scan করে। তাই প্রতি
+   * (challan, product) জোড়ার জন্য একবারই হিসাব করে ধরে রাখি।
+   * challans refetch হলে বা rate override বদলালে cache আপনিই ফেলে যায়।
+   */
+  const effOf = React.useMemo(() => {
+    const cache = new Map();
+    return (c, p) => {
+      const key = `${c?._id || ""}|${p?._id || ""}`;
+      // _id ছাড়া row (খুব পুরনো data) — cache করা যাবে না, সরাসরি হিসাব
+      if (key === "|") return resolveProductRate(c, p);
+      let hit = cache.get(key);
+      if (!hit) { hit = resolveProductRate(c, p); cache.set(key, hit); }
+      return hit;
+    };
+  }, [challans, rateVersion]);
   const [clientPage,        setClientPage]        = useState(1);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [isMobile,          setIsMobile]          = useState(false);
@@ -614,6 +647,7 @@ const AllChallan = () => {
   const [modelFilter,       setModelFilter]       = useState([]);
   const [productNameFilter, setProductNameFilter] = useState([]);
   const [remarksFilter,     setRemarksFilter]     = useState([]);   // NEW: Remarks column filter (admin-only)
+  const [rateFilter,        setRateFilter]        = useState([]);   // NEW: Rate column filter (admin-only, derived value)
   const [dateFilter,        setDateFilter]        = useState([]);
   const [tripNumberFilter,  setTripNumberFilter]  = useState([]);   // NEW: Trip Number column filter
   const [statusFilter,      setStatusFilter]      = useState("");
@@ -808,7 +842,7 @@ const AllChallan = () => {
     if (setSearchText) setSearchText("");
     setCustomerFilter([]); setAddressFilter([]); setThanaFilter([]);
     setDistrictFilter([]); setLocationFilter([]); setReceiverFilter([]); setZoneFilter([]);
-    setModelFilter([]); setProductNameFilter([]); setRemarksFilter([]); setDateFilter([]); setTripNumberFilter([]); setStatusFilter(""); setTripDoFilter([]); setGpMatchFilter("");
+    setModelFilter([]); setProductNameFilter([]); setRemarksFilter([]); setDateFilter([]); setTripNumberFilter([]); setStatusFilter(""); setTripDoFilter([]); setGpMatchFilter(""); setRateFilter([]);
     setShowMobileFilters(false);
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
   };
@@ -851,9 +885,19 @@ const AllChallan = () => {
       check("productName",    productNameFilter, p.productName) &&
       check("model",          modelFilter,       p.model) &&
       check("tripDo",         tripDoFilter,      p.tripDo) &&
-      check("remarks",        remarksFilter,     c.remarks);
+      check("remarks",        remarksFilter,     c.remarks) &&
+      // Rate is a DERIVED column (saved value, or resolved live by the
+      // rate-matcher), so we compute it here rather than reading a field.
+      // resolveProductRate() returns 0 when nothing matched — 0 is falsy,
+      // so `check` treats it as blank and the "(No rate)" option catches
+      // exactly those rows. সেটাই আসল কাজের filter: কোন product/model-এর
+      // rate বসেনি সেটা বের করে Product Rates page-এ যোগ করা যায়।
+      // resolveProductRate খুব হালকা (একটা table lookup), তাই এখানে
+      // call করা নিরাপদ — কিন্তু filter খালি থাকলে হিসাবই করি না।
+      (rateFilter.length === 0 || check("rate", rateFilter, effOf(c, p).rate));
   }, [searchText, statusFilter, customerFilter, addressFilter, thanaFilter, districtFilter, locationFilter,
-      receiverFilter, zoneFilter, productNameFilter, modelFilter, remarksFilter, dateFilter, tripNumberFilter, tripDoFilter]);
+      receiverFilter, zoneFilter, productNameFilter, modelFilter, remarksFilter, dateFilter, tripNumberFilter,
+      tripDoFilter, rateFilter, effOf]);
 
   const filteredRows = React.useMemo(
     () => challans
@@ -883,8 +927,8 @@ const AllChallan = () => {
   );
   // Admin-only running total shown in the Amount filter-row cell.
   const totalAmountAll = React.useMemo(
-    () => filteredRows.reduce((sum, { c, p }) => sum + resolveProductRate(c, p).amount, 0),
-    [filteredRows]
+    () => filteredRows.reduce((sum, { c, p }) => sum + effOf(c, p).amount, 0),
+    [filteredRows, effOf]
   );
 
   /**
@@ -1003,6 +1047,9 @@ const AllChallan = () => {
         else if (field === "tripDo") val = p.tripDo?.toString().trim();
         else if (field === "location") val = resolveLocation(c);    // fall back to compute for older challans
         else if (field === "date") val = formatDate(c);
+        // Rate — derived, not a stored field.  0 falls through to the
+        // blank bucket below, which becomes the "(No rate)" option.
+        else if (field === "rate") { const r = effOf(c, p).rate; val = r ? String(r) : ""; }
         else val = c[field]?.toString().trim();
         if (val) {
           if (!map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
@@ -1017,12 +1064,14 @@ const AllChallan = () => {
         const toTs = (d) => { const [dd, mm, yy] = d.split("/"); return new Date(`${yy}-${mm}-${dd}`).getTime(); };
         return toTs(b) - toTs(a);
       }
+      // Rate column: numeric ascending — নাহলে "1050" আসত "650"-এর আগে
+      if (field === "rate") return Number(a) - Number(b);
       return a.localeCompare(b);
     });
     // Blank option goes last so real values stay easy to scan.
     if (hasBlank) sorted.push(BLANK_OPTION);
     return sorted;
-  }, [challans, rowMatchesAll]);
+  }, [challans, rowMatchesAll, effOf]);
 
   const activeFilterGroups = [
     { label: "Date",     values: dateFilter,        clear: () => { setDateFilter([]);        setClientPage(1); } },
@@ -1036,6 +1085,7 @@ const AllChallan = () => {
     { label: "Zone",     values: zoneFilter,        clear: () => { setZoneFilter([]);        setClientPage(1); } },
     { label: "Product",  values: productNameFilter, clear: () => { setProductNameFilter([]); setClientPage(1); } },
     { label: "Model",    values: modelFilter,       clear: () => { setModelFilter([]);       setClientPage(1); } },
+    { label: "Rate",     values: rateFilter,        clear: () => { setRateFilter([]);        setClientPage(1); }, adminOnly: true },
     { label: "Trip Do",  values: tripDoFilter,      clear: () => { setTripDoFilter([]);      setClientPage(1); }, adminOnly: true },
     { label: "Remarks",  values: remarksFilter,     clear: () => { setRemarksFilter([]);     setClientPage(1); }, adminOnly: true },
     ...(statusFilter ? [{ label: "Status", values: [statusFilter], clear: () => { setStatusFilter(""); setClientPage(1); } }] : []),
@@ -1305,7 +1355,16 @@ const AllChallan = () => {
                       <th className="p-1 border-r border-slate-200 text-center text-xs font-black text-slate-700">{totalQtyAll.toLocaleString()}</th>
                       {isAdmin && (
                         <>
-                          <th className="p-1 border-r border-slate-200" />
+                          {/* Rate — derived column filter.  "(No rate)" বাছলে
+                              যেসব row-এ rate resolve হয়নি সেগুলো আসে। */}
+                          <th className="p-1 border-r border-slate-200 min-w-[86px]">
+                            <MultiSelect
+                              options={getOptionsFor("rate")}
+                              selected={rateFilter}
+                              onChange={setFilter(setRateFilter)}
+                              blankLabel="(No rate)"
+                            />
+                          </th>
                           <th className="p-1 border-r border-slate-200 text-center text-xs font-black text-slate-700">
                             {totalAmountAll.toLocaleString()}
                           </th>
@@ -1366,7 +1425,7 @@ const AllChallan = () => {
                         <td className="px-2.5 py-2 text-black max-w-[140px] truncate"title={p.model}>{p.model?.toUpperCase()}</td>
                         <td className="px-2.5 py-2 text-center font-black text-black">{p.quantity}</td>
                         {isAdmin && (() => {
-                          const eff = resolveProductRate(c, p);
+                          const eff = effOf(c, p);
                           return (
                             <>
                               <td className="px-2.5 py-2 text-amber-500 font-bold whitespace-nowrap">{eff.rate ? `${eff.rate}` : "—"}</td>
@@ -1460,6 +1519,7 @@ const AllChallan = () => {
         <MobileFilterSheet
           onClose={() => setShowMobileFilters(false)}
           getOptionsFor={getOptionsFor}
+          rateFilter={rateFilter} setRateFilter={setRateFilter}
           customerFilter={customerFilter} setCustomerFilter={setCustomerFilter}
           addressFilter={addressFilter} setAddressFilter={setAddressFilter}
           thanaFilter={thanaFilter} setThanaFilter={setThanaFilter}
