@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, Edit3, User, MapPin, Phone, Package, Send, History, Globe, Clock, Building, Navigation } from "lucide-react";
@@ -22,6 +22,42 @@ import { findRate, suggestProducts } from "../utils/rateMatcher";
 // Unicode বাংলায় normalize করার জন্য — দেখুন src/utils/banglaTextConverter.js
 import { normalizeBanglaPaste } from "../utils/banglaTextConverter";
 
+// ═══════════════════════════════════════════════════════════════════
+//  Timestamp formatting — সবসময় Bangladesh Standard Time
+//  ───────────────────────────────────────────────────────────────────
+//  toLocaleString() device-এর timezone ব্যবহার করে, তাই operator-এর
+//  ল্যাপটপে timezone ভুল সেট থাকলে ভুল সময় দেখাত (আর en-GB ২৪-ঘণ্টা
+//  format দিত)। এখন timeZone: "Asia/Dhaka" hardcoded + 12-hour AM/PM।
+//
+//  fmtBST      → "27 Jul 2026, 4:45 PM (BST)"
+//  fmtBSTTime  → "4:45 PM"
+// ═══════════════════════════════════════════════════════════════════
+const BST = "Asia/Dhaka";
+const upperMeridiem = (s) => s.replace(/\b(am|pm)\b/i, (m) => m.toUpperCase());
+
+const fmtBST = (value) => {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  const s = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "numeric", minute: "2-digit", hour12: true,
+    timeZone: BST,
+  }).format(d);
+  return `${upperMeridiem(s)}`;
+};
+
+const fmtBSTTime = (value) => {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return upperMeridiem(
+    new Intl.DateTimeFormat("en-GB", {
+      hour: "numeric", minute: "2-digit", hour12: true, timeZone: BST,
+    }).format(d)
+  );
+};
+
 const AddChallan = () => {
   const axiosSecure  = useAxiosSecure();
   const { user }     = useAuth();
@@ -31,6 +67,37 @@ const AddChallan = () => {
   const [selectedProduct,setSelectedProduct]= useState(null);
   const [showRecent,     setShowRecent]     = useState(false);
   const [submitting,     setSubmitting]     = useState(false);
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  DUPLICATE CHALLAN PREVENTION — Layer 1 & 2 (client side)
+  //  ───────────────────────────────────────────────────────────────────
+  //  Layer 1 — Idempotency key (network duplicate):
+  //    এই ফর্মের প্রতিটা "fresh entry"-র জন্য একটা UUID তৈরি হয় এবং
+  //    payload-এর সাথে clientRequestId হিসেবে যায়। Timeout / 401-refresh
+  //    retry / operator-এর দ্বিতীয় click — যেকোনো কারণে একই request আবার
+  //    গেলে server ওই key দেখে বুঝবে এটা আগেই insert হয়েছে, নতুন doc
+  //    বানাবে না; শুধু আগের _id ফেরত দেবে (duplicate: true)।
+  //    Successful save-এর পরেই key rotate হয় → পরের challan নতুন key পায়।
+  //
+  //  Layer 2 — Content fingerprint (human duplicate):
+  //    Server একই customer + phone + একই product/qty combination গত
+  //    ৬ ঘণ্টায় পেলে 409 DUPLICATE_CHALLAN পাঠায়। তখন আমরা operator-কে
+  //    আগের entry-টা দেখিয়ে confirm করাই; সে "হ্যাঁ" বললে forceDuplicate
+  //    true দিয়ে আবার পাঠানো হয়।
+  //
+  //  lockRef কেন — `submitting` state async, দুইটা দ্রুত click দুইবারই
+  //  `if (submitting)` পাশ করে ফেলতে পারে (re-render হওয়ার আগেই)। ref
+  //  synchronous, তাই এটাই আসল lock; state শুধু button UI-র জন্য।
+  // ═══════════════════════════════════════════════════════════════════
+  const newRequestId = () =>
+    (crypto?.randomUUID?.() ??
+      `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`);
+  const reqIdRef = useRef(newRequestId());
+  const lockRef  = useRef(false);
+  // 409 আসলে যে payload-টা পাঠানো হয়েছিল সেটা ধরে রাখি — operator confirm
+  // করলে হুবহু ওটাই forceDuplicate সহ আবার পাঠানো হয় (form re-read নয়,
+  // কারণ ততক্ষণে user field-এ কিছু বদলে ফেলতে পারে)।
+  const pendingPayloadRef = useRef(null);
 
   // Product-name local typeahead.  Map of row-index → { query, open }
   // We use this to drive a small dropdown over each Product field that
@@ -69,8 +136,18 @@ const AddChallan = () => {
 
 
 
+  // Save সফল হলে form/UI reset — success ও duplicate দুই ক্ষেত্রেই লাগে
+  const afterSaved = () => {
+    reqIdRef.current = newRequestId(); // পরের challan = নতুন idempotency key
+    reset();
+    setThanaQuery("");
+    setDistrictQuery("");
+    queryClient.invalidateQueries({ queryKey: ["recent-challan"] });
+  };
+
   const onSubmit = async (data) => {
-    if (submitting) return; // double-click এ duplicate challan আটকানো
+    if (lockRef.current) return; // double-click / double-tap এ duplicate আটকানো
+    lockRef.current = true;
     setSubmitting(true);
     try {
       // ═══════════════════════════════════════════════════════════════
@@ -160,26 +237,109 @@ const AddChallan = () => {
         locationSource: resolutionSource,
         currentUser: user?.displayName,
         createdAt: new Date(),
+        clientRequestId: reqIdRef.current,  // Layer 1 — retry-safe idempotency key
       };
+      pendingPayloadRef.current = payload;
+
       const res = await axiosSecure.post("/challan", payload);
-      if (res.data.insertedId) {
+
+      if (res.data?.duplicate) {
+        // একই clientRequestId আগেই save হয়েছিল (timeout/retry) — নতুন doc
+        // তৈরি হয়নি। Operator-কে জানানো হচ্ছে যেন সে আবার চেষ্টা না করে।
+        await Swal.fire({
+          icon: "info",
+          title: "আগেই Save হয়ে গেছে",
+          text: "এই challan-টা আগের চেষ্টাতেই সংরক্ষিত হয়েছে — নতুন কপি তৈরি হয়নি।",
+          confirmButtonColor: "#f97316",
+        });
+        afterSaved();
+      } else if (res.data?.insertedId) {
         Swal.fire({
           icon: "success",
           title: "Challan Created!",
           showConfirmButton: false,
           timer: 1500,
         });
-        reset();
-        setThanaQuery("");
-        setDistrictQuery("");
-        queryClient.invalidateQueries({ queryKey: ["recent-challan"] });
+        afterSaved();
+      } else {
+        // Response এল কিন্তু insertedId নেই — আগে silent fail হতো
+        Swal.fire("Save হয়নি", "Server response-এ challan ID পাওয়া যায়নি। আবার চেষ্টা করুন।", "error");
       }
     } catch (err) {
-      // Server validation message দেখানো — আগে generic error আসত
-      const serverMsg = err?.response?.data?.errors?.[0]?.msg || err?.response?.data?.message;
-      Swal.fire("Error!", serverMsg || "Failed to add challan", "error");
+      // ── Layer 2: server বলছে হুবহু একই challan সম্প্রতি তৈরি হয়েছে ──
+      if (err?.response?.status === 409 && err.response.data?.code === "DUPLICATE_CHALLAN") {
+        const handled = await confirmAndForceSave(err.response.data.existing);
+        if (handled) return; // afterSaved() ভিতরেই হয়ে গেছে
+      } else {
+        // Server validation message দেখানো — validate() helper { field, message } পাঠায়
+        const d = err?.response?.data;
+        const serverMsg =
+          d?.errors?.[0]?.message || d?.errors?.[0]?.msg || d?.message;
+        const isTimeout = err?.code === "ECONNABORTED";
+        Swal.fire(
+          isTimeout ? "Server দেরি করছে" : "Error!",
+          isTimeout
+            ? "Request timeout হয়েছে। আবার Submit চাপলে duplicate হবে না — একই challan দ্বিতীয়বার save হয় না।"
+            : (serverMsg || "Failed to add challan"),
+          "error"
+        );
+      }
+    } finally {
+      lockRef.current = false;
+      setSubmitting(false);
     }
-    setSubmitting(false);
+  };
+
+  // ── Layer 2 confirm dialog + force save ──
+  // Operator যদি জেনেশুনে একই challan আবার তৈরি করতে চায় (আসল repeat
+  // order), forceDuplicate: true দিয়ে পাঠানো হয়। clientRequestId একই
+  // থাকে — 409-এর সময় কিছুই insert হয়নি, তাই key এখনো unused।
+  const confirmAndForceSave = async (existing) => {
+    const when = fmtBST(existing?.createdAt);
+    const confirm = await Swal.fire({
+      icon: "warning",
+      title: "Duplicate Challan?",
+      html: `
+        <div style="text-align:left;font-size:13px;padding:6px 0">
+          <p style="color:#374151;margin-bottom:10px">
+            একই customer, phone ও একই product/quantity-র challan আগে থেকেই আছে:
+          </p>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px">
+            <b>তৈরি হয়েছে:</b> ${when}<br/>
+            <b>করেছেন:</b> ${existing?.createdBy || "—"}
+          </div>
+          <p style="color:#6b7280;margin-top:10px">
+            সত্যিই আবার একই challan দরকার হলে নিচে confirm করুন।
+          </p>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "হ্যাঁ, আবার তৈরি করুন",
+      cancelButtonText: "বাতিল করুন",
+      confirmButtonColor: "#f97316",
+      reverseButtons: true,
+    });
+
+    if (!confirm.isConfirmed) {
+      Swal.fire({ icon: "info", title: "বাতিল হয়েছে", text: "নতুন কোনো challan তৈরি হয়নি।", timer: 1800, showConfirmButton: false });
+      return true;
+    }
+
+    try {
+      const res = await axiosSecure.post("/challan", {
+        ...pendingPayloadRef.current,
+        forceDuplicate: true,
+      });
+      if (res.data?.insertedId) {
+        Swal.fire({ icon: "success", title: "Challan Created!", timer: 1500, showConfirmButton: false });
+        afterSaved();
+      } else {
+        Swal.fire("Save হয়নি", "Server response-এ challan ID পাওয়া যায়নি।", "error");
+      }
+    } catch (e) {
+      Swal.fire("Error!", e?.response?.data?.message || "Failed to add challan", "error");
+    }
+    return true;
   };
 
   const handleEdit = (product, index) => {
@@ -735,7 +895,7 @@ const RecentCard = ({ challan, onDelete, onEdit, compact = false }) => (
     <div className="flex items-center justify-between text-slate-400 pt-2 border-t border-slate-100">
       <span className="text-[10px] font-semibold">By: {challan.currentUser || "Admin"}</span>
       <span className="flex items-center gap-1 text-[10px] font-medium">
-        <Clock size={10} /> {new Date(challan.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+        <Clock size={10} /> {fmtBSTTime(challan.createdAt)}
       </span>
     </div>
   </div>

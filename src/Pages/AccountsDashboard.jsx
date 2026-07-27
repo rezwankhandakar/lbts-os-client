@@ -90,7 +90,7 @@ const Badge = ({ source, type }) => {
     auto_advance:   ["text-amber-700",  "bg-amber-50",  "border-amber-200",  "Advance (Auto)"],
     manual_advance: ["text-orange-700", "bg-orange-50", "border-orange-200", "Advance (Manual)"],
     vendor_payment: ["text-indigo-700", "bg-indigo-50", "border-indigo-200", "Vendor Payment"],
-    income:         ["text-emerald-700","bg-emerald-50","border-emerald-200","Income"],
+    income:         ["text-emerald-700","bg-emerald-50","border-emerald-200","Deposit"],
     expense:        ["text-red-700",    "bg-red-50",    "border-red-200",    "Expense"],
   };
   const key = source === "auto_advance" ? "auto_advance"
@@ -295,16 +295,25 @@ const PayAdvanceModal = ({ advance, onClose, onPay }) => {
 
 /* ══ MANUAL TX MODAL ══ */
 const ManualTxModal = ({ open, onClose, onSave, ledgerLabel, isPastMonth }) => {
-  const [form, setForm] = useState({ type: "income", description: "", amount: "", date: todayLocal(), note: "", recipientName: "" });
+  // type: "" — কোনো type by default select করা থাকে না, operator-কে নিজে
+  // বেছে নিতে হয়। আগে "income" প্রি-সিলেক্ট ছিল, ফলে তাড়াহুড়ায় Expense
+  // entry-ও Deposit হিসেবে save হয়ে যেতে পারত।
+  const EMPTY_FORM = { type: "", description: "", amount: "", date: todayLocal(), note: "", recipientName: "" };
+  const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) setForm({ type: "income", description: "", amount: "", date: todayLocal(), note: "", recipientName: "" });
+    if (open) setForm(EMPTY_FORM);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   if (!open) return null;
 
   const handleSave = async () => {
+    if (!form.type) {
+      Swal.fire({ icon: "warning", title: "Type select করো — Deposit / Expense / Advance", toast: true, position: "top-end", timer: 2200, showConfirmButton: false });
+      return;
+    }
     if (!form.description.trim() || !form.amount || !form.date) {
       Swal.fire({ icon: "warning", title: "সব required field fill করো", toast: true, position: "top-end", timer: 1800, showConfirmButton: false });
       return;
@@ -333,10 +342,10 @@ const ManualTxModal = ({ open, onClose, onSave, ledgerLabel, isPastMonth }) => {
             <span>Transaction টি <b>{ledgerLabel}</b> এর ledger-এ record হবে{isPastMonth ? " (previous month select করা আছে)" : ""}। Date field = আসল লেনদেনের তারিখ।</span>
           </div>
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Type</label>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Type *</label>
             <div className="grid grid-cols-3 gap-1.5">
               {[
-                ["income", "Income", "text-emerald-700 bg-emerald-50 border-emerald-200"],
+                ["income", "Deposit", "text-emerald-700 bg-emerald-50 border-emerald-200"],
                 ["expense", "Expense", "text-red-700 bg-red-50 border-red-200"],
                 ["manual_advance", "Advance", "text-orange-700 bg-orange-50 border-orange-200"],
               ].map(([k, l, c]) => (
@@ -1368,7 +1377,7 @@ const AccountsDashboard = () => {
                 <select className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none bg-white"
                   value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
                   <option value="all">All Types</option>
-                  <option value="income">Income</option>
+                  <option value="income">Deposit</option>
                   <option value="all_expense">All Expenses</option>
                   <option value="expense">Expense (Manual)</option>
                   <option value="vendor_payment">Vendor Payment</option>
@@ -1452,7 +1461,7 @@ const AccountsDashboard = () => {
         {/* ══ AUDIT LOG ══ */}
         {tab === "audit" && (() => {
           const AUDIT_LABELS = {
-            income:         ["Income",          "text-emerald-700 bg-emerald-50 border-emerald-200"],
+            income:         ["Deposit",         "text-emerald-700 bg-emerald-50 border-emerald-200"],
             expense:        ["Expense",          "text-red-700 bg-red-50 border-red-200"],
             manual_advance: ["Advance (Manual)", "text-orange-700 bg-orange-50 border-orange-200"],
             vendor_payment: ["Vendor Payment",   "text-indigo-700 bg-indigo-50 border-indigo-200"],

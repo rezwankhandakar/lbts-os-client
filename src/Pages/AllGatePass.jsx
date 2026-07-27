@@ -64,17 +64,26 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
-  const filtered = options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
+
+  // options এখন শুধু টেবিলে দেখা যাওয়া row থেকে আসে। তাই আগে বাছা কোনো
+  // value অন্য filter বদলানোর পরে list থেকে হারিয়ে যেতে পারে — তখন সেটা
+  // uncheck করার আর কোনো উপায় থাকত না, আর "All" checkbox-এর গোনাও ভুল
+  // হতো (selected.length === options.length মিলে যেত)। তাই হারিয়ে যাওয়া
+  // selected value গুলো list-এর শেষে রাখা হয়, ধূসর করে — বোঝা যায় এখন
+  // এই value-র কোনো row টেবিলে নেই।
+  const orphanSelected = selected.filter(s => !options.includes(s));
+  const allOptions = orphanSelected.length ? [...options, ...orphanSelected] : options;
+  const filtered = allOptions.filter(o => o.toLowerCase().includes(search.toLowerCase()));
   const label    = selected.length === 0 ? placeholder
     : selected.length === 1 ? selected[0]
-    : selected.length === options.length ? "All"
+    : selected.length === allOptions.length ? "All"
     : `${selected.length} selected`;
   const toggle   = (val) => onChange(selected.includes(val) ? selected.filter(v => v !== val) : [...selected, val]);
 
   // "All" master toggle — picks every option, or clears all.  Active
   // only when literally every option is selected.
-  const allSelected = options.length > 0 && selected.length === options.length;
-  const toggleAll = () => onChange(allSelected ? [] : [...options]);
+  const allSelected = allOptions.length > 0 && selected.length === allOptions.length;
+  const toggleAll = () => onChange(allSelected ? [] : [...allOptions]);
   return (
     <div ref={ref} className="relative w-full">
       <button type="button" onClick={() => setOpen(o => !o)}
@@ -88,7 +97,7 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
       {open && (
         <div className="fixed bg-white border border-slate-200 rounded-xl shadow-2xl min-w-[160px] w-max max-w-[260px] overflow-hidden"
           style={{ zIndex: 9999, top: ref.current ? ref.current.getBoundingClientRect().bottom + 4 : 0, left: ref.current ? Math.min(ref.current.getBoundingClientRect().left, window.innerWidth - 270) : 0 }}>
-          {options.length > 5 && (
+          {allOptions.length > 5 && (
             <div className="p-2 border-b border-slate-100">
               <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
                 className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg outline-none focus:border-orange-400" />
@@ -96,7 +105,7 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
           )}
           <div className="max-h-44 overflow-y-auto">
             {/* "All" master toggle — hidden while searching */}
-            {!search && options.length > 0 && (
+            {!search && allOptions.length > 0 && (
               <label
                 className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs font-bold border-b border-slate-100 hover:bg-slate-50 ${allSelected ? "bg-orange-50/50 text-orange-600" : "text-slate-600"}`}>
                 <input type="checkbox" checked={allSelected} onChange={toggleAll}
@@ -107,11 +116,15 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
             {filtered.length === 0
               ? <div className="px-3 py-3 text-xs text-slate-400 text-center">No results</div>
               : filtered.map(opt => {
-                const isBlank = opt === BLANK_OPTION;
+                const isBlank  = opt === BLANK_OPTION;
+                const isOrphan = orphanSelected.includes(opt);
                 return (
-                <label key={opt} className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-slate-50 ${selected.includes(opt) ? "bg-orange-50/50" : ""}`}>
+                <label key={opt}
+                  title={isOrphan ? "এই value-র কোনো row এখন টেবিলে নেই — uncheck করলে ফিরে আসবে" : undefined}
+                  className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-slate-50 ${selected.includes(opt) ? "bg-orange-50/50" : ""}`}>
                   <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)} className="w-3 h-3 accent-orange-500 flex-shrink-0" />
-                  <span className={`truncate ${isBlank ? "italic text-slate-400" : "text-slate-700"}`}>{opt}</span>
+                  <span className={`truncate ${isBlank || isOrphan ? "italic text-slate-400" : "text-slate-700"}`}>{opt}</span>
+                  {isOrphan && <span className="ml-auto text-[9px] text-slate-300 flex-shrink-0">0</span>}
                 </label>
                 );
               })
@@ -496,21 +509,30 @@ const AllGatePass = () => {
       check("model",        modelFilter,    p.model);
   }, [searchText, tripDoFilter, customerFilter, csdFilter, unitFilter, vehicleFilter, zoneFilter, productFilter, modelFilter, tripDateFilter, monthFilter, currentMonthLabel]);
 
-  const filteredRows  = useMemo(() => {
-    // Current month rows + (optionally) previous month-এর undelivered
-    // stock rows — দুটোই একই টেবিলে, একই filter/search/sort-এর নিয়মে।
-    // Stock rows-এ isStock: true থাকে, তাই badge + tint দিয়ে চেনা যায়।
+  // টেবিলের কাঁচা row-list — current month rows + (toggle থাকলে) আগের
+  // মাসের undelivered stock rows। filteredRows, statusSummary আর
+  // getOptionsFor — তিন জায়গাতেই এই একটাই source ব্যবহার হয়, তাই
+  // তিনটার হিসাব কখনো আলাদা হয়ে যেতে পারে না।
+  const allRows = useMemo(() => {
     const current = gatePasses.flatMap(gp => (gp.products || [])
       .map((p, pi) => ({ gp, p, pi, isStock: false })));
-    const all = showStock ? [...stockRows, ...current] : current;   // stock আগে (পুরনো bakeya আগে চোখে পড়ুক)
-    return all
+    return showStock ? [...stockRows, ...current] : current;   // stock আগে (পুরনো bakeya আগে চোখে পড়ুক)
+  }, [gatePasses, stockRows, showStock]);
+
+  // Status filter (single-select) — filteredRows আর dropdown option
+  // দুই জায়গায় একই নিয়ম লাগে, তাই আলাদা helper।
+  const rowPassesStatus = useCallback((row) => {
+    if (!gpStatusFilter) return true;
+    const st = getRowStatus(row);
+    return (st?.status || "unbooked") === gpStatusFilter;
+  }, [gpStatusFilter, getRowStatus]);
+
+  const filteredRows  = useMemo(
+    () => allRows
       .filter(({ gp, p }) => rowMatchesAll(gp, p))
-      .filter((row) => {
-        if (!gpStatusFilter) return true;
-        const st = getRowStatus(row);
-        return (st?.status || "unbooked") === gpStatusFilter;
-      });
-  }, [gatePasses, stockRows, showStock, rowMatchesAll, gpStatusFilter, getRowStatus]);
+      .filter(rowPassesStatus),
+    [allRows, rowMatchesAll, rowPassesStatus]
+  );
   const totalPages    = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
   const paginatedRows = useMemo(
     () => filteredRows.slice((clientPage - 1) * ITEMS_PER_PAGE, clientPage * ITEMS_PER_PAGE),
@@ -548,28 +570,32 @@ const AllGatePass = () => {
   // বাকি chip-গুলো 0 হয়ে হারিয়ে যেত)।
   const statusSummary = useMemo(() => {
     const base = { delivered: 0, partial: 0, pending: 0, return: 0, unbooked: 0, totalRows: 0 };
-    const current = gatePasses.flatMap(gp => (gp.products || []).map((p, pi) => ({ gp, p, pi, isStock: false })));
-    const all = showStock ? [...stockRows, ...current] : current;
-    for (const row of all) {
+    for (const row of allRows) {
       if (!rowMatchesAll(row.gp, row.p)) continue;
       const k = getRowStatus(row)?.status || "unbooked";
       base[k] += 1;
       base.totalRows += 1;
     }
     return base;
-  }, [gatePasses, stockRows, showStock, rowMatchesAll, getRowStatus]);
+  }, [allRows, rowMatchesAll, getRowStatus]);
 
+  // ── Dropdown option list ─────────────────────────────────────────
+  // নিয়ম: dropdown-এ ঠিক সেই value গুলোই থাকবে যেগুলো এই মুহূর্তে
+  // টেবিলে দেখা যাচ্ছে। মানে option গুলো হিসাব হয় —
+  //   • search box
+  //   • বাকি সব column filter (নিজের column বাদে — নাহলে একটা value
+  //     বাছার পর সেই dropdown-এ আর কিছুই থাকত না)
+  //   • Status filter
+  // — সব মেনে চলা row থেকে। আগে Status filter হিসাবে ধরা হতো না, তাই
+  // Pending বাছলেও dropdown-এ Delivered row-এর customer/model দেখা যেত
+  // এবং সেটা বাছলে টেবিল খালি আসত।
   const getOptionsFor = useCallback((field) => {
     const map = new Map();
     let hasBlank = false;
-    // Stock rows-ও টেবিলে থাকে, তাই তাদের value-ও dropdown option-এ
-    // আসা উচিত — নাহলে filter করলে stock row হারিয়ে যেত।
-    const sources = showStock
-      ? [...stockRows.map(r => ({ gp: r.gp, p: r.p })),
-         ...gatePasses.flatMap(gp => (gp.products || []).map(p => ({ gp, p })))]
-      : gatePasses.flatMap(gp => (gp.products || []).map(p => ({ gp, p })));
-    sources.forEach(({ gp, p }) => {
+    allRows.forEach((row) => {
+      const { gp, p } = row;
       if (!rowMatchesAll(gp, p, field)) return;
+      if (!rowPassesStatus(row)) return;
       let val;
       if (field === "productName" || field === "model") val = p[field]?.toString().trim();
       else if (field === "date") val = formatTripDate(gp);
@@ -590,7 +616,7 @@ const AllGatePass = () => {
     });
     if (hasBlank) sorted.push(BLANK_OPTION);
     return sorted;
-  }, [gatePasses, stockRows, showStock, rowMatchesAll, currentMonthLabel]);
+  }, [allRows, rowMatchesAll, rowPassesStatus, currentMonthLabel]);
 
   const activeFilterGroups = [
     { label: "Month",    values: monthFilter,     clear: () => setMonthFilter([]) },
@@ -817,7 +843,7 @@ const AllGatePass = () => {
                 <table className="w-full border-collapse" style={{ minWidth: "1240px" }}>
                   <thead className="sticky top-0 z-20">
                     <tr className="bg-slate-900 text-left">
-                      {["Trip DO","Month","Trip Date","Customer","CSD","Unit","Vehicle No","Zone","Product","Model","Qty","Delivery","Delivered Qty","Return Qty","Remaining Qty","Action"].map(h => (
+                      {["Trip DO","Month","Trip Date","Customer","CSD","Unit","Vehicle No","Zone","Product","Model","Qty","Delivery","DEL","RTN","REM","Action"].map(h => (
                         <th key={h} className="px-2.5 py-2.5 text-[10px] font-black text-slate-400 uppercase tracking-wide whitespace-nowrap border-r border-white/5 last:border-0">{h}</th>
                       ))}
                     </tr>

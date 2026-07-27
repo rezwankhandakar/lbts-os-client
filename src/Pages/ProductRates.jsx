@@ -519,9 +519,7 @@ const ProductRates = () => {
           </div>
           <div>
             <h1 className="text-xl font-black text-slate-800 tracking-tight">Product Rates</h1>
-            <p className="text-slate-500 text-xs mt-0.5">
-              নতুন product / model যোগ করুন — code edit বা deploy লাগবে না
-            </p>
+          
           </div>
         </div>
 

@@ -519,6 +519,7 @@ const MobileFilterSheet = ({ onClose, getOptionsFor,
   receiverFilter, setReceiverFilter, zoneFilter, setZoneFilter,
   productNameFilter, setProductNameFilter, modelFilter, setModelFilter,
   remarksFilter, setRemarksFilter, rateFilter, setRateFilter,
+  capacityFilter, setCapacityFilter, csdFilter, setCsdFilter, unitFilter, setUnitFilter,
   dateFilter, setDateFilter, tripNumberFilter, setTripNumberFilter, statusFilter, setStatusFilter, setClientPage,
   isAdmin }) => {
 
@@ -564,6 +565,9 @@ const MobileFilterSheet = ({ onClose, getOptionsFor,
               { label: "Product",  opts: "productName",    sel: productNameFilter, set: setProductNameFilter },
               { label: "Model",    opts: "model",          sel: modelFilter,       set: setModelFilter },
               { label: "Rate",     opts: "rate",           sel: rateFilter,        set: setRateFilter,     adminOnly: true, blankLabel: "(No rate)" },
+              { label: "Capacity", opts: "capacity",       sel: capacityFilter,    set: setCapacityFilter, adminOnly: true, blankLabel: "(No capacity)" },
+              { label: "CSD",      opts: "csd",            sel: csdFilter,         set: setCsdFilter,      adminOnly: true, blankLabel: "(No CSD)" },
+              { label: "Unit",     opts: "unit",           sel: unitFilter,        set: setUnitFilter,     adminOnly: true, blankLabel: "(No unit)" },
               { label: "Remarks",  opts: "remarks",        sel: remarksFilter,     set: setRemarksFilter, adminOnly: true },
             ]
               .filter(f => isAdmin || !f.adminOnly)
@@ -648,6 +652,11 @@ const AllChallan = () => {
   const [productNameFilter, setProductNameFilter] = useState([]);
   const [remarksFilter,     setRemarksFilter]     = useState([]);   // NEW: Remarks column filter (admin-only)
   const [rateFilter,        setRateFilter]        = useState([]);   // NEW: Rate column filter (admin-only, derived value)
+  // NEW: Capacity / CSD / Unit column filters (admin-only)
+  //   capacity — derived (effOf), CSD/Unit — challan-level stored fields
+  const [capacityFilter,    setCapacityFilter]    = useState([]);
+  const [csdFilter,         setCsdFilter]         = useState([]);
+  const [unitFilter,        setUnitFilter]        = useState([]);
   const [dateFilter,        setDateFilter]        = useState([]);
   const [tripNumberFilter,  setTripNumberFilter]  = useState([]);   // NEW: Trip Number column filter
   const [statusFilter,      setStatusFilter]      = useState("");
@@ -843,6 +852,7 @@ const AllChallan = () => {
     setCustomerFilter([]); setAddressFilter([]); setThanaFilter([]);
     setDistrictFilter([]); setLocationFilter([]); setReceiverFilter([]); setZoneFilter([]);
     setModelFilter([]); setProductNameFilter([]); setRemarksFilter([]); setDateFilter([]); setTripNumberFilter([]); setStatusFilter(""); setTripDoFilter([]); setGpMatchFilter(""); setRateFilter([]);
+    setCapacityFilter([]); setCsdFilter([]); setUnitFilter([]);
     setShowMobileFilters(false);
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Filters Cleared", showConfirmButton: false, timer: 1200 });
   };
@@ -886,6 +896,13 @@ const AllChallan = () => {
       check("model",          modelFilter,       p.model) &&
       check("tripDo",         tripDoFilter,      p.tripDo) &&
       check("remarks",        remarksFilter,     c.remarks) &&
+      // CSD / Unit — challan-level fields (Gate Pass Inventory sync থেকে আসে)
+      check("csd",            csdFilter,         c.csd) &&
+      check("unit",           unitFilter,        c.unit) &&
+      // Capacity — Rate-এর মতোই DERIVED column (product-এ saved value, নাহলে
+      // rate-matcher থেকে resolve হয়)। খালি হলে "(No capacity)" option ওই
+      // rows গুলো ধরে — কোন product/model-এর capacity বসেনি সেটা বের করতে।
+      (capacityFilter.length === 0 || check("capacity", capacityFilter, effOf(c, p).capacity)) &&
       // Rate is a DERIVED column (saved value, or resolved live by the
       // rate-matcher), so we compute it here rather than reading a field.
       // resolveProductRate() returns 0 when nothing matched — 0 is falsy,
@@ -897,7 +914,7 @@ const AllChallan = () => {
       (rateFilter.length === 0 || check("rate", rateFilter, effOf(c, p).rate));
   }, [searchText, statusFilter, customerFilter, addressFilter, thanaFilter, districtFilter, locationFilter,
       receiverFilter, zoneFilter, productNameFilter, modelFilter, remarksFilter, dateFilter, tripNumberFilter,
-      tripDoFilter, rateFilter, effOf]);
+      tripDoFilter, rateFilter, capacityFilter, csdFilter, unitFilter, effOf]);
 
   const filteredRows = React.useMemo(
     () => challans
@@ -1050,6 +1067,13 @@ const AllChallan = () => {
         // Rate — derived, not a stored field.  0 falls through to the
         // blank bucket below, which becomes the "(No rate)" option.
         else if (field === "rate") { const r = effOf(c, p).rate; val = r ? String(r) : ""; }
+        // Capacity — rate-এর মতোই derived; খালি হলে blank bucket-এ পড়ে
+        // এবং "(No capacity)" option হিসেবে দেখা যায়।
+        else if (field === "capacity") val = effOf(c, p).capacity?.toString().trim();
+        // CSD / Unit — table cell গুলো uppercase-এ দেখায়, dropdown-ও তাই
+        // uppercase দেখাবে যাতে মিলিয়ে পড়তে সুবিধা হয়। check() case-
+        // insensitive, তাই filter matching-এ কোনো প্রভাব নেই।
+        else if (field === "csd" || field === "unit") val = c[field]?.toString().trim().toUpperCase();
         else val = c[field]?.toString().trim();
         if (val) {
           if (!map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
@@ -1066,6 +1090,14 @@ const AllChallan = () => {
       }
       // Rate column: numeric ascending — নাহলে "1050" আসত "650"-এর আগে
       if (field === "rate") return Number(a) - Number(b);
+      // Capacity: "20 AH", "100 AH", "12V" — সংখ্যা ধরে natural sort, নাহলে
+      // alphabetical-এ "100 AH" চলে আসত "20 AH"-র আগে।
+      if (field === "capacity") {
+        const num = (s) => { const m = String(s).match(/\d+(\.\d+)?/); return m ? parseFloat(m[0]) : NaN; };
+        const na = num(a), nb = num(b);
+        if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+        return a.localeCompare(b);
+      }
       return a.localeCompare(b);
     });
     // Blank option goes last so real values stay easy to scan.
@@ -1086,6 +1118,9 @@ const AllChallan = () => {
     { label: "Product",  values: productNameFilter, clear: () => { setProductNameFilter([]); setClientPage(1); } },
     { label: "Model",    values: modelFilter,       clear: () => { setModelFilter([]);       setClientPage(1); } },
     { label: "Rate",     values: rateFilter,        clear: () => { setRateFilter([]);        setClientPage(1); }, adminOnly: true },
+    { label: "Capacity", values: capacityFilter,    clear: () => { setCapacityFilter([]);    setClientPage(1); }, adminOnly: true },
+    { label: "CSD",      values: csdFilter,         clear: () => { setCsdFilter([]);         setClientPage(1); }, adminOnly: true },
+    { label: "Unit",     values: unitFilter,        clear: () => { setUnitFilter([]);        setClientPage(1); }, adminOnly: true },
     { label: "Trip Do",  values: tripDoFilter,      clear: () => { setTripDoFilter([]);      setClientPage(1); }, adminOnly: true },
     { label: "Remarks",  values: remarksFilter,     clear: () => { setRemarksFilter([]);     setClientPage(1); }, adminOnly: true },
     ...(statusFilter ? [{ label: "Status", values: [statusFilter], clear: () => { setStatusFilter(""); setClientPage(1); } }] : []),
@@ -1368,13 +1403,36 @@ const AllChallan = () => {
                           <th className="p-1 border-r border-slate-200 text-center text-xs font-black text-slate-700">
                             {totalAmountAll.toLocaleString()}
                           </th>
-                          <th className="p-1 border-r border-slate-200" />
+                          {/* Capacity — derived column filter.  "(No capacity)"
+                              বাছলে যেসব row-এ capacity বসেনি সেগুলো আসে। */}
+                          <th className="p-1 border-r border-slate-200 min-w-[92px]">
+                            <MultiSelect
+                              options={getOptionsFor("capacity")}
+                              selected={capacityFilter}
+                              onChange={setFilter(setCapacityFilter)}
+                              blankLabel="(No capacity)"
+                            />
+                          </th>
                         </>
                       )}
                       {isAdmin && (
                         <>
-                          <th className="p-1 border-r border-slate-200" />
-                          <th className="p-1 border-r border-slate-200" />
+                          <th className="p-1 border-r border-slate-200 min-w-[92px]">
+                            <MultiSelect
+                              options={getOptionsFor("csd")}
+                              selected={csdFilter}
+                              onChange={setFilter(setCsdFilter)}
+                              blankLabel="(No CSD)"
+                            />
+                          </th>
+                          <th className="p-1 border-r border-slate-200 min-w-[80px]">
+                            <MultiSelect
+                              options={getOptionsFor("unit")}
+                              selected={unitFilter}
+                              onChange={setFilter(setUnitFilter)}
+                              blankLabel="(No unit)"
+                            />
+                          </th>
                         </>
                       )}
                       {isAdmin && (
@@ -1422,7 +1480,9 @@ const AllChallan = () => {
                         <td className="px-2.5 py-2 text-black">{c.receiverNumber}</td>
                         <td className="px-2.5 py-2 text-black">{c.zone}</td>
                         <td className="px-2.5 py-2 text-black whitespace-nowrap">{p.productName || "—"}</td>
-                        <td className="px-2.5 py-2 text-black max-w-[140px] truncate"title={p.model}>{p.model?.toUpperCase()}</td>
+                        {/* Model — পুরো নাম দেখানো হয়, truncate নেই। লম্বা model
+                            নামের জন্য column নিজে চওড়া হবে (whitespace-nowrap)। */}
+                        <td className="px-2.5 py-2 text-black whitespace-nowrap" title={p.model}>{p.model?.toUpperCase()}</td>
                         <td className="px-2.5 py-2 text-center font-black text-black">{p.quantity}</td>
                         {isAdmin && (() => {
                           const eff = effOf(c, p);
@@ -1520,6 +1580,9 @@ const AllChallan = () => {
           onClose={() => setShowMobileFilters(false)}
           getOptionsFor={getOptionsFor}
           rateFilter={rateFilter} setRateFilter={setRateFilter}
+          capacityFilter={capacityFilter} setCapacityFilter={setCapacityFilter}
+          csdFilter={csdFilter} setCsdFilter={setCsdFilter}
+          unitFilter={unitFilter} setUnitFilter={setUnitFilter}
           customerFilter={customerFilter} setCustomerFilter={setCustomerFilter}
           addressFilter={addressFilter} setAddressFilter={setAddressFilter}
           thanaFilter={thanaFilter} setThanaFilter={setThanaFilter}
