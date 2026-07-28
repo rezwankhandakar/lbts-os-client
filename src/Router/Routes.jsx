@@ -66,10 +66,13 @@ export const router = createBrowserRouter([
 
       // ── Non-vendor routes (vendor ঢুকতে পারবে না) ──
       {
-        // Rate table management — admin/manager add-edit করতে পারে,
-        // ceo শুধু দেখতে পারে (server-এ POST/PATCH/DELETE admin+manager only)।
+        // Rate table management — এখন শুধু admin। আগে manager/ceo-ও ঢুকতে
+        // পারত; rate টাকার হিসাবের ভিত্তি, তাই page + CRUD দুটোই admin-only
+        // করা হয়েছে (server-এর /rate-entries route গুলোতেও একই guard)।
+        // দ্রষ্টব্য: /rate-table (read-only) সবার জন্যই খোলা আছে — Delivered/
+        // All-Challan-এ rate auto-compute ওটার উপরেই চলে।
         path: "/product-rates",
-        element: <PrivateRoute><RoleRoute roles={["admin", "manager", "ceo"]}><S><ProductRates /></S></RoleRoute></PrivateRoute>,
+        element: <PrivateRoute><RoleRoute roles={["admin"]}><S><ProductRates /></S></RoleRoute></PrivateRoute>,
       },
       {
         path: "/user-management",

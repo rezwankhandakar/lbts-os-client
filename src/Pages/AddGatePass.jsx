@@ -29,8 +29,28 @@ const AddGatePass = () => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   };
 
-  const { register, control, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
-    defaultValues: { tripDate: todayLocal(), products: [{ productName: "", model: "", quantity: "" }] },
+  /**
+   * ফাঁকা form-এর একমাত্র definition — defaultValues আর submit-এর পরের
+   * reset() দুটোতেই এটাই ব্যবহার হয়।
+   *
+   * আগে reset-এ শুধু `{ tripDate, products }` পাঠানো হতো, বাকি field
+   * (tripDo, csd, unit, customerName, vehicleNo, zone) object-এ ছিলই না —
+   * ফলে সেগুলো ভরা অবস্থাতেই পড়ে থাকত আর পরের gate pass-এ আগের customer/
+   * vehicle/zone নিয়ে ভুল entry হয়ে যেত। এখন প্রতিটা field explicit ""।
+   */
+  const emptyForm = () => ({
+    tripDo: "",
+    tripDate: todayLocal(),
+    csd: "",
+    unit: "",
+    customerName: "",
+    vehicleNo: "",
+    zone: "",
+    products: [{ productName: "", model: "", quantity: "" }],
+  });
+
+  const { register, control, handleSubmit, reset, setValue, setFocus, watch, formState: { errors } } = useForm({
+    defaultValues: emptyForm(),
   });
   const { fields, append, remove } = useFieldArray({ control, name: "products" });
 
@@ -78,7 +98,15 @@ const AddGatePass = () => {
       const res = await axiosSecure.post("/gate-pass", payload);
       if (res.data.insertedId) {
         Swal.fire({ icon: "success", title: "Gate Pass Added ✅", timer: 1500, showConfirmButton: false });
-        reset({ tripDate: todayLocal(), products: [{ productName: "", model: "", quantity: "" }] });
+        // পুরো form ফাঁকা — product row-ও একটায় নেমে আসে, validation
+        // error গুলোও মুছে যায় (reset নিজেই করে)।
+        reset(emptyForm());
+        // Autocomplete dropdown খোলা থাকলে সেটাও বন্ধ করি, নাহলে ফাঁকা
+        // input-এর নিচে আগের suggestion list ঝুলে থাকে।
+        setActiveField(null);
+        // পরের entry দ্রুত শুরু করার জন্য Trip Do-তে cursor ফেরত।
+        // reset-এর DOM update-এর পরে চালাতে হয়, তাই এক tick পরে।
+        setTimeout(() => { try { setFocus("tripDo"); } catch { /* unmounted */ } }, 0);
         queryClient.invalidateQueries({ queryKey: ["recent-gate-pass"] });
         setShowRecent(true);
       }

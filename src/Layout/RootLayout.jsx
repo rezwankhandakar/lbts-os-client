@@ -149,8 +149,10 @@ const RootLayout = () => {
           </div>
         )}
 
-        {/* Setup section — rate table management (FIX #55) */}
-        {['admin', 'manager', 'ceo'].includes(role) && status === 'approved' && (
+        {/* Setup section — rate table management (FIX #55).
+            Admin-only: manager/ceo-র sidebar-এ Product Rates আর দেখাবে না
+            (route + server guard-ও admin-only করা হয়েছে)। */}
+        {role === 'admin' && status === 'approved' && (
           <div>
             <SectionLabel label="Setup" />
             <ul className="space-y-0.5">

@@ -279,8 +279,8 @@ const Home = () => {
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Received this month</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-black text-sky-600 leading-none">{num(gp.monthCount)}</p>
-                  <p className="text-[9px] font-semibold text-slate-400 mt-0.5">gate passes · all-time {num(gp.totalCount)}</p>
+                  <p className="text-2xl font-black text-sky-600 leading-none">{num(gp.monthCount)} <span className='text-amber-500'>Gate Pass</span></p>
+                  {/* <p className="text-[9px] font-semibold text-slate-400 mt-0.5">gate passes · all-time {num(gp.totalCount)}</p> */}
                 </div>
               </div>
 
@@ -339,14 +339,14 @@ const Home = () => {
                 <div className="flex items-end justify-between gap-3 flex-wrap">
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-3xl font-black text-slate-800 leading-none">{num(chMonth)}</p>
+                      <p className="text-3xl font-black text-emerald-600 leading-none">{num(ch.totalPcs)} <span className="text-[9px] text-slate-400">PCS</span></p>
                     </div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Challans this month</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1"> this month</p>
                   </div>
-                  <div className="text-right">
+                  {/* <div className="text-right">
                     <p className="text-lg font-black text-emerald-600 leading-none">{num(ch.totalPcs)} <span className="text-[9px] text-slate-400">PCS</span></p>
                     <p className="text-[9px] font-semibold text-slate-400 mt-0.5">All-time: {num(ch.totalCount)} challans</p>
-                  </div>
+                  </div> */}
                 </div>
 
                 <div>
@@ -412,12 +412,12 @@ const Home = () => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <MiniStat label="Challans" value={num(tr.monthChallans)} />
+                <div className="grid grid-cols-2 gap-10">
+                  
                   <MiniStat label="Delivered PCS" value={num(tr.deliveredPcs)} color="text-orange-600" />
-                  <MiniStat label="Returns" value={tr.returnCards || 0}
-                    color={tr.returnCards > 0 ? "text-red-500" : "text-emerald-600"}
-                    sub={tr.returnCards > 0 ? `${num(tr.returnPcs)} PCS (${returnRate}%)` : "No returns 🎉"} />
+                  <MiniStat label="Returns PCS" value={tr.returnPcs || 0}
+                    color={tr.returnPcs> 0 ? "text-red-500" : "text-emerald-600"}
+                    />
                 </div>
 
                 {/* Delivered products — top 5 */}
