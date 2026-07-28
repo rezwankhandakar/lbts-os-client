@@ -11,6 +11,7 @@ import useAuth from "../hooks/useAuth";
 import useRole from "../hooks/useRole";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import { FiUser, FiMail, FiShield, FiLock, FiCheckCircle, FiAlertCircle, FiEdit2 } from "react-icons/fi";
+import { uploadImage } from "../utils/uploadImage";
 
 const Profile = () => {
   const { user, updateUserProfile } = useAuth();
@@ -100,14 +101,10 @@ const Profile = () => {
       let photoURL = user?.photoURL;
 
       // Step 1: Upload new photo if selected
+      // Shared helper — HEIC/বড় ফাইল আগেই ধরা পড়ে, আর hosting service
+      // fail করলে server-এর আসল message user দেখতে পায়।
       if (editPhoto) {
-        const imgFormData = new FormData();
-        imgFormData.append("image", editPhoto);
-        const imgRes = await axiosSecure.post("/upload-image", imgFormData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        if (!imgRes.data?.url) throw new Error("Photo upload failed");
-        photoURL = imgRes.data.url;
+        photoURL = await uploadImage(axiosSecure, editPhoto);
       }
 
       // Step 2: Update Firebase profile

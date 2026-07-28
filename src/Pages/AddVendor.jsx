@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import useAxiosSecure from "../hooks/useAxiosSecure";
 import Swal from "sweetalert2";
 import { UserPlus, Image as ImageIcon, MapPin, Phone, RotateCcw, Save, Camera, Loader2 } from "lucide-react";
+import { uploadImage } from "../utils/uploadImage";
 
 const AddVendor = () => {
   const axiosSecure = useAxiosSecure();
@@ -26,14 +27,18 @@ const AddVendor = () => {
     setPreview(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(file); });
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append("image", file);
-      const res = await axiosSecure.post("/upload-image", fd, { headers: { "Content-Type": "multipart/form-data" } });
-      if (res.data.success) {
-        setFormData(prev => ({ ...prev, vendorImg: res.data.url }));
-        Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Image Uploaded", showConfirmButton: false, timer: 1500 });
-      }
-    } catch { Swal.fire("Error", "Failed to upload image", "error"); }
+      // Shared helper — validate + shrink + upload, আর fail করলে
+      // server-এর আসল কারণটা err.message-এ পাওয়া যায়। আগে এখানে
+      // catch block খালি ছিল, তাই সবসময় "Failed to upload image"
+      // দেখাত এবং আসল সমস্যা (format/size/hosting) বোঝা যেত না।
+      const url = await uploadImage(axiosSecure, file);
+      setFormData(prev => ({ ...prev, vendorImg: url }));
+      Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Image Uploaded", showConfirmButton: false, timer: 1500 });
+    } catch (err) {
+      // Upload fail — preview সরিয়ে দাও, নাহলে ছবি দেখে user ভাববে save হয়ে গেছে
+      setPreview(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
+      Swal.fire("Upload Failed", err.message || "Failed to upload image", "error");
+    }
     finally { setUploading(false); }
   };
 

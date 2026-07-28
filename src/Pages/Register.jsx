@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router";
@@ -11,6 +10,7 @@ import {
   FiPackage, FiUser, FiMail, FiLock, FiEye, FiEyeOff,
   FiArrowRight, FiUploadCloud, FiCheckCircle
 } from "react-icons/fi";
+import { uploadImage } from "../utils/uploadImage";
 
 const STEPS = ["Account Info", "Profile Photo", "Set Password"];
 
@@ -44,17 +44,15 @@ const Register = () => {
       createdUser = res.user;
 
       try {
-        const imgFormData = new FormData();
-imgFormData.append("image", data.photo[0]);
-const idToken = await createdUser.getIdToken();   // ← আগে তুলে আনো
-const imageRes = await axios.post(`${API}/upload-image`, imgFormData, {
-  headers: {
-    "Content-Type": "multipart/form-data",
-    "Authorization": `Bearer ${idToken}`,         // ← এটা যোগ করো
-  },
-});
-        const photoURL = imageRes.data?.url;
-        if (!photoURL) throw new Error("Photo upload failed — no URL returned");
+        // Register-এ axiosSecure নেই (এখনো app JWT issue হয়নি), তাই
+        // Firebase idToken নিজে পাঠাই। Upload নিজে shared helper-ই
+        // করে — validate + shrink + আসল error message, সব এক জায়গায়।
+        const idToken = await createdUser.getIdToken();
+        const photoURL = await uploadImage(
+          { post: (path, body, cfg) => axios.post(`${API}${path}`, body, cfg) },
+          data.photo[0],
+          { headers: { Authorization: `Bearer ${idToken}` } }
+        );
 
         await updateUserProfile({ displayName: data.name, photoURL });
 

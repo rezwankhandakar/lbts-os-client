@@ -1,19 +1,15 @@
 import useAxiosSecure from './useAxiosSecure';
+import { uploadImage as uploadImageShared } from '../utils/uploadImage';
 
+/**
+ * Thin wrapper — সব upload logic (validate, shrink, আসল error message)
+ * utils/uploadImage.js-এ এক জায়গায় থাকে। আগে এই hook সোজা
+ * axiosSecure.post করত এবং `res.data.url` না থাকলেও undefined ফেরত
+ * দিত, ফলে ভাঙা photoURL DB-তে চলে যেত।
+ */
 const useImageUpload = () => {
   const axiosSecure = useAxiosSecure();
-
-  const uploadImage = async (file) => {
-    const formData = new FormData();
-    formData.append('image', file);
-
-    const res = await axiosSecure.post('/upload-image', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
-
-    return res.data.url;
-  };
-
+  const uploadImage = (file) => uploadImageShared(axiosSecure, file);
   return { uploadImage };
 };
 
