@@ -369,7 +369,7 @@ const StatusBadge = ({ status }) => {
 /* ══════════════════════════════════════════════════════════════
    Mobile card
 ══════════════════════════════════════════════════════════════ */
-const MobileCard = ({ c, p, axiosSecure, refetchChallans, isAdmin, gpMatch }) => {
+const MobileCard = ({ c, p, axiosSecure, refetchChallans, isAdmin, gpMatch, onSplit }) => {
   // Admin-only Remarks edit — a lightweight SweetAlert prompt instead of a
   // full inline text field, since the mobile card doesn't otherwise carry
   // any editable state. Saves straight to the challan document; the
@@ -454,8 +454,23 @@ const MobileCard = ({ c, p, axiosSecure, refetchChallans, isAdmin, gpMatch }) =>
           <span className="text-[10px] font-semibold text-slate-800">{p.productName || "—"}</span>
           <span className="text-[9px] text-black ml-1.5">{p.model?.toUpperCase()}</span>
         </div>
-        <div className="ml-2 flex-shrink-0">
+        <div className="ml-2 flex-shrink-0 inline-flex items-center gap-1">
           <span className="text-xs font-black text-slate-800">{p.quantity}</span>
+          {isAdmin && p._id && Number(p.quantity) > 1 && onSplit && (
+            <button
+              type="button"
+              onClick={() => onSplit(c, p)}
+              title="Split this row by qty"
+              className="inline-flex items-center justify-center w-5 h-5 rounded border border-sky-200 text-sky-600 active:bg-sky-500 active:text-white transition-colors"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="6" y1="3" x2="6" y2="15"/>
+                <circle cx="18" cy="6" r="3"/>
+                <circle cx="6" cy="18" r="3"/>
+                <path d="M18 9a9 9 0 0 1-9 9"/>
+              </svg>
+            </button>
+          )}
         </div>
       </div>
       {isAdmin && (() => {
@@ -1053,6 +1068,84 @@ const AllChallan = () => {
     }
   }, [axiosSecure, fetchChallans, filteredRows]);
 
+  /**
+   * Split a product row by quantity — Delivered page-এর হুবহু একই feature,
+   * শুধু এখানে source of truth canonical `challans` collection।
+   *
+   * কেন দরকার: qty 2-এর একটা row-এর অর্ধেকে আলাদা Trip Do বসাতে হলে আগে
+   * challan dispatch হয়ে Delivered page-এ যাওয়া পর্যন্ত অপেক্ষা করতে হতো।
+   * এখন pending অবস্থাতেই All-Challan থেকেই ভাগ করা যায়।
+   *
+   * `splitQty` unit নতুন একটা row-এ চলে যায় — একই product/model/capacity/
+   * rate, নতুন _id, কিন্তু Trip Do ছাড়া — আর original row-এর qty ঠিক
+   * ততটাই কমে। এরপর দুটো row-এ আলাদা Trip Do বসানো যায়।
+   *
+   * Guards (server-এও একই check আছে, এটা শুধু আগেভাগে বলে দেওয়া):
+   *   - qty > 1 না হলে ভাগ করার কিছু নেই
+   *   - splitQty অবশ্যই 1 থেকে (qty - 1); original row কখনো 0 হবে না
+   *     (সেটা delete, split নয়)
+   */
+  const splitProductRow = React.useCallback(async (challan, product) => {
+    const currentQty = Number(product.quantity) || 0;
+    if (currentQty <= 1) {
+      Swal.fire({ icon: "info", title: "Nothing to split", text: "This row only has 1 qty." });
+      return;
+    }
+
+    const { value, isDismissed } = await Swal.fire({
+      title: `Split row (qty ${currentQty})`,
+      html:
+        `<div style="font-size:13px;color:#475569;margin-bottom:10px;">` +
+        `Enter the quantity to peel off into a new row. ` +
+        `The new row will be a copy of this product with no Trip Do, ` +
+        `so you can set a different Trip Do on it.` +
+        `</div>` +
+        `<div style="font-size:12px;color:#64748b;">` +
+        `Allowed: 1 to ${currentQty - 1}` +
+        `</div>`,
+      input: "number",
+      inputValue: 1,
+      inputAttributes: { min: 1, max: currentQty - 1, step: 1 },
+      showCancelButton: true,
+      confirmButtonColor: "#0ea5e9",
+      confirmButtonText: "Split",
+      inputValidator: (v) => {
+        const n = Number(v);
+        if (!Number.isInteger(n) || n <= 0) return "Must be a positive integer";
+        if (n >= currentQty) return `Must be less than ${currentQty} (original row must keep at least 1)`;
+        return null;
+      },
+    });
+    if (isDismissed) return;
+
+    const splitQty = Number(value);
+
+    try {
+      const res = await axiosSecure.post("/challans/split-product", {
+        challanId: challan._id,
+        productId: product._id,
+        splitQty,
+      });
+      await fetchChallans(monthRef.current, yearRef.current, searchRef.current);
+      // Challan ইতিমধ্যে dispatch হয়ে থাকলে server trip-এর embedded copy-ও
+      // ভাগ করে দেয় — কয়টা trip sync হলো সেটা জানিয়ে দিই, নাহলে user
+      // বুঝবে না Delivered page-ও বদলে গেছে।
+      const synced = Number(res?.data?.syncedTrips) || 0;
+      Swal.fire({
+        toast: true, position: "top-end", icon: "success",
+        title: `Split: ${currentQty} → ${currentQty - splitQty} + ${splitQty}`,
+        text: synced > 0 ? `${synced} trip${synced > 1 ? "s" : ""} also updated` : undefined,
+        showConfirmButton: false, timer: 2000,
+      });
+    } catch (err) {
+      console.error("split-product failed", err);
+      const msg = err?.response?.status === 403
+        ? "Only admins can split rows"
+        : err?.response?.data?.message || "Failed to split row";
+      Swal.fire("Error", msg, "error");
+    }
+  }, [axiosSecure, fetchChallans]);
+
   const getOptionsFor = React.useCallback((field) => {
     const map = new Map();
     let hasBlank = false;
@@ -1316,7 +1409,7 @@ const AllChallan = () => {
           /* ── MOBILE ── */
           <div className="h-full overflow-y-auto p-2">
             {paginatedRows.map(({ c, p }, idx) => (
-              <MobileCard key={`${c._id}-${idx}`} c={c} p={p} axiosSecure={axiosSecure} refetchChallans={refetchChallans} isAdmin={isAdmin} gpMatch={getGpMatch(c, p)} />
+              <MobileCard key={`${c._id}-${idx}`} c={c} p={p} axiosSecure={axiosSecure} refetchChallans={refetchChallans} isAdmin={isAdmin} gpMatch={getGpMatch(c, p)} onSplit={isAdmin ? splitProductRow : null} />
             ))}
             {totalPages > 1 && (
               <div className="flex items-center justify-between py-3 px-1 mt-1">
@@ -1483,7 +1576,29 @@ const AllChallan = () => {
                         {/* Model — পুরো নাম দেখানো হয়, truncate নেই। লম্বা model
                             নামের জন্য column নিজে চওড়া হবে (whitespace-nowrap)। */}
                         <td className="px-2.5 py-2 text-black whitespace-nowrap" title={p.model}>{p.model?.toUpperCase()}</td>
-                        <td className="px-2.5 py-2 text-center font-black text-black">{p.quantity}</td>
+                        {/* Qty + Split — Delivered page-এর মতোই admin qty > 1
+                            হলে row-টা দুই ভাগ করতে পারে, যাতে অংশবিশেষে
+                            আলাদা Trip Do বসানো যায়। */}
+                        <td className="px-2.5 py-2 text-center font-black text-black">
+                          <div className="inline-flex items-center justify-center gap-1">
+                            <span>{p.quantity}</span>
+                            {isAdmin && p._id && Number(p.quantity) > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => splitProductRow(c, p)}
+                                title={`Split this row (qty ${p.quantity}) into two — peel off some qty into a new row so it can take a different Trip Do`}
+                                className="inline-flex items-center justify-center w-4 h-4 rounded border border-sky-200 text-sky-600 hover:bg-sky-500 hover:text-white hover:border-sky-500 transition-colors"
+                              >
+                                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                  <line x1="6" y1="3" x2="6" y2="15"/>
+                                  <circle cx="18" cy="6" r="3"/>
+                                  <circle cx="6" cy="18" r="3"/>
+                                  <path d="M18 9a9 9 0 0 1-9 9"/>
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        </td>
                         {isAdmin && (() => {
                           const eff = effOf(c, p);
                           return (
